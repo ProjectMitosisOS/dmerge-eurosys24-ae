@@ -1,0 +1,3 @@
+[submodule "deps/mitosis"]
+	path = deps/mitosis
+	url = git@ipads.se.sjtu.edu.cn:distributed-rdma-serverless/mitosis-project/mitosis.git
