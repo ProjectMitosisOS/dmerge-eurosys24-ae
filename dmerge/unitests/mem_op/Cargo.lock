@@ -334,9 +334,15 @@ dependencies = [
 name = "mem_op_tests"
 version = "0.1.0"
 dependencies = [
+ "bitflags",
+ "cfg-if 0.1.10",
  "dmerge",
+ "hashbrown 0.12.0",
  "kernel-module-testlib",
  "krdma-test",
+ "rust-kernel-linux-util",
+ "static_assertions",
+ "x86_64",
 ]
 
 [[package]]
