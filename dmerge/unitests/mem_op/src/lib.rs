@@ -31,9 +31,13 @@ struct TestMem {
 }
 
 impl TestMem {
-    pub fn mem_push(&mut self) {}
+    pub fn mem_push(&mut self, key: u32, obj: KObject) {
+        self.objectHeap.put(key, obj.0, obj.1);
+    }
 
-    pub fn mem_merge(&mut self) {}
+    pub fn mem_merge(&mut self) {
+
+    }
 }
 
 #[krdma_main]
