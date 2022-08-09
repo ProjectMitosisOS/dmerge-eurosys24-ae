@@ -1,7 +1,7 @@
 use alloc::vec::Vec;
 use mitosis::descriptors::CompactPageTable;
 use mitosis::KRdmaKit::rust_kernel_rdma_base::VmallocAllocator;
-use mitosis::shadow_process::{Copy4KPage, ShadowPageTable};
+use mitosis::shadow_process::{COW4KPage, ShadowPageTable};
 use mitosis::linux_kernel_module;
 
 use crate::descriptors::heap::HeapDescriptor;
@@ -17,7 +17,7 @@ pub struct ShadowHeap {
 
     shadow_vmas: Vec<ShadowVMA<'static>>,
     // Use copy currently
-    shadow_page_table: core::option::Option<ShadowPageTable<Copy4KPage>>,
+    shadow_page_table: core::option::Option<ShadowPageTable<COW4KPage>>,
 }
 
 impl ShadowHeap {
@@ -59,7 +59,7 @@ impl ShadowHeap {
                 vma: vma_descriptors,
                 machine_info: rdma_meta,
             },
-            shadow_page_table: None,
+            shadow_page_table: Some(shadow_pt),
         }
     }
 }

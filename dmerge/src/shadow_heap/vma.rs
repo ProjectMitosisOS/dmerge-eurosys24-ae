@@ -1,5 +1,6 @@
 use mitosis::shadow_process::{Copy4KPage, ShadowPageTable};
 use mitosis::kern_wrappers::vma_iters::VMWalkEngine;
+use mitosis::kern_wrappers::mm::VirtAddrType;
 use mitosis::kern_wrappers::vma::VMA;
 use mitosis::bindings::*;
 
@@ -61,6 +62,7 @@ impl<'a, 'b> VMAPTGenerator<'a, 'b> {
 }
 
 impl VMAPTGenerator<'_, '_> {
+    /// Generate page table. Filter out these entries that are not in kernel heap range
     pub fn generate(&self) {
         let mut walk: mm_walk = Default::default();
         walk.pte_entry = Some(Self::handle_pte_entry);
@@ -83,8 +85,9 @@ impl VMAPTGenerator<'_, '_> {
 
         let mut phy_addr = pmem_get_phy_from_pte(pte);
         if likely(phy_addr > 0) {
+            let start = my.vma.vma_inner.get_start();
             my.inner_flat
-                .add_one(addr as _, phy_addr as _);
+                .add_one((addr as VirtAddrType - start) as _, phy_addr as _);
         }
         0
     }
