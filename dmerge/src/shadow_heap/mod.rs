@@ -8,6 +8,7 @@ use crate::descriptors::heap::HeapDescriptor;
 use crate::shadow_heap::vma::VMAPTGenerator;
 use crate::log;
 use vma::ShadowVMA;
+use crate::descriptors::HeapMeta;
 
 pub mod vma;
 
@@ -21,7 +22,8 @@ pub struct ShadowHeap {
 }
 
 impl ShadowHeap {
-    pub fn new(rdma_meta: mitosis::descriptors::RDMADescriptor) -> Self {
+    pub fn new(rdma_meta: mitosis::descriptors::RDMADescriptor,
+               heap_meta: HeapMeta) -> Self {
         let mut shadow_vmas: Vec<ShadowVMA<'static>> = Vec::new();
         let mut shadow_pt = ShadowPageTable::<mitosis::shadow_process::COW4KPage>::new();
         let mut vma_descriptors = Vec::new();
@@ -40,13 +42,17 @@ impl ShadowHeap {
         for (idx, _) in mm.get_vma_iter().enumerate() {
             let pt: &mut CompactPageTable = vma_page_table.get_mut(idx).unwrap();
             let shadow_vma = shadow_vmas.get(idx).unwrap();
-            VMAPTGenerator::new(shadow_vma, &mut shadow_pt, pt).generate();
+            VMAPTGenerator::new(shadow_vma,
+                                &mut shadow_pt,
+                                pt,
+                                &heap_meta).generate();
         }
         mm.flush_tlb_mm();
-
         log::debug!("[ShadowHeap] Generate vma size {}",
             shadow_vmas.len());
-
+        for i in 0..vma_descriptors.len() {
+            log::debug!("vma {} with flag {:b}", i, &vma_descriptors[i].get_mmap_flags())
+        }
         for item in 0..vma_page_table.len() {
             let table = &vma_page_table[item];
             log::debug!("item {} with length {}", item, table.table_len());
@@ -58,6 +64,7 @@ impl ShadowHeap {
                 page_table: vma_page_table,
                 vma: vma_descriptors,
                 machine_info: rdma_meta,
+                heap_meta: heap_meta,
             },
             shadow_page_table: Some(shadow_pt),
         }

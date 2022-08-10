@@ -1,8 +1,9 @@
 use mitosis::shadow_process::{Copy4KPage, ShadowPageTable};
 use mitosis::kern_wrappers::vma_iters::VMWalkEngine;
-use mitosis::kern_wrappers::mm::VirtAddrType;
+use mitosis::kern_wrappers::mm::{PhyAddrType, VirtAddrType};
 use mitosis::kern_wrappers::vma::VMA;
 use mitosis::bindings::*;
+use crate::descriptors::HeapMeta;
 
 
 type COWPageTable = mitosis::shadow_process::page_table::ShadowPageTable<mitosis::shadow_process::COW4KPage>;
@@ -44,6 +45,7 @@ pub(crate) struct VMAPTGenerator<'a, 'b> {
     vma: &'a ShadowVMA<'a>,
     inner: &'b mut COWPageTable,
     inner_flat: &'b mut mitosis::descriptors::CompactPageTable,
+    heap_meta: &'b HeapMeta,
 }
 
 
@@ -52,11 +54,13 @@ impl<'a, 'b> VMAPTGenerator<'a, 'b> {
         vma: &'a ShadowVMA,
         inner: &'b mut COWPageTable,
         inner_flat: &'b mut mitosis::descriptors::CompactPageTable,
+        heap_meta: &'b HeapMeta,
     ) -> Self {
         Self {
             vma,
             inner,
             inner_flat,
+            heap_meta,
         }
     }
 }
@@ -84,11 +88,21 @@ impl VMAPTGenerator<'_, '_> {
         let my: &mut Self = &mut (*((*walk).private as *mut Self));
 
         let mut phy_addr = pmem_get_phy_from_pte(pte);
-        if likely(phy_addr > 0) {
+        if phy_addr > 0 && my.check_in_heap(phy_addr) {
             let start = my.vma.vma_inner.get_start();
             my.inner_flat
                 .add_one((addr as VirtAddrType - start) as _, phy_addr as _);
         }
         0
+    }
+
+    #[inline]
+    fn check_in_heap(&self, phy_addr: PhyAddrType) -> bool {
+        use mitosis::linux_kernel_module;
+
+        let (start, len) = (self.heap_meta.start_phy_addr, self.heap_meta.heap_size);
+        crate::log::debug!("check range from 0x{:x} to 0x{:x}, and phy 0x{:x}",
+        self.heap_meta.start_phy_addr, self.heap_meta.start_phy_addr + self.heap_meta.heap_size as PhyAddrType, phy_addr);
+        return phy_addr >= start && phy_addr < start + len;
     }
 }
