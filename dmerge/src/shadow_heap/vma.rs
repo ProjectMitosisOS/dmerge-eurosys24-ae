@@ -88,7 +88,7 @@ impl VMAPTGenerator<'_, '_> {
         let my: &mut Self = &mut (*((*walk).private as *mut Self));
 
         let mut phy_addr = pmem_get_phy_from_pte(pte);
-        if phy_addr > 0 {
+        if phy_addr > 0 && !my.vma.backed_by_file() {
             // if phy_addr > 0 && my.check_in_heap(phy_addr) {
             let start = my.vma.vma_inner.get_start();
             my.inner_flat
