@@ -88,7 +88,8 @@ impl VMAPTGenerator<'_, '_> {
         let my: &mut Self = &mut (*((*walk).private as *mut Self));
 
         let mut phy_addr = pmem_get_phy_from_pte(pte);
-        if phy_addr > 0 && my.check_in_heap(phy_addr) {
+        if phy_addr > 0 {
+            // if phy_addr > 0 && my.check_in_heap(phy_addr) {
             let start = my.vma.vma_inner.get_start();
             my.inner_flat
                 .add_one((addr as VirtAddrType - start) as _, phy_addr as _);
@@ -96,6 +97,8 @@ impl VMAPTGenerator<'_, '_> {
         0
     }
 
+    /// check_in_heap. One filter to filter out whether the target page is in
+    /// the shadow heap range.
     #[inline]
     fn check_in_heap(&self, phy_addr: PhyAddrType) -> bool {
         use mitosis::linux_kernel_module;

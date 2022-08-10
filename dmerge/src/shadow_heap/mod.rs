@@ -51,7 +51,9 @@ impl ShadowHeap {
         log::debug!("[ShadowHeap] Generate vma size {}",
             shadow_vmas.len());
         for i in 0..vma_descriptors.len() {
-            log::debug!("vma {} with flag {:b}", i, &vma_descriptors[i].get_mmap_flags())
+            let des = &vma_descriptors[i];
+            log::debug!("vma {} with flag {:b}. is_anonymous:{}",
+                i, des.get_mmap_flags(), des.is_anonymous())
         }
         for item in 0..vma_page_table.len() {
             let table = &vma_page_table[item];
