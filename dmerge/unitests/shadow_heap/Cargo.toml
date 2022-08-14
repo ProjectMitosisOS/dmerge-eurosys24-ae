@@ -24,6 +24,7 @@ cfg-if = "0.1"
 static_assertions = "1.1.0"
 
 [dev-dependencies]
+mitosis-rust-client = { path = "../../../deps/mitosis/mitosis-user-libs/mitosis-rust-client" }
 kernel-module-testlib = { path = "../../../deps/mitosis/deps/rust-kernel-rdma/testlib" }
 
 [profile.dev]

@@ -6,36 +6,37 @@ use dmerge::{mitosis, log};
 
 use mitosis::linux_kernel_module;
 
-use krdma_test::*;
-use crate::linux_kernel_module::println;
-use hashbrown::{HashMap, HashSet};
 use dmerge::descriptors::HeapMeta;
 use dmerge::KRdmaKit::mem::RMemPhy;
 use dmerge::shadow_heap::ShadowHeap;
 
-fn test_generate_heap_meta() {
-    use dmerge::KRdmaKit::mem::Memory;
+mod my_syscalls;
 
-    let rdma_meta = mitosis::descriptors::RDMADescriptor::default();
+use my_syscalls::*;
+use mitosis::syscalls::*;
 
-    let mut mem = RMemPhy::new(1024);
-    let heap_meta = HeapMeta {
-        start_phy_addr: mem.get_dma_buf(),
-        heap_size: mem.get_sz(),
-    };
-    let meta = ShadowHeap::new(rdma_meta, heap_meta);
+#[allow(dead_code)]
+struct Module {
+    service: SysCallsService<MySyscallHandler>,
 }
 
-#[krdma_main]
-fn kmain() {
-    log::info!("in test shadow heap");
-
-    test_generate_heap_meta();
+impl linux_kernel_module::KernelModule for Module {
+    fn init() -> linux_kernel_module::KernelResult<Self> {
+        Ok(Self {
+            service: SysCallsService::<MySyscallHandler>::new()?,
+        })
+    }
 }
 
-
-#[krdma_drop]
-fn clean() {
-    log::info!("drop instance");
-    // end_instance();
+impl Drop for Module {
+    fn drop(&mut self) {
+        log::info!("drop System call modules")
+    }
 }
+
+linux_kernel_module::kernel_module!(
+    Module,
+    author: b"lfm",
+    description: b"A kernel module for testing system calls",
+    license: b"GPL"
+);
