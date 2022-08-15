@@ -3,7 +3,7 @@ use crate::linux_kernel_module::bindings::vm_area_struct;
 use crate::*;
 
 pub(crate) struct MySyscallHandler {
-    file: *mut crate::linux_kernel_module::bindings::file,
+    file: *mut mitosis::bindings::file,
 }
 
 
@@ -14,7 +14,7 @@ impl FileOperations for MySyscallHandler {
         _file: *mut crate::linux_kernel_module::bindings::file,
     ) -> crate::linux_kernel_module::KernelResult<Self> {
         Ok(Self {
-            file: _file
+            file: _file as *mut _
         })
     }
 
@@ -37,6 +37,7 @@ impl FileOperations for MySyscallHandler {
 }
 
 impl MySyscallHandler {
+    // ioctrl-0
     fn test_generate_heap_meta(&self, _arg: c_ulong) -> c_long {
         use dmerge::KRdmaKit::mem::Memory;
 
@@ -51,7 +52,7 @@ impl MySyscallHandler {
 
         0
     }
-
+    // ioctrl-1
     fn test_self_vma_apply(&self, _arg: c_ulong) -> c_long {
         use dmerge::KRdmaKit::mem::Memory;
 
@@ -62,8 +63,8 @@ impl MySyscallHandler {
             start_phy_addr: mem.get_dma_buf(),
             heap_size: mem.get_sz(),
         };
-        let _meta = ShadowHeap::new(rdma_meta, heap_meta);
-
+        let mut meta = ShadowHeap::new(rdma_meta, heap_meta);
+        // meta.apply_to(self.file);
         0
     }
 }

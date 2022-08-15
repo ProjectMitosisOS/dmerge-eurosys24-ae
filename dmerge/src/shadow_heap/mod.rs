@@ -1,5 +1,6 @@
 use alloc::vec::Vec;
 use mitosis::descriptors::CompactPageTable;
+use mitosis::kern_wrappers::task::Task;
 use mitosis::KRdmaKit::rust_kernel_rdma_base::VmallocAllocator;
 use mitosis::shadow_process::{COW4KPage, ShadowPageTable};
 use mitosis::linux_kernel_module;
@@ -70,5 +71,29 @@ impl ShadowHeap {
             },
             shadow_page_table: Some(shadow_pt),
         }
+    }
+
+    // Apply the heap region into self (without local vma unmap)
+    #[inline]
+    pub fn apply_to(&mut self, file: *mut mitosis::bindings::file) {
+        let mut task = Task::new();
+        let des = &self.descriptor;
+
+        (&des.vma).into_iter().enumerate().for_each(|(i, m)| {
+            let vma = unsafe {
+                task.map_one_region(file, &m, des.vma.get(i + 1))
+            }.unwrap();
+
+            // tune the bits
+            let origin_vma_flags =
+                unsafe { mitosis::bindings::VMFlags::from_bits_unchecked(m.flags) };
+            // crate::log::info!("orign vma: {:?}", origin_vma_flags);
+            if origin_vma_flags.contains(mitosis::bindings::VMFlags::VM_ALLOC) {
+                // set the vma
+                mitosis::kern_wrappers::vma::VMA::new(vma).set_alloc();
+            }
+        });
+
+
     }
 }
