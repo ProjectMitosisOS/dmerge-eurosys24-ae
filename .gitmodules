@@ -1,3 +1,6 @@
 [submodule "deps/mitosis"]
 	path = deps/mitosis
 	url = git@ipads.se.sjtu.edu.cn:distributed-rdma-serverless/mitosis-project/mitosis.git
+[submodule "deps/jemalloc"]
+	path = deps/jemalloc
+	url = https://github.com/jemalloc/jemalloc.git
