@@ -15,7 +15,7 @@ impl Drop for MySyscallHandler {
 impl FileOperations for MySyscallHandler {
     #[inline]
     fn open(
-        _file: *mut crate::linux_kernel_module::bindings::file,
+        file: *mut crate::linux_kernel_module::bindings::file,
     ) -> crate::linux_kernel_module::KernelResult<Self> {
         unsafe {
             MY_VM_OP = Default::default();
@@ -30,7 +30,7 @@ impl FileOperations for MySyscallHandler {
         }
 
         Ok(Self {
-            file: _file as *mut _
+            file: file as *mut _
         })
     }
 
@@ -84,10 +84,10 @@ impl MySyscallHandler {
         let mut meta = ShadowHeap::new(mitosis::descriptors::RDMADescriptor::default(), heap_meta.clone());
 
         // meta.apply_to(self.file);
-
-        crate::log::debug!("Finish merge...");
-
-        let mut next_meta = ShadowHeap::new(mitosis::descriptors::RDMADescriptor::default(), heap_meta.clone());
+        //
+        // crate::log::debug!("Finish merge...");
+        //
+        // let mut next_meta = ShadowHeap::new(mitosis::descriptors::RDMADescriptor::default(), heap_meta.clone());
 
         0
     }
@@ -112,6 +112,7 @@ impl MySyscallHandler {
     #[inline(always)]
     unsafe fn handle_page_fault(&mut self, vmf: *mut crate::bindings::vm_fault) -> c_int {
         let fault_addr = (*vmf).address;
+        // TODO: Handle page fault
         crate::log::debug!(
                     "[handle_page_fault] Failed to read the remote page, fault addr: 0x{:x}",
                     fault_addr

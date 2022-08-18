@@ -10,8 +10,8 @@ fn test_case() {
             .set_device_name(DEFAULT_SYSCALL_PATH.to_string())
             .open()
             .unwrap();
-        client.test(0).unwrap();
-        // client.test(1).unwrap();
+        // client.test(0).unwrap();
+        client.test(1).unwrap();
 
     });
 }

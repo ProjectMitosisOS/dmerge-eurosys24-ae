@@ -49,8 +49,8 @@ impl ShadowHeap {
                                 &heap_meta).generate();
         }
         mm.flush_tlb_mm();
-        log::debug!("[ShadowHeap] Generate vma size {}",
-            shadow_vmas.len());
+        log::debug!("[ShadowHeap] Generate vma size {}, regs:{:?}",
+            shadow_vmas.len(), task.generate_reg_descriptor());
         for i in 0..vma_descriptors.len() {
             let des = &vma_descriptors[i];
             log::debug!("vma {} addr space[0x{:x} ~ 0x{:x}] len({}) with flag {:b}. is_anonymous:{}",
@@ -66,6 +66,7 @@ impl ShadowHeap {
         Self {
             shadow_vmas,
             descriptor: HeapDescriptor {
+                regs: task.generate_reg_descriptor(),
                 page_table: vma_page_table,
                 vma: vma_descriptors,
                 machine_info: rdma_meta,
@@ -78,26 +79,6 @@ impl ShadowHeap {
     // Apply the heap region into self (without local vma unmap)
     #[inline]
     pub fn apply_to(&mut self, file: *mut mitosis::bindings::file) {
-        let mut task = Task::new();
-        let des = &self.descriptor;
-
-        (&des.vma).into_iter().enumerate().for_each(|(i, m)| {
-            let vma = unsafe {
-                task.map_one_region(file, &m, des.vma.get(i + 1))
-            };
-            if let Some(vma) = vma {
-                // tune the bits
-                let origin_vma_flags =
-                    unsafe { mitosis::bindings::VMFlags::from_bits_unchecked(m.flags) };
-                // crate::log::info!("orign vma: {:?}", origin_vma_flags);
-                if origin_vma_flags.contains(mitosis::bindings::VMFlags::VM_ALLOC) {
-                    // set the vma
-                    mitosis::kern_wrappers::vma::VMA::new(vma).set_alloc();
-                }
-            } else {
-                crate::log::debug!("not map success on vma (start 0x{:x}, sz {}) ",
-                    m.get_start(), m.get_sz());
-            }
-        });
+        self.descriptor.apply_to(file)
     }
 }
