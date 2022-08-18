@@ -15,7 +15,7 @@ pub mod vma;
 
 #[allow(dead_code)]
 pub struct ShadowHeap {
-    descriptor: HeapDescriptor,
+    pub descriptor: HeapDescriptor,
 
     shadow_vmas: Vec<ShadowVMA<'static>>,
     // Use copy currently
@@ -53,13 +53,15 @@ impl ShadowHeap {
             shadow_vmas.len());
         for i in 0..vma_descriptors.len() {
             let des = &vma_descriptors[i];
-            log::debug!("vma {} with flag {:b}. is_anonymous:{}",
-                i, des.get_mmap_flags(), des.is_anonymous())
+            log::debug!("vma {} addr space[0x{:x} ~ 0x{:x}] len({}) with flag {:b}. is_anonymous:{}",
+                i,
+                des.get_start(), des.get_end(), des.get_sz(),
+                des.get_mmap_flags(), des.is_anonymous())
         }
-        for item in 0..vma_page_table.len() {
-            let table = &vma_page_table[item];
-            log::debug!("item {} with length {}", item, table.table_len());
-        }
+        // for item in 0..vma_page_table.len() {
+        //     let table = &vma_page_table[item];
+        //     log::debug!("item {} with length {}", item, table.table_len());
+        // }
 
         Self {
             shadow_vmas,
@@ -82,18 +84,20 @@ impl ShadowHeap {
         (&des.vma).into_iter().enumerate().for_each(|(i, m)| {
             let vma = unsafe {
                 task.map_one_region(file, &m, des.vma.get(i + 1))
-            }.unwrap();
-
-            // tune the bits
-            let origin_vma_flags =
-                unsafe { mitosis::bindings::VMFlags::from_bits_unchecked(m.flags) };
-            // crate::log::info!("orign vma: {:?}", origin_vma_flags);
-            if origin_vma_flags.contains(mitosis::bindings::VMFlags::VM_ALLOC) {
-                // set the vma
-                mitosis::kern_wrappers::vma::VMA::new(vma).set_alloc();
+            };
+            if let Some(vma) = vma {
+                // tune the bits
+                let origin_vma_flags =
+                    unsafe { mitosis::bindings::VMFlags::from_bits_unchecked(m.flags) };
+                // crate::log::info!("orign vma: {:?}", origin_vma_flags);
+                if origin_vma_flags.contains(mitosis::bindings::VMFlags::VM_ALLOC) {
+                    // set the vma
+                    mitosis::kern_wrappers::vma::VMA::new(vma).set_alloc();
+                }
+            } else {
+                crate::log::debug!("not map success on vma (start 0x{:x}, sz {}) ",
+                    m.get_start(), m.get_sz());
             }
         });
-
-
     }
 }

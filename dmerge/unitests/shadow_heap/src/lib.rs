@@ -14,7 +14,7 @@ mod my_syscalls;
 
 use my_syscalls::*;
 use mitosis::syscalls::*;
-
+use mitosis::bindings;
 #[allow(dead_code)]
 struct Module {
     service: SysCallsService<MySyscallHandler>,
