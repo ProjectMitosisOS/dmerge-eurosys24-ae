@@ -33,16 +33,21 @@ impl ShadowHeap {
         // local process task
         let task = crate::mitosis::kern_wrappers::task::Task::new();
         let mut mm = task.get_memory_descriptor();
+        let heap_start = heap_meta.start_virt_addr;
 
+        // Iter to every vma in the virt-addr space
         for vma in mm.get_vma_iter() {
-            vma_descriptors.push(vma.generate_descriptor());
-            shadow_vmas.push(ShadowVMA::new(vma, true));
-            vma_page_table.push(Default::default());
+            let vma_des = vma.generate_descriptor();
+            // Filter for vma (if in range)
+            if heap_start >= vma_des.get_start() && heap_start < vma_des.get_end() {
+                vma_descriptors.push(vma_des);
+                shadow_vmas.push(ShadowVMA::new(vma, true));
+                vma_page_table.push(Default::default());
+            }
         }
 
-        for (idx, _) in mm.get_vma_iter().enumerate() {
+        for (idx, shadow_vma) in shadow_vmas.iter().enumerate() {
             let pt: &mut CompactPageTable = vma_page_table.get_mut(idx).unwrap();
-            let shadow_vma = shadow_vmas.get(idx).unwrap();
             VMAPTGenerator::new(shadow_vma,
                                 &mut shadow_pt,
                                 pt,

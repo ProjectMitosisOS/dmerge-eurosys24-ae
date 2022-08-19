@@ -12,8 +12,8 @@ sopen() {
 }
 
 static inline int
-call_peak(int sd) {
-    if (ioctl(sd, Peak, 0) == -1) {
+call_peak(int sd, unsigned long long peak_addr) {
+    if (ioctl(sd, Peak, peak_addr) == -1) {
         return -1;
     }
 
