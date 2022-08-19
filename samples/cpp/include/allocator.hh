@@ -1,4 +1,7 @@
 #include <jemalloc/jemalloc.h>
+#include <cstdint>
+#include <mutex>
+#include <functional>
 
 using ptr_t = void *;
 
@@ -7,7 +10,7 @@ public:
     explicit Allocator(unsigned id) : id(id) {
     }
 
-    inline ptr_t alloc(unsigned int size, int flag = 0) {
+    inline ptr_t alloc(uint32_t size, int flag = 0) {
         auto ptr = mallocx(size, id | flag);
         return ptr;
     }

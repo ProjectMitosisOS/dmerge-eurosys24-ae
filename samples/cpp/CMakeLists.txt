@@ -2,6 +2,7 @@ project(simple_cpp_examples)
 ADD_DEFINITIONS(-std=c++17)
 cmake_minimum_required(VERSION 3.2)
 include( ExternalProject )
+set(CMAKE_CXX_FLAGS "-O2")
 
 set(jemalloc_INSTALL_DIR ${CMAKE_SOURCE_DIR}/../../deps/jemalloc)
 ExternalProject_Add(jemalloc
