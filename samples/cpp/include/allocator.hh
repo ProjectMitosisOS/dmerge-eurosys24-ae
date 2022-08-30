@@ -108,7 +108,7 @@ private:
         // align the return address
         if ((uintptr_t) ret % alignment != 0)
             ret = ret + (alignment - (uintptr_t) ret % alignment);
-        std::cout << size << "," << alignment << std::endl;
+//        std::cout << size << "," << alignment << std::endl;
         if ((char *) ret + size >= (char *) end_addr) {
             std::cout << "exceed heap size. Want sz:" << size << std::endl;
             return nullptr;
