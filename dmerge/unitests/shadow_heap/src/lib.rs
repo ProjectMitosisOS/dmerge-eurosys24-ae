@@ -21,6 +21,12 @@ use crate::mitosis::startup::start_instance;
 
 declare_global!(heap_descriptor, dmerge::descriptors::heap::HeapDescriptor);
 
+declare_global!(
+    sh_service,
+    dmerge::shadow_heap::ShadowHeapService
+);
+
+
 #[inline]
 pub unsafe fn get_heap_descriptor_ref() -> &'static dmerge::descriptors::heap::HeapDescriptor {
     crate::heap_descriptor::get_ref()
@@ -31,9 +37,20 @@ pub unsafe fn get_heap_descriptor_mut() -> &'static mut dmerge::descriptors::hea
     crate::heap_descriptor::get_mut()
 }
 
+#[inline]
+pub unsafe fn get_shs_ref() -> &'static dmerge::shadow_heap::ShadowHeapService {
+    crate::sh_service::get_ref()
+}
+
+#[inline]
+pub unsafe fn get_shs_mut() -> &'static mut dmerge::shadow_heap::ShadowHeapService {
+    crate::sh_service::get_mut()
+}
+
 pub fn startup() {
     unsafe {
         crate::heap_descriptor::init(Default::default());
+        crate::sh_service::init(Default::default());
 
         {
             let mut config: mitosis::Config = Default::default();
@@ -51,6 +68,7 @@ pub fn startup() {
 pub fn end() {
     unsafe {
         crate::heap_descriptor::drop();
+        crate::sh_service::drop();
         end_instance();
     };
 }

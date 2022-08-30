@@ -36,6 +36,8 @@ static void test_allocator() {
     }
 
     test_km((uint64_t) ptr);
+    int res = *(int *) ptr;
+    std::cout << "res:" << res << std::endl;
 }
 
 int

@@ -6,6 +6,7 @@ use crate::*;
 use dmerge::mitosis::os_network::bytes::ToBytes;
 use dmerge::mitosis::os_network::serialize::Serialize;
 use dmerge::mitosis::remote_paging::AccessInfo;
+use dmerge::shadow_heap::HeapBundler;
 use crate::mitosis::descriptors::RDMADescriptor;
 
 pub(crate) struct MySyscallHandler {
@@ -70,44 +71,37 @@ impl MySyscallHandler {
         log::debug!("heap base addr: 0x{:x}", arg);
         let rdma_meta = mitosis::descriptors::RDMADescriptor::default();
 
-        let start_addr = arg;
+        let start_virt_addr = arg;
         let res = RDMADescriptor::new_from_dc_target_pool();
         if res.is_none() {
             return -1;
         }
-        let descriptor = res.unwrap().1;
-        let mut meta = ShadowHeap::new(descriptor, HeapMeta {
-            start_virt_addr: start_addr,
-        });
+        let tmp = res.unwrap();
 
+        let (target, descriptor) = RDMADescriptor::new_from_dc_target_pool().unwrap();
 
-        let parent_des = meta.descriptor.clone();
+        // create bundler
+        let bundler = HeapBundler::new(
+            ShadowHeap::new(descriptor, HeapMeta {
+                start_virt_addr,
+            }),
+            target,
+        );
         let mut buf = unsafe { mitosis::get_mem_pool_mut() }.pop_one();
-        parent_des.serialize(buf.get_bytes_mut());
-        if let Some(mut des) = HeapDescriptor::deserialize(buf.get_bytes()) {
-            // unsafe {
-            //     let addr = 0x4ffff5c00000;
-            //     let access_info =
-            //         AccessInfo::new(&des.machine_info);
-            //     if access_info.is_some() {
-            //         let t = des.read_remote_page(addr,
-            //                                     access_info.as_ref().unwrap());
-            //         if t.is_some() {
-            //             crate::log::debug!("success");
-            //         } else {
-            //             crate::log::debug!("err to fetch remote page");
-            //
-            //         }
-            //     } else {
-            //         crate::log::debug!("err");
-            //
-            //     }
-            // }
 
-            unsafe {
-                crate::heap_descriptor::init(des);
-            }
+        // TODO: move into ShadowHeap::new
+        {
+            let parent_des = &bundler.heap.descriptor.clone();
+            parent_des.serialize(buf.get_bytes_mut());
         }
+
+        if let Some(mut des) = HeapDescriptor::deserialize(buf.get_bytes()) {
+            unsafe { crate::heap_descriptor::init(des) };
+        }
+
+        let heap_service = unsafe { crate::get_shs_mut() };
+        heap_service.add_bundler(73 as _, bundler);
+
 
         return 0;
     }
