@@ -21,11 +21,9 @@ static void test_allocator() {
                     PROT_READ | PROT_WRITE | PROT_EXEC,
                     MAP_SHARED | MAP_ANON, -1, 0);
 
-    std::cout << std::hex << (uint64_t) ptr << "\n";
 
-    (*(int *) ptr) = 1024;
     Alloc::init((char *) ptr, mem_sz);
-
+//
     for (int i = 0; i < 6; ++i) {
         char *tmp = (char *) (Alloc::get_thread_allocator()->alloc(4096));
         (*(int *) tmp) = 1024 * (i + 2);
@@ -34,10 +32,11 @@ static void test_allocator() {
                   (uint64_t) tmp << std::endl;
 //        Alloc::get_thread_allocator()->dealloc(tmp);
     }
-
+    (*(int *) ptr) = 1024;
+    std::cout << std::dec << (uint64_t)(*(int *) ptr) << "\n";
     test_km((uint64_t) ptr);
     int res = *(int *) ptr;
-    std::cout << "res:" << res << std::endl;
+    std::cout << std::dec << "res:" << res << std::endl;
 }
 
 int
