@@ -14,8 +14,9 @@ endif()
 
 
 set(samples
-        function)
+        function merge)
 add_executable(function samples/cpp/function.cc)
+add_executable(merge samples/cpp/merge.cc)
 foreach(s ${samples})
     target_link_libraries(${s} pthread ${jemalloc_lib})
     add_dependencies(${s} jemalloc )

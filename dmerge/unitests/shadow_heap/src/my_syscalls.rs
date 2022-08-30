@@ -1,6 +1,9 @@
+use dmerge::descriptors::heap::HeapDescriptor;
 use crate::linux_kernel_module::c_types::*;
 use crate::linux_kernel_module::bindings::vm_area_struct;
 use crate::*;
+use dmerge::mitosis::os_network::bytes::ToBytes;
+use dmerge::mitosis::os_network::serialize::Serialize;
 
 pub(crate) struct MySyscallHandler {
     file: *mut mitosis::bindings::file,
@@ -56,6 +59,7 @@ impl FileOperations for MySyscallHandler {
     }
 }
 
+
 impl MySyscallHandler {
     // ioctrl-0
     fn test_generate_heap_meta(&self, arg: c_ulong) -> c_long {
@@ -69,28 +73,24 @@ impl MySyscallHandler {
             heap_size: mem.get_sz(),
         };
         let mut meta = ShadowHeap::new(Default::default(), heap_meta.clone());
-        // meta.apply_to(self.file);
-        // let next_meta = ShadowHeap::new(Default::default(), heap_meta.clone());
+
+
+        let parent_des = meta.descriptor.clone();
+        let mut buf = unsafe { get_mem_pool_mut() }.pop_one();
+        parent_des.serialize(buf.get_bytes_mut());
+        if let Some(des) = HeapDescriptor::deserialize(buf.get_bytes()) {
+            unsafe {
+                crate::heap_descriptor::init(des);
+            }
+        }
+
         0
     }
     // ioctrl-1
     fn test_self_vma_apply(&self, _arg: c_ulong) -> c_long {
-        use dmerge::KRdmaKit::mem::Memory;
-
-        let mut mem = RMemPhy::new(1024);
-        let heap_meta = HeapMeta {
-            start_virt_addr: mem.get_dma_buf(),
-            heap_size: mem.get_sz(),
-        };
-        let mut meta = ShadowHeap::new(mitosis::descriptors::RDMADescriptor::default(),
-                                       heap_meta.clone());
-
-        // meta.apply_to(self.file);
-        //
-        // crate::log::debug!("Finish merge...");
-        //
-        // let mut next_meta = ShadowHeap::new(mitosis::descriptors::RDMADescriptor::default(), heap_meta.clone());
-
+        // read from global
+        let mut descriptor = unsafe { crate::get_heap_descriptor_mut() };
+        descriptor.apply_to(self.file);
         0
     }
 }
@@ -114,7 +114,13 @@ impl MySyscallHandler {
     #[inline(always)]
     unsafe fn handle_page_fault(&mut self, vmf: *mut crate::bindings::vm_fault) -> c_int {
         let fault_addr = (*vmf).address;
-        // TODO: Handle page fault
+        let mut descriptor = unsafe { crate::get_heap_descriptor_ref() };
+        if let Some(pa) = descriptor.lookup_pg_table(fault_addr) {
+            crate::log::debug!("find page fault res. va: 0x{:x}, pa: 0x{:x}", fault_addr,pa);
+
+            // TODO: Use RDMA Read to get the result
+        }
+
         crate::log::debug!(
                     "[handle_page_fault] Failed to read the remote page, fault addr: 0x{:x}",
                     fault_addr

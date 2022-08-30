@@ -19,3 +19,13 @@ call_peak(int sd, unsigned long long peak_addr) {
 
     return 0;
 }
+
+
+static inline int
+call_apply(int sd) {
+    if (ioctl(sd, Apply, 0) == -1) {
+        return -1;
+    }
+
+    return 0;
+}

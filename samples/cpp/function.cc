@@ -23,6 +23,7 @@ static void test_allocator() {
 
     std::cout << std::hex << (uint64_t) ptr << "\n";
 
+    (*(int*) ptr) = 1024;
     Alloc::init((char *) ptr, mem_sz);
 
     for (int i = 0; i < 6; ++i) {

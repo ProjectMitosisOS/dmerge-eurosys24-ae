@@ -163,6 +163,7 @@ dependencies = [
  "bindgen",
  "cc",
  "mitosis",
+ "mitosis-macros",
  "rust-kernel-linux-util",
  "shlex",
 ]

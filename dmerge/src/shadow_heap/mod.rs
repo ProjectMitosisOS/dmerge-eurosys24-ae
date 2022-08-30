@@ -15,7 +15,7 @@ pub mod vma;
 
 #[allow(dead_code)]
 pub struct ShadowHeap {
-    pub descriptor: HeapDescriptor,
+    pub descriptor: mitosis::descriptors::ParentDescriptor,
 
     shadow_vmas: Vec<ShadowVMA<'static>>,
     // Use copy currently
@@ -54,8 +54,8 @@ impl ShadowHeap {
                                 &heap_meta).generate();
         }
         mm.flush_tlb_mm();
-        log::debug!("[ShadowHeap] Generate vma size {}, regs:{:?}",
-            shadow_vmas.len(), task.generate_reg_descriptor());
+        log::debug!("[ShadowHeap] Generate vma size: {}",
+            shadow_vmas.len());
         for i in 0..vma_descriptors.len() {
             let des = &vma_descriptors[i];
             log::debug!("vma {} addr space[0x{:x} ~ 0x{:x}] len({}) with flag {:b}. is_anonymous:{}",
@@ -70,20 +70,13 @@ impl ShadowHeap {
 
         Self {
             shadow_vmas,
-            descriptor: HeapDescriptor {
+            descriptor: mitosis::descriptors::ParentDescriptor {
                 regs: task.generate_reg_descriptor(),
                 page_table: vma_page_table,
                 vma: vma_descriptors,
                 machine_info: rdma_meta,
-                heap_meta: heap_meta,
             },
             shadow_page_table: Some(shadow_pt),
         }
-    }
-
-    // Apply the heap region into self (without local vma unmap)
-    #[inline]
-    pub fn apply_to(&mut self, file: *mut mitosis::bindings::file) {
-        self.descriptor.apply_to(file)
     }
 }

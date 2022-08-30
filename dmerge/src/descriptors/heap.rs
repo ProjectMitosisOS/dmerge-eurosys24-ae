@@ -1,29 +1,32 @@
 use mitosis::descriptors::{CompactPageTable, RDMADescriptor, RegDescriptor, VMADescriptor};
 use crate::KRdmaKit::rust_kernel_rdma_base::VmallocAllocator;
 use alloc::vec::Vec;
+use mitosis::kern_wrappers::mm::{PhyAddrType, VirtAddrType};
 use mitosis::kern_wrappers::task::Task;
+use mitosis::os_network::bytes::BytesMut;
+use mitosis::remote_mapping::{PhysAddr, RemotePageTable, VirtAddr};
 use crate::descriptors::HeapMeta;
+use crate::mitosis::linux_kernel_module;
 
-
+pub(crate) type Offset = u32;
+pub(crate) type Value = PhyAddrType;
 /// HeapDescriptor
 #[allow(dead_code)]
-#[derive(Clone)]
 pub struct HeapDescriptor {
     pub regs: RegDescriptor,
-    pub page_table: Vec<CompactPageTable, VmallocAllocator>,
+    pub page_table: RemotePageTable,
+
     pub vma: Vec<VMADescriptor>,
     pub machine_info: RDMADescriptor,
-    pub heap_meta: HeapMeta,
 }
 
 impl Default for HeapDescriptor {
     fn default() -> Self {
         Self {
             regs: Default::default(),
-            page_table: Vec::new_in(VmallocAllocator),
-            vma: Vec::new(),
+            page_table: Default::default(),
+            vma: Default::default(),
             machine_info: Default::default(),
-            heap_meta: Default::default(),
         }
     }
 }
@@ -34,7 +37,6 @@ impl HeapDescriptor {
         use mitosis::linux_kernel_module;
 
         let mut task = Task::new();
-        // task.unmap_self();
 
         (&self.vma).into_iter().enumerate().for_each(|(i, m)| {
             // ensure only map into the heap space
@@ -64,7 +66,112 @@ impl HeapDescriptor {
                     m.get_start(), m.get_sz());
             }
         });
+        // Note: Do not apply the regs!!!
+    }
 
-        task.set_mm_reg_states(&self.regs);
+
+    #[inline(always)]
+    pub fn lookup_pg_table(&self, virt: VirtAddrType) -> Option<PhyAddrType> {
+        self.page_table
+            .translate(VirtAddr::new(virt))
+            .map(|v| v.as_u64())
+    }
+}
+
+
+
+impl crate::mitosis::os_network::serialize::Serialize for HeapDescriptor {
+    fn serialize(&self, _bytes: &mut BytesMut) -> bool {
+        unimplemented!();
+    }
+
+    /// De-serialize from a message buffer
+    /// **Warning**
+    /// - The buffer to be serialized must be generated from the ParentDescriptor.
+    ///
+    /// **TODO**
+    /// - Currently, we don't check the buf len, so this function is **unsafe**
+    fn deserialize(bytes: &BytesMut) -> core::option::Option<Self> {
+        // FIXME: check buf len
+
+        let mut cur = unsafe { bytes.truncate_header(0).unwrap() };
+
+        // regs
+        let regs = RegDescriptor::deserialize(&cur)?;
+        cur = unsafe { cur.truncate_header(regs.serialization_buf_len())? };
+
+        // VMA page counts
+        let mut count: usize = 0;
+        let off = unsafe { cur.memcpy_deserialize(&mut count)? };
+        cur = unsafe { cur.truncate_header(off)? };
+
+        crate::log::debug!("!!!!! start to deserialize vma, count: {}", count);
+
+        // VMA & its corresponding page table
+        let mut pt = RemotePageTable::new();
+
+        let mut vmas = Vec::new();
+
+        for _ in 0..count {
+            let vma = VMADescriptor::deserialize(&cur)?;
+            cur = unsafe { cur.truncate_header(vma.serialization_buf_len())? };
+
+            let vma_start = vma.get_start();
+            vmas.push(vma);
+
+            // now, deserialize the page table of this VMA
+            // we don't use the `deserialize` method in the compact page table,
+            // because it will incur unnecessary memory copies that is not optimal for the performance
+            let mut page_num: usize = 0;
+            let off = unsafe { cur.memcpy_deserialize(&mut page_num)? };
+
+            cur = unsafe { cur.truncate_header(off)? };
+
+            // crate::log::debug!("check page_num: {}", page_num);
+            /*
+            if page_num > 1024 {
+                return None;
+            }*/
+
+            if core::mem::size_of::<Offset>() < core::mem::size_of::<VirtAddrType>()
+                && page_num % 2 == 1
+            {
+                let mut pad: u32 = 0;
+                let off = unsafe { cur.memcpy_deserialize(&mut pad)? };
+                cur = unsafe { cur.truncate_header(off)? };
+            }
+
+            for _ in 0..page_num {
+                let virt: Offset = unsafe { cur.read_unaligned_at_head() };
+                cur = unsafe { cur.truncate_header(core::mem::size_of::<Offset>())? };
+
+                let phy: Value = unsafe { cur.read_unaligned_at_head() };
+                cur = unsafe { cur.truncate_header(core::mem::size_of::<Value>())? };
+
+                pt.map(
+                    VirtAddr::new(virt as VirtAddrType + vma_start),
+                    PhysAddr::new(phy),
+                );
+            }
+        }
+
+        let machine_info = RDMADescriptor::deserialize(&cur)?;
+
+        Some(Self {
+            regs: regs,
+            page_table: pt,
+            vma: vmas,
+            machine_info: machine_info,
+        })
+    }
+
+    fn serialization_buf_len(&self) -> usize {
+        unimplemented!();
+        /*
+        self.regs.serialization_buf_len()
+            + self.page_table.serialization_buf_len()
+            + core::mem::size_of::<usize>() // the number of VMA descriptors
+            + self.vma.len() * core::mem::size_of::<VMADescriptor>()
+            + self.machine_info.serialization_buf_len() */
     }
 }

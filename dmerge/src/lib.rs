@@ -15,5 +15,6 @@ pub mod descriptors;
 pub mod shadow_heap;
 /// Import MITOSIS
 pub use mitosis;
+pub use mitosis_macros;
 pub use mitosis::KRdmaKit;
 pub use mitosis::log;
