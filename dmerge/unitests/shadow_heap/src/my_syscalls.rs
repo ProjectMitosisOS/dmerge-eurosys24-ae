@@ -1,9 +1,12 @@
+use x86_64::PhysAddr;
 use dmerge::descriptors::heap::HeapDescriptor;
 use crate::linux_kernel_module::c_types::*;
 use crate::linux_kernel_module::bindings::vm_area_struct;
 use crate::*;
 use dmerge::mitosis::os_network::bytes::ToBytes;
 use dmerge::mitosis::os_network::serialize::Serialize;
+use dmerge::mitosis::remote_paging::AccessInfo;
+use crate::mitosis::descriptors::RDMADescriptor;
 
 pub(crate) struct MySyscallHandler {
     file: *mut mitosis::bindings::file,
@@ -67,24 +70,46 @@ impl MySyscallHandler {
         log::debug!("heap base addr: 0x{:x}", arg);
         let rdma_meta = mitosis::descriptors::RDMADescriptor::default();
 
-        let mut mem = RMemPhy::new(1024);
-        let heap_meta = HeapMeta {
-            start_virt_addr: arg,
-            heap_size: mem.get_sz(),
-        };
-        let mut meta = ShadowHeap::new(Default::default(), heap_meta.clone());
+        let start_addr = arg;
+        let res = RDMADescriptor::new_from_dc_target_pool();
+        if res.is_none() {
+            return -1;
+        }
+        let descriptor = res.unwrap().1;
+        let mut meta = ShadowHeap::new(descriptor, HeapMeta {
+            start_virt_addr: start_addr,
+        });
 
 
         let parent_des = meta.descriptor.clone();
-        let mut buf = unsafe { get_mem_pool_mut() }.pop_one();
+        let mut buf = unsafe { mitosis::get_mem_pool_mut() }.pop_one();
         parent_des.serialize(buf.get_bytes_mut());
-        if let Some(des) = HeapDescriptor::deserialize(buf.get_bytes()) {
+        if let Some(mut des) = HeapDescriptor::deserialize(buf.get_bytes()) {
+            // unsafe {
+            //     let addr = 0x4ffff5c00000;
+            //     let access_info =
+            //         AccessInfo::new(&des.machine_info);
+            //     if access_info.is_some() {
+            //         let t = des.read_remote_page(addr,
+            //                                     access_info.as_ref().unwrap());
+            //         if t.is_some() {
+            //             crate::log::debug!("success");
+            //         } else {
+            //             crate::log::debug!("err to fetch remote page");
+            //
+            //         }
+            //     } else {
+            //         crate::log::debug!("err");
+            //
+            //     }
+            // }
+
             unsafe {
                 crate::heap_descriptor::init(des);
             }
         }
 
-        0
+        return 0;
     }
     // ioctrl-1
     fn test_self_vma_apply(&self, _arg: c_ulong) -> c_long {
@@ -114,18 +139,34 @@ impl MySyscallHandler {
     #[inline(always)]
     unsafe fn handle_page_fault(&mut self, vmf: *mut crate::bindings::vm_fault) -> c_int {
         let fault_addr = (*vmf).address;
-        let mut descriptor = unsafe { crate::get_heap_descriptor_ref() };
-        if let Some(pa) = descriptor.lookup_pg_table(fault_addr) {
+        let mut descriptor = unsafe { crate::get_heap_descriptor_mut() };
+        let new_page = if let Some(pa) = descriptor.lookup_pg_table(fault_addr) {
             crate::log::debug!("find page fault res. va: 0x{:x}, pa: 0x{:x}", fault_addr,pa);
+            let access_info = AccessInfo::new(&descriptor.machine_info);
+            if access_info.is_none() {
+                crate::log::error!("failed to create access info");
+                None
+            } else {
+                descriptor.read_remote_page(fault_addr,
+                                            access_info.as_ref().unwrap())
+            }
+        } else {
+            None
+        };
 
-            // TODO: Use RDMA Read to get the result
-        }
-
-        crate::log::debug!(
+        match new_page {
+            Some(new_page_p) => {
+                (*vmf).page = new_page_p as *mut _;
+                0
+            }
+            None => {
+                crate::log::debug!(
                     "[handle_page_fault] Failed to read the remote page, fault addr: 0x{:x}",
                     fault_addr
                 );
-        crate::bindings::FaultFlags::SIGSEGV.bits() as linux_kernel_module::c_types::c_int
+                crate::bindings::FaultFlags::SIGSEGV.bits() as linux_kernel_module::c_types::c_int
+            }
+        }
     }
 }
 

@@ -15,12 +15,11 @@ mod my_syscalls;
 use my_syscalls::*;
 use mitosis::syscalls::*;
 use mitosis::bindings;
+use dmerge::mitosis::startup::end_instance;
 use dmerge::mitosis_macros::declare_global;
+use crate::mitosis::startup::start_instance;
 
-declare_global!(mac_id, usize);
 declare_global!(heap_descriptor, dmerge::descriptors::heap::HeapDescriptor);
-declare_global!(mem_pool, crate::mitosis::mem_pools::MemPool);
-
 
 #[inline]
 pub unsafe fn get_heap_descriptor_ref() -> &'static dmerge::descriptors::heap::HeapDescriptor {
@@ -32,30 +31,27 @@ pub unsafe fn get_heap_descriptor_mut() -> &'static mut dmerge::descriptors::hea
     crate::heap_descriptor::get_mut()
 }
 
-#[inline]
-pub unsafe fn get_mem_pool_ref() -> &'static crate::mitosis::mem_pools::MemPool {
-    crate::mem_pool::get_ref()
-}
-
-#[inline]
-pub unsafe fn get_mem_pool_mut() -> &'static mut crate::mitosis::mem_pools::MemPool {
-    crate::mem_pool::get_mut()
-}
-
 pub fn startup() {
     unsafe {
         crate::heap_descriptor::init(Default::default());
-        crate::mac_id::init(0);
 
-        crate::mem_pool::init(mitosis::mem_pools::MemPool::new(12));
+        {
+            let mut config: mitosis::Config = Default::default();
+            config
+                .set_num_nics_used(1)
+                .set_rpc_threads(2)
+                .set_init_dc_targets(12)
+                .set_machine_id(0 as usize);
 
+            assert!(start_instance(config.clone()).is_some());
+        }
     }
 }
 
 pub fn end() {
     unsafe {
         crate::heap_descriptor::drop();
-        crate::mem_pool::drop();
+        end_instance();
     };
 }
 

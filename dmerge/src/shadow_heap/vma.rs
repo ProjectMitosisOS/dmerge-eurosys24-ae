@@ -96,15 +96,4 @@ impl VMAPTGenerator<'_, '_> {
         0
     }
 
-    /// check_in_heap. One filter to filter out whether the target page is in
-    /// the shadow heap range.
-    #[inline]
-    fn check_in_heap(&self, phy_addr: PhyAddrType) -> bool {
-        use mitosis::linux_kernel_module;
-
-        let (start, len) = (self.heap_meta.start_virt_addr, self.heap_meta.heap_size);
-        crate::log::debug!("check range from 0x{:x} to 0x{:x}, and phy 0x{:x}",
-        self.heap_meta.start_virt_addr, self.heap_meta.start_virt_addr + self.heap_meta.heap_size as PhyAddrType, phy_addr);
-        return phy_addr >= start && phy_addr < start + len;
-    }
 }

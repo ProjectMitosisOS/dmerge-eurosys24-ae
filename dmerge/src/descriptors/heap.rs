@@ -5,6 +5,7 @@ use mitosis::kern_wrappers::mm::{PhyAddrType, VirtAddrType};
 use mitosis::kern_wrappers::task::Task;
 use mitosis::os_network::bytes::BytesMut;
 use mitosis::remote_mapping::{PhysAddr, RemotePageTable, VirtAddr};
+use mitosis::remote_paging::AccessInfo;
 use crate::descriptors::HeapMeta;
 use crate::mitosis::linux_kernel_module;
 
@@ -75,6 +76,38 @@ impl HeapDescriptor {
         self.page_table
             .translate(VirtAddr::new(virt))
             .map(|v| v.as_u64())
+    }
+}
+
+impl HeapDescriptor {
+    #[inline]
+    pub unsafe fn read_remote_page(
+        &mut self,
+        remote_va: PhyAddrType,
+        access_info: &AccessInfo,
+    ) -> Option<*mut mitosis::bindings::page> {
+        let remote_pa = self.lookup_pg_table(remote_va);
+        if remote_pa.is_none() {
+            crate::log::debug!("not find va 0x{:x}", remote_va);
+            return None;
+        }
+        let remote_pa = remote_pa.unwrap();
+        let new_page_p = mitosis::bindings::pmem_alloc_page(mitosis::bindings::PMEM_GFP_HIGHUSER);
+        let new_page_pa = mitosis::bindings::pmem_page_to_phy(new_page_p) as u64;
+        let res = mitosis::remote_paging::RemotePagingService::remote_read(
+            new_page_pa,
+            remote_pa,
+            4096,
+            access_info,
+        );
+        return match res {
+            Ok(_) => Some(new_page_p),
+            Err(e) => {
+                crate::log::error!("Failed to read the remote page {:?}", e);
+                mitosis::bindings::pmem_free_page(new_page_p);
+                None
+            }
+        };
     }
 }
 
