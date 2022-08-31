@@ -7,6 +7,8 @@ use vma::ShadowVMA;
 use core::sync::atomic::compiler_fence;
 use core::sync::atomic::Ordering::SeqCst;
 use hashbrown::HashMap;
+use mitosis::descriptors::RDMADescriptor;
+use mitosis::kern_wrappers::mm::VirtAddrType;
 
 pub mod vma;
 pub mod heap;
@@ -14,6 +16,7 @@ pub mod heap;
 pub use heap::ShadowHeap;
 use mitosis::os_network::{msg::UDMsg as RMemory, serialize::Serialize};
 use mitosis::os_network::bytes::ToBytes;
+use crate::descriptors::HeapMeta;
 
 pub struct HeapBundler {
     #[allow(dead_code)]
@@ -70,15 +73,47 @@ impl Default for ShadowHeapService {
 }
 
 impl ShadowHeapService {
-    pub fn add_bundler(&mut self,
-                       key: usize,
-                       bundler: HeapBundler) -> core::option::Option<usize> {
-        self.registered_heap.insert(key, bundler);
+    pub fn query_descriptor_buf(&self, key: usize) -> core::option::Option<(&RMemory, usize)> {
+        self.registered_heap
+            .get(&key)
+            .map(|s| (&s.serialized_buf, s.serialized_buf_len))
+    }
 
-        return Some(0);
+    pub fn query_descriptor(
+        &self,
+        key: usize,
+    ) -> core::option::Option<&mitosis::descriptors::ParentDescriptor> {
+        self.registered_heap
+            .get(&key)
+            .map(|s| s.heap.get_descriptor_ref())
+    }
+}
+
+impl ShadowHeapService {
+    pub fn register_heap(&mut self, key: usize, heap_start_addr: VirtAddrType) -> core::option::Option<usize> {
+        let (target, descriptor) = RDMADescriptor::new_from_dc_target_pool().unwrap();
+
+        // create bundler
+        let bundler = HeapBundler::new(
+            ShadowHeap::new(descriptor,
+                            HeapMeta { start_virt_addr: heap_start_addr }),
+            target,
+        );
+
+        self.add_bundler(key, bundler)
     }
 
     pub fn unregister(&mut self, key: usize) {
         self.registered_heap.remove(&key);
+    }
+
+
+    #[inline]
+    fn add_bundler(&mut self,
+                   key: usize,
+                   bundler: HeapBundler) -> core::option::Option<usize> {
+        let seri_buf_len = bundler.get_serialize_buf_sz();
+        self.registered_heap.insert(key, bundler);
+        return Some(seri_buf_len);
     }
 }
