@@ -6,13 +6,6 @@
 
 using Alloc = AllocatorMaster<73>;
 
-static void test_km(uint64_t peak_addr) {
-    int sd = sopen();
-    assert(sd != 0);
-
-    call_peak(sd, peak_addr);
-}
-
 static void test_allocator() {
 
     // mmap
@@ -34,7 +27,10 @@ static void test_allocator() {
     }
     (*(int *) ptr) = 1024;
     std::cout << std::dec << (uint64_t)(*(int *) ptr) << "\n";
-    test_km((uint64_t) ptr);
+
+    int sd = sopen();
+    call_register(sd, (uint64_t) ptr);
+
     int res = *(int *) ptr;
     std::cout << std::dec << "res:" << res << std::endl;
 }

@@ -1,6 +1,6 @@
 //#include <stdint.h>
 
 enum LibMITOSISCmd {
-    Peak = 0,
-    Apply = 1,
+    Register = 0,
+    Pull = 1,
 };

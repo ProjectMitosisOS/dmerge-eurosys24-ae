@@ -57,7 +57,7 @@ impl mitosis::syscalls::FileOperations for DmergeSyscallHandler {
     fn ioctrl(&mut self, cmd: c_uint, arg: c_ulong) -> c_long {
         match cmd {
             0 => self.syscall_register_heap(arg),
-            1 => self.syscall_merge(arg),
+            1 => self.syscall_pull(arg),
             _ => {
                 -1
             }
@@ -86,7 +86,7 @@ impl DmergeSyscallHandler {
         return 0;
     }
     // ioctrl-1
-    fn syscall_merge(&self, _arg: c_ulong) -> c_long {
+    fn syscall_pull(&self, _arg: c_ulong) -> c_long {
         let heap_service = unsafe { crate::get_shs_mut() };
         let hint = 73;
 
@@ -128,7 +128,6 @@ impl DmergeSyscallHandler {
         let fault_addr = (*vmf).address;
         let descriptor = crate::get_heap_descriptor_mut();
         let new_page = if let Some(pa) = descriptor.lookup_pg_table(fault_addr) {
-            crate::log::debug!("find page fault res. va: 0x{:x}, pa: 0x{:x}", fault_addr,pa);
             let access_info = AccessInfo::new(&descriptor.machine_info);
             if access_info.is_none() {
                 crate::log::error!("failed to create access info");

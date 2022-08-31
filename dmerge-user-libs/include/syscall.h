@@ -12,8 +12,8 @@ sopen() {
 }
 
 static inline int
-call_peak(int sd, unsigned long long peak_addr) {
-    if (ioctl(sd, Peak, peak_addr) == -1) {
+call_register(int sd, unsigned long long peak_addr) {
+    if (ioctl(sd, Register, peak_addr) == -1) {
         return -1;
     }
 
@@ -22,8 +22,8 @@ call_peak(int sd, unsigned long long peak_addr) {
 
 
 static inline int
-call_apply(int sd) {
-    if (ioctl(sd, Apply, 0) == -1) {
+call_pull(int sd) {
+    if (ioctl(sd, Pull, 0) == -1) {
         return -1;
     }
 
