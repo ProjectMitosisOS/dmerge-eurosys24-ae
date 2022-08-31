@@ -7,7 +7,6 @@ use dmerge::{mitosis, log};
 use mitosis::linux_kernel_module;
 
 use dmerge::descriptors::HeapMeta;
-use dmerge::KRdmaKit::mem::RMemPhy;
 use dmerge::shadow_heap::ShadowHeap;
 
 mod my_syscalls;

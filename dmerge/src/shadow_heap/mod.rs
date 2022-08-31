@@ -1,17 +1,9 @@
 use alloc::sync::Arc;
 use alloc::vec::Vec;
-use mitosis::descriptors::{CompactPageTable, RDMADescriptor};
-use mitosis::kern_wrappers::task::Task;
-use mitosis::KRdmaKit::rust_kernel_rdma_base::VmallocAllocator;
-use mitosis::shadow_process::{COW4KPage, ShadowPageTable};
 use mitosis::linux_kernel_module;
 use mitosis::os_network::rdma::dc::DCTarget;
 
-use crate::descriptors::heap::HeapDescriptor;
-use crate::shadow_heap::vma::VMAPTGenerator;
-use crate::log;
 use vma::ShadowVMA;
-use crate::descriptors::HeapMeta;
 use core::sync::atomic::compiler_fence;
 use core::sync::atomic::Ordering::SeqCst;
 use hashbrown::HashMap;
@@ -36,7 +28,6 @@ pub struct HeapBundler {
 
 impl HeapBundler {
     pub fn new(heap: ShadowHeap, targets: Arc<DCTarget>) -> Self {
-        use mitosis::linux_kernel_module;
         let len = heap.get_descriptor_ref().serialization_buf_len();
         crate::log::debug!(
             "Alloc serialization buf sz {} KB",

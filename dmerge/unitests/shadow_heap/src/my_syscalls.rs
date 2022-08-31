@@ -1,4 +1,3 @@
-use x86_64::PhysAddr;
 use dmerge::descriptors::heap::HeapDescriptor;
 use crate::linux_kernel_module::c_types::*;
 use crate::linux_kernel_module::bindings::vm_area_struct;
@@ -67,16 +66,13 @@ impl FileOperations for MySyscallHandler {
 impl MySyscallHandler {
     // ioctrl-0
     fn test_generate_heap_meta(&self, arg: c_ulong) -> c_long {
-        use dmerge::KRdmaKit::mem::Memory;
         log::debug!("heap base addr: 0x{:x}", arg);
-        let rdma_meta = mitosis::descriptors::RDMADescriptor::default();
 
         let start_virt_addr = arg;
         let res = RDMADescriptor::new_from_dc_target_pool();
         if res.is_none() {
             return -1;
         }
-        let tmp = res.unwrap();
 
         let (target, descriptor) = RDMADescriptor::new_from_dc_target_pool().unwrap();
 
@@ -95,7 +91,7 @@ impl MySyscallHandler {
             parent_des.serialize(buf.get_bytes_mut());
         }
 
-        if let Some(mut des) = HeapDescriptor::deserialize(buf.get_bytes()) {
+        if let Some(des) = HeapDescriptor::deserialize(buf.get_bytes()) {
             unsafe { crate::heap_descriptor::init(des) };
         }
 
@@ -108,7 +104,7 @@ impl MySyscallHandler {
     // ioctrl-1
     fn test_self_vma_apply(&self, _arg: c_ulong) -> c_long {
         // read from global
-        let mut descriptor = unsafe { crate::get_heap_descriptor_mut() };
+        let descriptor = unsafe { crate::get_heap_descriptor_mut() };
         descriptor.apply_to(self.file);
         0
     }
@@ -133,7 +129,7 @@ impl MySyscallHandler {
     #[inline(always)]
     unsafe fn handle_page_fault(&mut self, vmf: *mut crate::bindings::vm_fault) -> c_int {
         let fault_addr = (*vmf).address;
-        let mut descriptor = unsafe { crate::get_heap_descriptor_mut() };
+        let descriptor = crate::get_heap_descriptor_mut();
         let new_page = if let Some(pa) = descriptor.lookup_pg_table(fault_addr) {
             crate::log::debug!("find page fault res. va: 0x{:x}, pa: 0x{:x}", fault_addr,pa);
             let access_info = AccessInfo::new(&descriptor.machine_info);

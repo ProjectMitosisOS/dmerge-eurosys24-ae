@@ -1,6 +1,5 @@
-use mitosis::shadow_process::{Copy4KPage, ShadowPageTable};
 use mitosis::kern_wrappers::vma_iters::VMWalkEngine;
-use mitosis::kern_wrappers::mm::{PhyAddrType, VirtAddrType};
+use mitosis::kern_wrappers::mm::{VirtAddrType};
 use mitosis::kern_wrappers::vma::VMA;
 use mitosis::bindings::*;
 use crate::descriptors::HeapMeta;
@@ -84,10 +83,10 @@ impl VMAPTGenerator<'_, '_> {
         _next: mitosis::linux_kernel_module::c_types::c_ulong,
         walk: *mut mm_walk,
     ) -> mitosis::linux_kernel_module::c_types::c_int {
-        use core::intrinsics::{likely, unlikely};
+        // use core::intrinsics::{likely, unlikely};
         let my: &mut Self = &mut (*((*walk).private as *mut Self));
 
-        let mut phy_addr = pmem_get_phy_from_pte(pte);
+        let phy_addr = pmem_get_phy_from_pte(pte);
         if phy_addr > 0 {
             let start = my.vma.vma_inner.get_start();
             my.inner_flat
@@ -95,5 +94,4 @@ impl VMAPTGenerator<'_, '_> {
         }
         0
     }
-
 }

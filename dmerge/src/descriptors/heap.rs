@@ -1,16 +1,15 @@
-use mitosis::descriptors::{CompactPageTable, RDMADescriptor, RegDescriptor, VMADescriptor};
-use crate::KRdmaKit::rust_kernel_rdma_base::VmallocAllocator;
+use mitosis::descriptors::{RDMADescriptor, RegDescriptor, VMADescriptor};
 use alloc::vec::Vec;
 use mitosis::kern_wrappers::mm::{PhyAddrType, VirtAddrType};
 use mitosis::kern_wrappers::task::Task;
 use mitosis::os_network::bytes::BytesMut;
 use mitosis::remote_mapping::{PhysAddr, RemotePageTable, VirtAddr};
 use mitosis::remote_paging::AccessInfo;
-use crate::descriptors::HeapMeta;
 use crate::mitosis::linux_kernel_module;
 
 pub(crate) type Offset = u32;
 pub(crate) type Value = PhyAddrType;
+
 /// HeapDescriptor
 #[allow(dead_code)]
 pub struct HeapDescriptor {
@@ -35,9 +34,7 @@ impl Default for HeapDescriptor {
 impl HeapDescriptor {
     #[inline]
     pub fn apply_to(&mut self, file: *mut mitosis::bindings::file) {
-        use mitosis::linux_kernel_module;
-
-        let mut task = Task::new();
+        let task = Task::new();
 
         (&self.vma).into_iter().enumerate().for_each(|(i, m)| {
             // ensure only map into the heap space
@@ -110,7 +107,6 @@ impl HeapDescriptor {
         };
     }
 }
-
 
 
 impl crate::mitosis::os_network::serialize::Serialize for HeapDescriptor {
