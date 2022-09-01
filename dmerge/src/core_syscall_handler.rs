@@ -2,13 +2,8 @@ use alloc::string::String;
 use crate::descriptors::heap::HeapDescriptor;
 use crate::KRdmaKit::rust_kernel_rdma_base::linux_kernel_module::c_types::*;
 use crate::KRdmaKit::rust_kernel_rdma_base::linux_kernel_module::KernelResult;
-use crate::shadow_heap::{HeapBundler, ShadowHeap};
-use crate::descriptors::HeapMeta;
-use mitosis::descriptors::RDMADescriptor;
 use mitosis::remote_paging::AccessInfo;
-use mitosis::syscalls::FileOperations;
 use mitosis::os_network::bytes::ToBytes;
-use mitosis::os_network::serialize::Serialize;
 use mitosis::linux_kernel_module;
 use mitosis::os_network::block_on;
 use mitosis::os_network::timeout::TimeoutWRef;
@@ -107,8 +102,6 @@ impl DmergeSyscallHandler {
 
     // ioctrl-1
     fn syscall_pull(&mut self, _arg: c_ulong) -> c_long {
-        let heap_service = unsafe { crate::get_shs_mut() };
-        let hint = 73;
         let handler_id = 73;
         let machine_id = 0;
         let cpu_id = mitosis::get_calling_cpu_id();
@@ -209,7 +202,6 @@ impl DmergeSyscallHandler {
                         return -1;
                     }
                 }
-                return 0;
             }
             Err(e) => {
                 crate::log::error!("client receiver reply err {:?}", e);
@@ -261,11 +253,11 @@ unsafe extern "C" fn page_fault_handler(vmf: *mut crate::bindings::vm_fault) -> 
 impl DmergeSyscallHandler {
     #[inline(always)]
     unsafe fn handle_page_fault(&mut self, vmf: *mut crate::bindings::vm_fault) -> c_int {
-        use mitosis::linux_kernel_module;
+
         let fault_addr = (*vmf).address;
         let heap = self.caller_status.heaps.as_mut().unwrap();
 
-        let new_page = if let Some(pa) =
+        let new_page = if let Some(_pa) =
         heap.descriptor.lookup_pg_table(fault_addr) {
             let access_info = AccessInfo::new(&heap.descriptor.machine_info);
             if access_info.is_none() {

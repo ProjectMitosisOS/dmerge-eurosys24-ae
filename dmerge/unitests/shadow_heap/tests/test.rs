@@ -1,4 +1,4 @@
-use kernel_module_testlib::{dmesg_contains, with_kernel_module};
+use kernel_module_testlib::{with_kernel_module};
 use mitosis_rust_client::*;
 
 

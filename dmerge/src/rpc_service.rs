@@ -183,7 +183,7 @@ pub mod rpc_handlers {
                 }
             }
             None => {
-                crate::log::error!("Failed to find the handner with id: {}!", key);
+                crate::log::error!("Failed to find the handler with id: {}!", key);
                 HeapDescriptorQueryReply {
                     pa: 0,
                     sz: 0,

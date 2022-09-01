@@ -7,6 +7,7 @@ use crate::descriptors::HeapMeta;
 
 type COWPageTable = mitosis::shadow_process::page_table::ShadowPageTable<mitosis::shadow_process::COW4KPage>;
 
+#[allow(dead_code)]
 pub struct ShadowVMA<'a> {
     vma_inner: VMA<'a>,
     shadow_file: *mut file,
@@ -40,6 +41,7 @@ impl<'a> ShadowVMA<'a> {
     }
 }
 
+#[allow(dead_code)]
 pub(crate) struct VMAPTGenerator<'a, 'b> {
     vma: &'a ShadowVMA<'a>,
     inner: &'b mut COWPageTable,

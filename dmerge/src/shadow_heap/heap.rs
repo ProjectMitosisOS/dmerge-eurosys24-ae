@@ -12,7 +12,7 @@ use crate::descriptors::HeapMeta;
 
 #[allow(dead_code)]
 pub struct ShadowHeap {
-    pub descriptor: mitosis::descriptors::ParentDescriptor,
+    descriptor: mitosis::descriptors::ParentDescriptor,
 
     shadow_vmas: Vec<ShadowVMA<'static>>,
     // Use copy currently
