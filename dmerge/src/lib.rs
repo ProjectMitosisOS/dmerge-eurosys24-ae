@@ -13,14 +13,16 @@ extern crate alloc;
 pub mod core_syscall_handler;
 pub mod descriptors;
 pub mod shadow_heap;
+pub mod startup;
+
+
+mod rpc_service;
 /// Import MITOSIS
 pub use mitosis;
 pub use mitosis_macros;
 pub use mitosis::KRdmaKit;
 pub use mitosis::log;
 pub use mitosis::bindings;
-use mitosis::startup::{end_instance, start_instance};
-
 
 use crate::mitosis_macros::declare_global;
 pub use core_syscall_handler::DmergeSyscallHandler;
@@ -52,31 +54,4 @@ pub unsafe fn get_shs_ref() -> &'static crate::shadow_heap::ShadowHeapService {
 #[inline]
 pub unsafe fn get_shs_mut() -> &'static mut crate::shadow_heap::ShadowHeapService {
     crate::sh_service::get_mut()
-}
-
-pub fn start_dmerge() {
-    unsafe {
-        crate::heap_descriptor::init(Default::default());
-        crate::sh_service::init(Default::default());
-
-        // mitosis
-        {
-            let mut config: mitosis::Config = Default::default();
-            config
-                .set_num_nics_used(1)
-                .set_rpc_threads(2)
-                .set_init_dc_targets(12)
-                .set_machine_id(0 as usize);
-
-            assert!(start_instance(config.clone()).is_some());
-        }
-    }
-}
-
-pub fn end_dmerge() {
-    unsafe {
-        crate::heap_descriptor::drop();
-        crate::sh_service::drop();
-        end_instance();
-    };
 }

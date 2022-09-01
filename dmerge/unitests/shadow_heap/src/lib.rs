@@ -5,6 +5,7 @@ extern crate alloc;
 use dmerge::{mitosis, log};
 
 use mitosis::linux_kernel_module;
+use dmerge::mitosis::Config;
 use crate::mitosis::syscalls::SysCallsService;
 
 #[allow(dead_code)]
@@ -14,7 +15,13 @@ struct Module {
 
 impl linux_kernel_module::KernelModule for Module {
     fn init() -> linux_kernel_module::KernelResult<Self> {
-        dmerge::start_dmerge();
+        let mut config: Config = Default::default();
+        config
+            .set_num_nics_used(1)
+            .set_rpc_threads(2)
+            .set_init_dc_targets(12)
+            .set_machine_id(0 as usize);
+        dmerge::startup::start_dmerge(&config);
 
         Ok(Self {
             service: SysCallsService::<dmerge::DmergeSyscallHandler>::new()?,
@@ -24,7 +31,7 @@ impl linux_kernel_module::KernelModule for Module {
 
 impl Drop for Module {
     fn drop(&mut self) {
-        dmerge::end_dmerge();
+        dmerge::startup::end_dmerge();
         log::info!("drop system call modules");
     }
 }
