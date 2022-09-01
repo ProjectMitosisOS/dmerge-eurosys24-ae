@@ -37,7 +37,6 @@ fn init_rpc(config: &Config,
 
 pub fn start_dmerge(config: &Config) -> core::option::Option<()> {
     unsafe {
-        crate::heap_descriptor::init(Default::default());
         crate::sh_service::init(Default::default());
 
         // mitosis::startup::start_instance(config.clone())
@@ -49,7 +48,6 @@ pub fn start_dmerge(config: &Config) -> core::option::Option<()> {
 
 pub fn end_dmerge() {
     unsafe {
-        crate::heap_descriptor::drop();
         crate::sh_service::drop();
         mitosis::startup::end_instance();
     };

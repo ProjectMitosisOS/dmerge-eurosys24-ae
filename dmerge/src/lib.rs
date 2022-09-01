@@ -14,6 +14,8 @@ pub mod core_syscall_handler;
 pub mod descriptors;
 pub mod shadow_heap;
 pub mod startup;
+mod network;
+pub use network::*;
 
 
 mod rpc_service;
@@ -28,23 +30,11 @@ use crate::mitosis_macros::declare_global;
 pub use core_syscall_handler::DmergeSyscallHandler;
 
 
-declare_global!(heap_descriptor, crate::descriptors::heap::HeapDescriptor);
-
 declare_global!(
     sh_service,
     crate::shadow_heap::ShadowHeapService
 );
 
-
-#[inline]
-pub unsafe fn get_heap_descriptor_ref() -> &'static crate::descriptors::heap::HeapDescriptor {
-    crate::heap_descriptor::get_ref()
-}
-
-#[inline]
-pub unsafe fn get_heap_descriptor_mut() -> &'static mut crate::descriptors::heap::HeapDescriptor {
-    crate::heap_descriptor::get_mut()
-}
 
 #[inline]
 pub unsafe fn get_shs_ref() -> &'static crate::shadow_heap::ShadowHeapService {

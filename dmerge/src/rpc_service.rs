@@ -131,6 +131,7 @@ pub mod rpc_handlers {
     use mitosis::os_network::bytes::BytesMut;
     use core::fmt::Write;
     use mitosis::linux_kernel_module;
+    use mitosis::os_network::serialize::Serialize;
 
     #[derive(Debug)]
     #[repr(usize)]
@@ -143,20 +144,55 @@ pub mod rpc_handlers {
         Query = 3,
     }
 
+    #[derive(Debug, Default, Copy, Clone)]
+    pub(crate) struct HeapDescriptorQueryReply {
+        pub(crate) pa: u64,
+        pub(crate) sz: usize,
+        pub(crate) ready: bool,
+    }
+
+    impl mitosis::os_network::serialize::Serialize for HeapDescriptorQueryReply {}
+
     pub(crate) fn handle_nil(_input: &BytesMut, _output: &mut BytesMut) -> usize {
         64
     }
 
     pub(crate) fn handle_echo(input: &BytesMut, output: &mut BytesMut) -> usize {
         crate::log::info!("echo callback {:?}", input);
-        write!(output, "Hello from MITOSIS").unwrap();
+        write!(output, "Hello from DMERGE").unwrap();
         64
     }
 
     pub(crate) fn hanlde_query(input: &BytesMut, output: &mut BytesMut) -> usize {
-        crate::log::info!("echo callback {:?}", input);
-        write!(output, "Hello from MITOSIS").unwrap();
-        64
+        let mut key: usize = 0;
+
+        let heap_service = unsafe { crate::get_shs_mut() };
+        unsafe { input.memcpy_deserialize(&mut key) };
+
+        let buf = heap_service.query_descriptor_buf(key);
+        if buf.is_none() {
+            crate::log::error!("empty addr, key:{}!", key);
+            return 0;
+        }
+        let reply = match buf {
+            Some((addr,len)) => {
+                HeapDescriptorQueryReply{
+                    pa: addr.get_pa(),
+                    sz: len,
+                    ready: true
+                }
+            }
+            None => {
+                crate::log::error!("Failed to find the handner with id: {}!", key);
+                HeapDescriptorQueryReply {
+                    pa: 0,
+                    sz: 0,
+                    ready: false,
+                }
+            }
+        };
+        reply.serialize(output);
+        return reply.serialization_buf_len();
     }
 }
 
