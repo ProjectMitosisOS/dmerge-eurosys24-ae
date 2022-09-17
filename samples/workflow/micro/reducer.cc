@@ -1,8 +1,9 @@
 #include <assert.h>
-#include "../../dmerge-user-libs/include/syscall.h"
+#include "../../../dmerge-user-libs/include/syscall.h"
 #include <sys/mman.h>
 #include <fcntl.h>
-#include "../include/allocator.hh"
+#include "../../include/allocator.hh"
+#include "include.h"
 
 using Alloc = AllocatorMaster<73>;
 
@@ -13,9 +14,9 @@ main() {
     uint64_t addr = 0x4ffff5a00000;
     void *ptr = (void *) addr;
 
-    int res = *(int *) ptr;
+    Info res = *(Info *) ptr;
 
-    std::cout << std::dec << "res:" << res << std::endl;
+    std::cout << std::dec << "res:" << res.len << std::endl;
 
     std::cout << "end" << std::endl;
     return 0;
