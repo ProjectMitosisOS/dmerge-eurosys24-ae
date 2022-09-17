@@ -1,0 +1,10 @@
+project(simple_cpp_examples)
+ADD_DEFINITIONS(-std=c++17)
+cmake_minimum_required(VERSION 3.2)
+set(CMAKE_CXX_FLAGS "-O2")
+
+add_executable(mapper mapper.cc)
+set(samples mapper)
+foreach(s ${samples})
+    target_link_libraries(${s} pthread)
+endforeach(s)

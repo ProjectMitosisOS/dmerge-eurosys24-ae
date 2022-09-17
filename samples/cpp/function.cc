@@ -2,7 +2,7 @@
 #include "../../dmerge-user-libs/include/syscall.h"
 #include <sys/mman.h>
 #include <fcntl.h>
-#include "include/allocator.hh"
+#include "../include/allocator.hh"
 
 using Alloc = AllocatorMaster<73>;
 
