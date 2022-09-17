@@ -102,8 +102,7 @@ impl DmergeSyscallHandler {
 
     // ioctrl-1
     fn syscall_pull(&mut self, _arg: c_ulong) -> c_long {
-        let handler_id = 73;
-        let machine_id = 0;
+        let (handler_id, machine_id) = (73, 0); // TODO: Use as ioctl args
         let cpu_id = mitosis::get_calling_cpu_id();
 
         // TODO: use as syscall
@@ -253,7 +252,6 @@ unsafe extern "C" fn page_fault_handler(vmf: *mut crate::bindings::vm_fault) -> 
 impl DmergeSyscallHandler {
     #[inline(always)]
     unsafe fn handle_page_fault(&mut self, vmf: *mut crate::bindings::vm_fault) -> c_int {
-
         let fault_addr = (*vmf).address;
         let heap = self.caller_status.heaps.as_mut().unwrap();
 
