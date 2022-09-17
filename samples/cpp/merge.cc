@@ -15,7 +15,7 @@ main() {
 
     int res = *(int *) ptr;
 
-    std::cout << "res:" << res << std::endl;
+    std::cout << std::dec << "res:" << res << std::endl;
 
     std::cout << "end" << std::endl;
     return 0;
