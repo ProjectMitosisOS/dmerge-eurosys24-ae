@@ -37,6 +37,11 @@ spec:
         - name: helloworld-python
           image: caribouf/py-mapper
           imagePullPolicy: Always
+          env:
+            - name: CE_SPECVERSION
+              value: "0.3"
+            - name: CE_TYPE
+              value: "dev.knative.samples.helloworld"
 ---
 # Service that exposes helloworld-python app.
 # This will be the subscriber for the Trigger
@@ -46,12 +51,14 @@ metadata:
   name: helloworld-python
   namespace: knative-samples
 spec:
+  type: NodePort
   selector:
     app: helloworld-python
   ports:
     - protocol: TCP
       port: 80
       targetPort: 8080
+      nodePort: 30000
 ---
 
 apiVersion: apps/v1
