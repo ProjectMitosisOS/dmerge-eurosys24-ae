@@ -6,11 +6,12 @@ include(deps/deps.cmake)
 
 find_library(jemalloc_lib NAMES jemalloc PATHS ./deps/jemalloc PATH_SUFFIXES lib
         NO_DEFAULT_PATH)
+SET(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin) # Executable output path
 
-if(NOT jemalloc_lib)
+
+if (NOT jemalloc_lib)
     set(jemalloc_lib "")
-endif()
-
+endif ()
 
 
 set(samples
@@ -21,9 +22,9 @@ add_executable(function samples/cpp/function.cc)
 add_executable(merge samples/cpp/merge.cc)
 add_executable(micro-mapper samples/workflow/micro/mapper.cc)
 add_executable(micro-reducer samples/workflow/micro/reducer.cc)
-foreach(s ${samples})
+foreach (s ${samples})
     target_link_libraries(${s} pthread ${jemalloc_lib})
-    add_dependencies(${s} jemalloc )
-endforeach(s)
+    add_dependencies(${s} jemalloc)
+endforeach (s)
 
 

@@ -1,0 +1,13 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: mr-mapper
+  namespace: default
+spec:
+  template:
+    spec:
+      containers:
+        - image: docker.io/caribouf/mr-mapper
+          env: ## TODO: Add more container env
+            - name: TARGET
+              value: "Go Sample v1"

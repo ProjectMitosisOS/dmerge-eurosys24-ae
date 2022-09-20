@@ -6,7 +6,7 @@
 #include "include.h"
 
 using Alloc = AllocatorMaster<73>;
-
+static const uint64_t heap_addr = 0x4ffff5a00000;
 
 /**
  * Init the heap with heap start virtual addr and heap size
@@ -26,7 +26,7 @@ static void *prepare_heap(uint64_t heap_start, uint64_t heap_sz) {
 
 
 int main() {
-    auto heap_ptr = prepare_heap(0x4ffff5a00000, 1024 * 1024 * 1024);
+    auto heap_ptr = prepare_heap(heap_addr, 1024 * 1024 * 1024);
     for (int i = 0; i < 6; ++i) {
         char *tmp = (char *) (Alloc::get_thread_allocator()->alloc(4096));
         (*(int *) tmp) = 1024 * (i + 2);
