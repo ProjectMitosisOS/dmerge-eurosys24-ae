@@ -1,0 +1,15 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: helloworld-rust
+  namespace: default
+spec:
+  template:
+    spec:
+      containers:
+        - image: docker.io/caribouf/helloworld-rust
+          name: helloworld-rust
+          imagePullPolicy: Always
+          env:
+            - name: TARGET
+              value: "Rust Sample v1"
