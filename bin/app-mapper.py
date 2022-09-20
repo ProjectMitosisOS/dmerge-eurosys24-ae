@@ -14,12 +14,12 @@ def hello_world():
     })
     response.headers["Ce-Id"] = str(uuid.uuid4())
     response.headers["Ce-specversion"] = "0.3"
-    response.headers["Ce-Source"] = "knative/eventing/samples/hello-world"
-    response.headers["Ce-Type"] = "dev.knative.samples.replytosink"
+    response.headers["Ce-Type"] = "dev.knative.samples.helloworld"
+    response.headers["Ce-Source"] = "knative/eventing/samples/faas"
     return response
 
 
-@app.route('/start')
+@app.route('/trigger')
 def start():
     register_url = "http://broker-ingress.knative-eventing.svc.cluster.local/knative-samples/default"
     header = {

@@ -35,7 +35,7 @@ spec:
     spec:
       containers:
         - name: helloworld-python
-          image: docker.io/caribouf/py-mapper
+          image: caribouf/py-mapper
           imagePullPolicy: Always
 ---
 # Service that exposes helloworld-python app.
@@ -118,8 +118,8 @@ spec:
   broker: default
   filter:
     attributes:
-      type: dev.knative.samples.replytosink
-      source: knative/eventing/samples/hello-world
+      type: dev.knative.samples.helloworld
+      source: knative/eventing/samples/faas
   subscriber:
     ref:
       apiVersion: v1
