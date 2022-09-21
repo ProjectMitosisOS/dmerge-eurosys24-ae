@@ -16,3 +16,4 @@ hyper = { version = "0.14", features = ["full"] }
 tokio = { version = "1.21.0", features = ["full"] }
 serde = "1.0.144"
 futures = "0.3.23"
+async-std = { version = "1", features = ["attributes", "tokio1"] }

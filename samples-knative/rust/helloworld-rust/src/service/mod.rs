@@ -1,8 +1,8 @@
-use cloudevents::{AttributesWriter, Event, EventBuilder, EventBuilderV10};
+use cloudevents::{ Event, EventBuilder, EventBuilderV10};
 use serde_json::json;
-use actix_web::{get, post, App, HttpServer, web, HttpRequest, error, HttpResponse, HttpResponseBuilder};
+use actix_web::{get, post, web, HttpRequest, error, HttpResponse, HttpResponseBuilder};
 use actix_web::http::StatusCode;
-use cloudevents::binding::actix::{HttpRequestExt, HttpResponseBuilderExt};
+use cloudevents::binding::actix::{HttpRequestExt};
 use cloudevents::binding::reqwest::RequestBuilderExt;
 use serde::{Deserialize, Serialize};
 use futures::StreamExt;
@@ -59,7 +59,6 @@ pub async fn trigger() -> Event {
         println!("send res is ok:{:?}", rep);
     }
 
-    let payload = json!({"hello": "trigger"});
     event
 }
 

@@ -1,10 +1,5 @@
 use std::collections::HashMap;
 use std::thread;
-use actix_web::HttpResponse;
-use cloudevents::EventBuilderV10;
-use futures::executor::block_on;
-use reqwest::Response;
-use serde_json::json;
 use crate::{MapperRequest, ReducerRequest};
 
 pub async fn handle_split() {
@@ -17,13 +12,15 @@ pub async fn handle_split() {
 69920216438980873548808413720956532
 16278424637452589860345374828574668";
     let chunked_data = data.split_whitespace();
-    let client = reqwest::Client::new();
     for (i, data_segment) in chunked_data.enumerate() {
-        // Calculate the intermediate sum of this segment:
         println!("data segment {} is \"{}\"", i, data_segment);
-        let _ = client.post("http://localhost:8080/map")
-            .json(&MapperRequest { chunk_data: String::from(data_segment) })
-            .send().await;
+        thread::spawn(move || {
+            // Calculate the intermediate sum of this segment:
+            let _ = reqwest::blocking::Client::new()
+                .post("http://localhost:8080/map")
+                .json(&MapperRequest { chunk_data: String::from(data_segment) })
+                .send();
+        });
     }
 }
 
@@ -48,6 +45,7 @@ pub fn handle_reducer(reducer_input: u32) {
 
 
 // Example from https://doc.rust-lang.org/rust-by-example/std_misc/threads/testcase_mapreduce.html
+#[allow(dead_code)]
 pub fn mr_example() {
     let mut map = HashMap::new();
     map.insert("lang", "rust");

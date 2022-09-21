@@ -1,9 +1,6 @@
 #![feature(async_closure)]
 
 use actix_web::{App, HttpServer};
-use cloudevents::{Event, EventBuilder, EventBuilderV10};
-use serde_json::json;
-use crate::handler::mr_example;
 
 mod service;
 mod util;
@@ -14,7 +11,7 @@ use crate::util::*;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    std::env::set_var("RUST_LOG", "actix_server=info,actix_web=info");
+    // std::env::set_var("RUST_LOG", "actix_server=info,actix_web=info");
     env_logger::init();
 
     HttpServer::new(|| {
