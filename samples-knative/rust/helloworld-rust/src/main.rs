@@ -1,6 +1,7 @@
 use actix_web::{App, HttpServer};
 use cloudevents::{Event, EventBuilder, EventBuilderV10};
 use serde_json::json;
+use crate::handler::mr_example;
 
 mod service;
 mod util;
@@ -8,11 +9,13 @@ mod handler;
 
 use crate::service::*;
 use crate::util::*;
+
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     std::env::set_var("RUST_LOG", "actix_server=info,actix_web=info");
     env_logger::init();
 
+    mr_example();
     HttpServer::new(|| {
         App::new()
             .wrap(actix_cors::Cors::permissive())
