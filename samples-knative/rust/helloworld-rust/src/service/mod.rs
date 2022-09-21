@@ -6,7 +6,7 @@ use cloudevents::binding::actix::{HttpRequestExt, HttpResponseBuilderExt};
 use cloudevents::binding::reqwest::RequestBuilderExt;
 use serde::{Deserialize, Serialize};
 use futures::StreamExt;
-use crate::handler::{handle_mapper, handle_reducer};
+use crate::handler::{handle_mapper, handle_reducer, handle_split};
 
 
 const MAX_SIZE: usize = 262_144;
@@ -64,9 +64,22 @@ pub async fn trigger() -> Event {
 }
 
 #[derive(Serialize, Deserialize, Clone)]
-struct MapperRequest {
-    username: String,
+pub struct MapperRequest {
+    pub chunk_data: String,
 }
+
+#[derive(Serialize, Deserialize, Clone)]
+pub struct ReducerRequest {
+    pub sum: u32,
+}
+
+#[get("/split")]
+pub async fn splitter() -> Result<HttpResponse, actix_web::Error> {
+    handle_split().await;
+    Ok(HttpResponseBuilder::new(StatusCode::OK)
+        .json(json!({"user": "python"})))
+}
+
 
 #[post("/map")]
 pub async fn mapper(req: HttpRequest,
@@ -83,11 +96,7 @@ pub async fn mapper(req: HttpRequest,
 
     // body is loaded, now we can deserialize serde-json
     let obj = serde_json::from_slice::<MapperRequest>(&body)?;
-    println!("hello name:{:?}", obj.username);
-    let mut event = req.to_event(payload).await?;
-    event.set_source(obj.username);
-
-    handle_mapper();
+    handle_mapper(&*obj.chunk_data).await;
 
     Ok(HttpResponseBuilder::new(StatusCode::OK)
         .json(json!({"user": "mapper"})))
@@ -96,9 +105,18 @@ pub async fn mapper(req: HttpRequest,
 #[post("/reduce")]
 pub async fn reducer(req: HttpRequest,
                      mut payload: web::Payload) -> Result<HttpResponse, actix_web::Error> {
-    let mut event = req.to_event(payload).await?;
+    let mut body = web::BytesMut::new();
+    while let Some(chunk) = payload.next().await {
+        let chunk = chunk?;
+        // limit max size of in-memory payload
+        if (body.len() + chunk.len()) > MAX_SIZE {
+            return Err(error::ErrorBadRequest("overflow"));
+        }
+        body.extend_from_slice(&chunk);
+    }
+    let obj = serde_json::from_slice::<ReducerRequest>(&body)?;
 
-    handle_reducer();
+    handle_reducer(obj.sum);
     Ok(HttpResponseBuilder::new(StatusCode::OK)
         .json(json!({"user": "python"})))
 }

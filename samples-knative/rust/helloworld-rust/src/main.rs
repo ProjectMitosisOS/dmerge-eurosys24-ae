@@ -1,3 +1,5 @@
+#![feature(async_closure)]
+
 use actix_web::{App, HttpServer};
 use cloudevents::{Event, EventBuilder, EventBuilderV10};
 use serde_json::json;
@@ -15,18 +17,18 @@ async fn main() -> std::io::Result<()> {
     std::env::set_var("RUST_LOG", "actix_server=info,actix_web=info");
     env_logger::init();
 
-    mr_example();
     HttpServer::new(|| {
         App::new()
             .wrap(actix_cors::Cors::permissive())
             .wrap(actix_web::middleware::Logger::default())
             .service(post_event)
             .service(get_event)
+            .service(splitter)
             .service(trigger)
             .service(mapper)
             .service(reducer)
     }).bind("127.0.0.1:8080")?
-        .workers(1)
+        .workers(12)
         .run()
         .await
 }
