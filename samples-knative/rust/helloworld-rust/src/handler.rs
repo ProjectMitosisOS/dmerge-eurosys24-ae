@@ -47,10 +47,6 @@ pub fn handle_reducer(reducer_input: u32) {
 // Example from https://doc.rust-lang.org/rust-by-example/std_misc/threads/testcase_mapreduce.html
 #[allow(dead_code)]
 pub fn mr_example() {
-    let mut map = HashMap::new();
-    map.insert("lang", "rust");
-    map.insert("body", "json");
-
     let data = "86967897737416471853297327050364959
 11861322575564723963297542624962850
 70856234701860851907960690014725639
