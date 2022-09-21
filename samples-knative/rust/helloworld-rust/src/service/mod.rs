@@ -1,8 +1,17 @@
 use cloudevents::{AttributesWriter, Event, EventBuilder, EventBuilderV10};
 use serde_json::json;
-use actix_web::{get, post, App, HttpServer};
+use actix_web::{get, post, App, HttpServer, web, HttpRequest, error, HttpResponse, HttpResponseBuilder};
+use actix_web::http::StatusCode;
+use cloudevents::binding::actix::{HttpRequestExt, HttpResponseBuilderExt};
 use cloudevents::binding::reqwest::RequestBuilderExt;
+use serde::{Deserialize, Serialize};
+use futures::StreamExt;
+use crate::handler::{handle_mapper, handle_reducer};
 
+
+const MAX_SIZE: usize = 262_144;
+
+// max payload size is 256k
 #[post("/")]
 pub async fn post_event(event: Event) -> Event {
     println!("Received Event: {:?}", event);
@@ -54,14 +63,42 @@ pub async fn trigger() -> Event {
     event
 }
 
-#[get("/map")]
-pub async fn mapper(mut event: Event) -> Event {
-    let payload = json!({"hello": "world"});
-    event.set_source("new source");
-    event
+#[derive(Serialize, Deserialize, Clone)]
+struct MapperRequest {
+    username: String,
+}
+
+#[post("/map")]
+pub async fn mapper(req: HttpRequest,
+                    mut payload: web::Payload) -> Result<HttpResponse, actix_web::Error> {
+    let mut body = web::BytesMut::new();
+    while let Some(chunk) = payload.next().await {
+        let chunk = chunk?;
+        // limit max size of in-memory payload
+        if (body.len() + chunk.len()) > MAX_SIZE {
+            return Err(error::ErrorBadRequest("overflow"));
+        }
+        body.extend_from_slice(&chunk);
+    }
+
+    // body is loaded, now we can deserialize serde-json
+    let obj = serde_json::from_slice::<MapperRequest>(&body)?;
+    println!("hello name:{:?}", obj.username);
+    let mut event = req.to_event(payload).await?;
+    event.set_source(obj.username);
+
+    handle_mapper();
+
+    Ok(HttpResponseBuilder::new(StatusCode::OK)
+        .json(json!({"user": "mapper"})))
 }
 
 #[post("/reduce")]
-pub async fn reducer(mut event: Event) -> Event {
-    event
+pub async fn reducer(req: HttpRequest,
+                     mut payload: web::Payload) -> Result<HttpResponse, actix_web::Error> {
+    let mut event = req.to_event(payload).await?;
+
+    handle_reducer();
+    Ok(HttpResponseBuilder::new(StatusCode::OK)
+        .json(json!({"user": "python"})))
 }
