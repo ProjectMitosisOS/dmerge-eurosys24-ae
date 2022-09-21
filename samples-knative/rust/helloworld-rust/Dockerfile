@@ -10,7 +10,7 @@ COPY . .
 RUN cargo install --path .
 
 
-FROM scratch
+FROM python:3.7
 COPY --from=builder /usr/src/app/target/release/hellorust /hellorust
 
 CMD ["/hellorust"]

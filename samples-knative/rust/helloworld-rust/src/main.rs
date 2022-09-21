@@ -1,42 +1,27 @@
-use std::env;
-use actix_web::{get, post, web, App, HttpServer, Responder, HttpResponse};
+use actix_web::{App, HttpServer};
+use cloudevents::{Event, EventBuilder, EventBuilderV10};
+use serde_json::json;
+use crate::service::*;
 
-#[get("/")]
-async fn hello() -> impl Responder {
-    HttpResponse::Ok().body("Hello world!")
-}
+mod service;
 
-#[post("/echo")]
-async fn echo(req_body: String) -> impl Responder {
-    HttpResponse::Ok().body(req_body)
-}
-
-
-#[get("/hello/{name}")]
-async fn greet(name: web::Path<String>) -> impl Responder {
-    format!("Hello {name}!")
-}
-
-fn get_port() -> u16 {
-    let mut port: u16 = 8080;
-    match env::var("PORT") {
-        Ok(p) => {
-            match p.parse::<u16>() {
-                Ok(n) => {
-                    port = n;
-                }
-                Err(_e) => {}
-            };
-        }
-        Err(_e) => {}
-    }
-    port
-}
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    HttpServer::new(|| { App::new() })
-        .bind(("127.0.0.1", get_port()))?
+    std::env::set_var("RUST_LOG", "actix_server=info,actix_web=info");
+    env_logger::init();
+
+    HttpServer::new(|| {
+        App::new()
+            .wrap(actix_cors::Cors::permissive())
+            .wrap(actix_web::middleware::Logger::default())
+            .service(post_event)
+            .service(get_event)
+            .service(trigger)
+            .service(mapper)
+            .service(reducer)
+    }).bind("127.0.0.1:8080")?
+        .workers(1)
         .run()
         .await
 }
