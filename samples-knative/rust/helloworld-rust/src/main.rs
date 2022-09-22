@@ -1,5 +1,3 @@
-#![feature(async_closure)]
-
 use actix_web::{App, HttpServer};
 
 mod service;
@@ -18,7 +16,7 @@ async fn main() -> std::io::Result<()> {
         App::new()
             .wrap(actix_cors::Cors::permissive())
             .wrap(actix_web::middleware::Logger::default())
-            .service(post_event)
+            .service(faas_entry)
             .service(get_event)
             .service(splitter)
             .service(trigger)

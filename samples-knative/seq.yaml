@@ -1,0 +1,94 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: first
+spec:
+  template:
+    spec:
+      containers:
+        - image: gcr.io/knative-releases/knative.dev/eventing-contrib/cmd/appender
+          env:
+            - name: MESSAGE
+              value: " - Handled by 0"
+
+---
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: second
+spec:
+  template:
+    spec:
+      containers:
+        - image: gcr.io/knative-releases/knative.dev/eventing-contrib/cmd/appender
+          env:
+            - name: MESSAGE
+              value: " - Handled by 1"
+            - name: TYPE
+              value: "samples.http.mod3"
+---
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: third
+spec:
+  template:
+    spec:
+      containers:
+        - image: gcr.io/knative-releases/knative.dev/eventing-contrib/cmd/appender
+          env:
+            - name: MESSAGE
+              value: " - Handled by 2"
+            - name: TYPE
+              value: "samples.http.mod4"
+---
+apiVersion: flows.knative.dev/v1
+kind: Sequence
+metadata:
+  name: sequence
+spec:
+  channelTemplate:
+    apiVersion: messaging.knative.dev/v1
+    kind: InMemoryChannel
+  steps:
+    - ref:
+        apiVersion: serving.knative.dev/v1
+        kind: Service
+        name: first
+    - ref:
+        apiVersion: serving.knative.dev/v1
+        kind: Service
+        name: second
+    - ref:
+        apiVersion: serving.knative.dev/v1
+        kind: Service
+        name: third
+  reply:
+    ref:
+      kind: Service
+      apiVersion: serving.knative.dev/v1
+      name: event-display
+---
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: event-display
+spec:
+  template:
+    spec:
+      containers:
+        - image: gcr.io/knative-releases/knative.dev/eventing-contrib/cmd/event_display
+---
+apiVersion: sources.knative.dev/v1beta2
+kind: PingSource
+metadata:
+  name: ping-source
+spec:
+  schedule: "*/1 * * * *"
+  contentType: "application/json"
+  data: '{"message": "Hello world!"}'
+  sink:
+    ref:
+      apiVersion: flows.knative.dev/v1
+      kind: Sequence
+      name: sequence
