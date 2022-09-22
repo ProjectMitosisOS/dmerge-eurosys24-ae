@@ -1,0 +1,78 @@
+---
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: even-transformer
+spec:
+  template:
+    spec:
+      containers:
+        - image: villardl/transformer-nodejs
+          env:
+            - name: TRANSFORMER
+              value: |
+                ({"message": "we are even!"})
+
+---
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: odd-transformer
+spec:
+  template:
+    spec:
+      containers:
+        - image: villardl/transformer-nodejs:0.1
+          env:
+            - name: TRANSFORMER
+              value: |
+                ({"message": "this is odd!"})
+---
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: event-display
+spec:
+  template:
+    spec:
+      containers:
+        - image: gcr.io/knative-releases/knative.dev/eventing-contrib/cmd/event_display
+---
+apiVersion: flows.knative.dev/v1
+kind: Parallel
+metadata:
+  name: odd-even-parallel
+spec:
+  channelTemplate:
+    apiVersion: messaging.knative.dev/v1
+    kind: InMemoryChannel
+  branches:
+    - subscriber:
+        ref:
+          apiVersion: serving.knative.dev/v1
+          kind: Service
+          name: even-transformer
+    - subscriber:
+        ref:
+          apiVersion: serving.knative.dev/v1
+          kind: Service
+          name: odd-transformer
+  reply:
+    ref:
+      apiVersion: serving.knative.dev/v1
+      kind: Service
+      name: event-display
+---
+apiVersion: sources.knative.dev/v1beta2
+kind: PingSource
+metadata:
+  name: ping-source
+spec:
+  schedule: "*/1 * * * *"
+  contentType: "application/json"
+  data: '{"message": "Even or odd?"}'
+  sink:
+    ref:
+      apiVersion: flows.knative.dev/v1
+      kind: Parallel
+      name: odd-even-parallel
