@@ -10,6 +10,18 @@ const CE_SPLITTER: &str = "splitter";
 const CE_MAPPER: &str = "mapper";
 const CE_REDUCER: &str = "reducer";
 
+fn handle_split() {
+    println!("I'm in split");
+}
+
+fn handle_mapper() {
+    println!("I'm in mapper");
+}
+
+fn handle_reducer() {
+    println!("I'm in reducer");
+}
+
 pub(crate) fn handle_ce(event: &mut Event) -> Result<String, actix_web::Error> {
     let (datacontenttype, dataschema, data) = event.take_data();
 
@@ -19,10 +31,17 @@ pub(crate) fn handle_ce(event: &mut Event) -> Result<String, actix_web::Error> {
         let res = serde_json::Value::try_from(data).unwrap();
         // let u: MapperRequest = serde_json::from_value(res).unwrap();
     }
+    // ingress ce type
     match event.ty() {
-        CE_SPLITTER => {}
-        CE_MAPPER => {}
-        CE_REDUCER => {}
+        CE_SPLITTER => {
+            handle_split();
+        }
+        CE_MAPPER => {
+            handle_mapper();
+        }
+        CE_REDUCER => {
+            handle_reducer();
+        }
         _ => {}
     };
 

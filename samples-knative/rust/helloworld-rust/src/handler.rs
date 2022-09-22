@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::thread;
+
 use crate::{MapperRequest, ReducerRequest};
 
 pub async fn handle_split() {
