@@ -10,6 +10,11 @@ const CE_SPLITTER: &str = "splitter";
 const CE_MAPPER: &str = "mapper";
 const CE_REDUCER: &str = "reducer";
 
+fn handle_trigger() {
+    println!("I'm in trigger");
+}
+
+
 fn handle_split() {
     println!("I'm in split");
 }
@@ -23,6 +28,7 @@ fn handle_reducer() {
 }
 
 pub(crate) fn handle_ce(event: &mut Event) -> Result<String, actix_web::Error> {
+    println!("get ce {:?}", event);
     let (datacontenttype, dataschema, data) = event.take_data();
 
     // Handle body
@@ -42,7 +48,9 @@ pub(crate) fn handle_ce(event: &mut Event) -> Result<String, actix_web::Error> {
         CE_REDUCER => {
             handle_reducer();
         }
-        _ => {}
+        _ => {
+            handle_trigger();
+        }
     };
 
     // Update egress event type

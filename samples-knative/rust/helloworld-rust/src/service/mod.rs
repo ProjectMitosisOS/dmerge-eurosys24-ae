@@ -2,7 +2,7 @@ mod cloud_event;
 
 use std::convert::TryFrom;
 use std::env;
-use cloudevents::{AttributesWriter, Event, EventBuilder, EventBuilderV10};
+use cloudevents::{AttributesReader, AttributesWriter, Event, EventBuilder, EventBuilderV10};
 use serde_json::json;
 use actix_web::{get, post, web, HttpRequest, error, HttpResponse, HttpResponseBuilder};
 use actix_web::http::StatusCode;
@@ -18,9 +18,12 @@ const MAX_SIZE: usize = 262_144;
 
 #[post("/")]
 pub async fn faas_entry(mut event: Event) -> Result<HttpResponse, actix_web::Error> {
+    let source = event.source().as_str().to_string();
     let egress_ce_type = handle_ce(&mut event)?;
-    event.set_type(egress_ce_type);
+
+    event.set_source(source);
     event.set_data("application/json", json!({"status":"ok"}));
+    event.set_type(egress_ce_type);
     HttpResponseBuilder::new(StatusCode::OK)
         .event(event)
 }
