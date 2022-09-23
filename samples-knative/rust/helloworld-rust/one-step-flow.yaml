@@ -36,6 +36,8 @@ spec:
           env:
             - name: CeType
               value: "mapper"
+            - name: ServiceName
+              value: "rust-splitter"
 ---
 apiVersion: flows.knative.dev/v1
 kind: Sequence

@@ -3,12 +3,16 @@ use actix_web::http::StatusCode;
 use cloudevents::binding::actix::HttpResponseBuilderExt;
 use cloudevents::Event;
 use serde_json::json;
+use qstring::QString;
 
 /// Fetch origin data
 #[get("/dataflow/fetch/origin")]
 pub async fn df_fetch_origin(req: HttpRequest,
                              mut payload: web::Payload) -> Result<HttpResponse, actix_web::Error> {
-    println!("fetch inner df_fetch_origin!");
+    let qs = QString::from(req.query_string());
+    let data_loc = qs.get("dataloc")
+        .ok_or(actix_web::error::ErrorInternalServerError("not found query string"))?;
+    println!("fetch inner df_fetch_origin, query dataloc:{}", data_loc);
     Ok(HttpResponseBuilder::new(StatusCode::OK)
         .json(json!({"user": "mapper"})))
 }

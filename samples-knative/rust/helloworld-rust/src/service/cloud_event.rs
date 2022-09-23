@@ -18,8 +18,7 @@ const DATA_DATA_LOC_KEY: &str = "data_loc";
 /// Access other knative service in same ns: https://github.com/knative/serving/issues/6155
 /// TODO: Check Isio-injection in the https://knative.dev/docs/install/installing-istio
 fn handle_trigger(data: &HashMap<String, String>) -> HashMap<String, String> {
-    println!("I'm in trigger");
-
+    // println!("I'm in trigger");
     let mut data = data.clone();
 
     let (service_name, revision, path) = (
@@ -29,23 +28,38 @@ fn handle_trigger(data: &HashMap<String, String>) -> HashMap<String, String> {
     data.insert(DATA_NW_ADDR_KEY.to_string(),
                 format!("http://{}-{}-private{}", service_name, revision, path));
 
-    data.insert(DATA_DATA_LOC_KEY.to_string(), 73.to_string());
+    data.insert(DATA_DATA_LOC_KEY.to_string(), 2048.to_string());
     data
 }
 
 
 fn handle_split(data: &HashMap<String, String>) -> HashMap<String, String> {
-    println!("I'm in split, data:{:?}", data);
+    // println!("I'm in split, data:{:?}", data);
     let mut ret_data = data.clone();
     if let Some(remote_nw_addr) = data.get(DATA_NW_ADDR_KEY) {
+        let data_loc = if let Some(d) = data.get(DATA_DATA_LOC_KEY) {
+            d
+        } else { "73" };
         let response = reqwest::blocking::Client::new()
             .get(remote_nw_addr)
-            .send();
-        if response.is_ok() {
-            println!("fetch origin data succ");
-        } else {
-            println!("fetch origin data error");
-        }
+            .query(&[("dataloc", data_loc)])
+            .send()
+            .expect("fail to get response")
+            .text()
+            .expect("fail to get text");
+
+        println!("response:{}", response);
+
+
+        // Assemble data flow meta
+        let (service_name, revision, path) = (
+            fetch_env(SERVICE_NAME_ENV_KEY, "default"),
+            fetch_env(REVISION_ENV_KEY, "00001"),
+            "/dataflow/fetch/split");
+        ret_data.insert(DATA_NW_ADDR_KEY.to_string(),
+                        format!("http://{}-{}-private{}", service_name, revision, path));
+
+        ret_data.insert(DATA_DATA_LOC_KEY.to_string(), 4096.to_string());
     }
     ret_data
 }
