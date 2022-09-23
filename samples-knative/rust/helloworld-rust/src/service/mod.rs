@@ -27,7 +27,7 @@ pub async fn faas_entry(mut event: Event) -> Result<HttpResponse, actix_web::Err
 
 #[get("/")]
 pub async fn get_event() -> Event {
-    let payload = json!({"hello": "worlds"});
+    let payload = json!({"hello": "world"});
 
     EventBuilderV10::new()
         .id("0001")
