@@ -12,7 +12,7 @@ static void test_allocator() {
     uint64_t mem_sz = 1024 * 1024 * 1024;
     auto ptr = mmap((void *) 0x4ffff5a00000, mem_sz,
                     PROT_READ | PROT_WRITE | PROT_EXEC,
-                    MAP_SHARED | MAP_ANON, -1, 0);
+                    MAP_PRIVATE | MAP_ANON, -1, 0);
 
 
     Alloc::init((char *) ptr, mem_sz);

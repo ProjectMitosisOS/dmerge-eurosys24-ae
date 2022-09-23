@@ -1,0 +1,77 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: event-display
+spec:
+  template:
+    spec:
+      containers:
+        - image: gcr.io/knative-releases/knative.dev/eventing-contrib/cmd/event_display
+---
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: rust-trigger
+spec:
+  template:
+    spec:
+      containers:
+        - image: caribouf/helloworld-rust
+          env:
+            - name: CeType
+              value: "splitter"
+            - name: ServiceName
+              value: "rust-trigger"
+
+---
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: rust-splitter
+spec:
+  template:
+    spec:
+      containers:
+        - image: caribouf/helloworld-rust
+          env:
+            - name: CeType
+              value: "mapper"
+            - name: ServiceName
+              value: "rust-splitter"
+---
+apiVersion: flows.knative.dev/v1
+kind: Sequence
+metadata:
+  name: split-handle-seq
+spec:
+  channelTemplate:
+    apiVersion: messaging.knative.dev/v1
+    kind: InMemoryChannel
+  steps:
+    - ref:
+        apiVersion: serving.knative.dev/v1
+        kind: Service
+        name: rust-trigger
+    - ref:
+        apiVersion: serving.knative.dev/v1
+        kind: Service
+        name: rust-splitter
+  reply:
+    ref:
+      apiVersion: serving.knative.dev/v1
+      kind: Service
+      name: event-display
+---
+apiVersion: sources.knative.dev/v1beta2
+kind: PingSource
+metadata:
+  name: ping-source
+spec:
+  schedule: "*/1 * * * *"
+  contentType: "application/json"
+  data: '{"message": "Hello world!"}'
+  sink:
+    ref:
+      apiVersion: flows.knative.dev/v1
+      kind: Sequence
+      name: split-handle-seq

@@ -4,6 +4,7 @@
 #include <fcntl.h>
 #include "../../include/allocator.hh"
 #include "include.h"
+static const uint64_t heap_addr = 0x4ffff5a00000;
 
 using Alloc = AllocatorMaster<73>;
 
@@ -11,8 +12,7 @@ int
 main() {
     int sd = sopen();
     call_pull(sd); // merge (pull)
-    uint64_t addr = 0x4ffff5a00000;
-    void *ptr = (void *) addr;
+    void *ptr = (void *) heap_addr;
 
     Info res = *(Info *) ptr;
 
