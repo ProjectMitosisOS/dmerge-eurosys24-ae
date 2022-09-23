@@ -92,3 +92,22 @@ spec:
       apiVersion: flows.knative.dev/v1
       kind: Sequence
       name: sequence
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: demo
+spec:
+  selector:
+
+  template:
+    spec:
+      containers:
+        - name: java
+          image: java
+          env:
+            - name: ServiceName
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name

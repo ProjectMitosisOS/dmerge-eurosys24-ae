@@ -35,7 +35,7 @@ fn handle_trigger(data: &HashMap<String, String>) -> HashMap<String, String> {
 
 fn handle_split(data: &HashMap<String, String>) -> HashMap<String, String> {
     // println!("I'm in split, data:{:?}", data);
-    let mut ret_data = data.clone();
+    let mut ret_data = Default::default();
     if let Some(remote_nw_addr) = data.get(DATA_NW_ADDR_KEY) {
         let data_loc = if let Some(d) = data.get(DATA_DATA_LOC_KEY) {
             d
