@@ -2,20 +2,52 @@ use std::convert::TryFrom;
 use std::{env};
 use std::collections::HashMap;
 use cloudevents::{AttributesReader, Event};
+use crate::sys_env::*;
 
 const CE_SPLITTER: &str = "splitter";
 const CE_MAPPER: &str = "mapper";
 const CE_REDUCER: &str = "reducer";
 
+
+const DATA_NW_ADDR_KEY: &str = "data_nw_addr";
+const DATA_DATA_LOC_KEY: &str = "data_loc";
+
+/// Reply to next flow step with `data_nw_addr`, `data_loc`, to indicate the
+/// network address and the data location
+///
+/// Access other knative service in same ns: https://github.com/knative/serving/issues/6155
+/// TODO: Check Isio-injection in the https://knative.dev/docs/install/installing-istio
 fn handle_trigger(data: &HashMap<String, String>) -> HashMap<String, String> {
     println!("I'm in trigger");
-    data.clone()
+
+    let mut data = data.clone();
+
+    let (service_name, revision, path) = (
+        fetch_env(SERVICE_NAME_ENV_KEY, "default"),
+        fetch_env(REVISION_ENV_KEY, "00001"),
+        "/dataflow/fetch/origin");
+    data.insert(DATA_NW_ADDR_KEY.to_string(),
+                format!("http://{}-{}-private{}", service_name, revision, path));
+
+    data.insert(DATA_DATA_LOC_KEY.to_string(), 73.to_string());
+    data
 }
 
 
 fn handle_split(data: &HashMap<String, String>) -> HashMap<String, String> {
-    println!("I'm in split");
-    data.clone()
+    println!("I'm in split, data:{:?}", data);
+    let mut ret_data = data.clone();
+    if let Some(remote_nw_addr) = data.get(DATA_NW_ADDR_KEY) {
+        let response = reqwest::blocking::Client::new()
+            .get(remote_nw_addr)
+            .send();
+        if response.is_ok() {
+            println!("fetch origin data succ");
+        } else {
+            println!("fetch origin data error");
+        }
+    }
+    ret_data
 }
 
 fn handle_mapper(data: &HashMap<String, String>) -> HashMap<String, String> {

@@ -3,6 +3,7 @@ use actix_web::{App, HttpServer};
 mod service;
 mod util;
 mod handler;
+pub mod sys_env;
 
 use crate::service::*;
 use crate::util::*;
@@ -22,6 +23,10 @@ async fn main() -> std::io::Result<()> {
             .service(trigger)
             .service(mapper)
             .service(reducer)
+            .service(df_fetch_origin)
+            .service(df_fetch_split)
+            .service(df_fetch_mapper)
+            .service(df_fetch_reducer)
     }).bind("127.0.0.1:8080")?
         .workers(12)
         .run()

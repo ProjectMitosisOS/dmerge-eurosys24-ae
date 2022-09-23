@@ -20,6 +20,9 @@ spec:
           env:
             - name: CeType
               value: "splitter"
+            - name: ServiceName
+              value: "rust-trigger"
+
 ---
 apiVersion: serving.knative.dev/v1
 kind: Service
