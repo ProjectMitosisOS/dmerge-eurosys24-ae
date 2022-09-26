@@ -1,16 +1,22 @@
 use std::convert::TryFrom;
 use std::{env};
 use std::collections::HashMap;
+use std::time::{SystemTime, UNIX_EPOCH};
 use cloudevents::{AttributesReader, Event};
 use crate::sys_env::*;
 
 const CE_SPLITTER: &str = "splitter";
 const CE_MAPPER: &str = "mapper";
 const CE_REDUCER: &str = "reducer";
+const CE_SINK: &str = "sink";
 
 
 const DATA_NW_ADDR_KEY: &str = "data_nw_addr";
 const DATA_DATA_LOC_KEY: &str = "data_loc";
+
+// Profiling
+const PROFILE_START_TICK: &str = "start_tick";
+const PROFILE_END_TICK: &str = "end_tick";
 
 /// Reply to next flow step with `data_nw_addr`, `data_loc`, to indicate the
 /// network address and the data location
@@ -29,13 +35,17 @@ fn handle_trigger(data: &HashMap<String, String>) -> HashMap<String, String> {
                 format!("http://{}-{}-private{}", service_name, revision, path));
 
     data.insert(DATA_DATA_LOC_KEY.to_string(), 2048.to_string());
+    let since_the_epoch = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("Time went backwards");
+    data.insert(PROFILE_START_TICK.to_string(), since_the_epoch.as_nanos().to_string());
     data
 }
 
 
 fn handle_split(data: &HashMap<String, String>) -> HashMap<String, String> {
     // println!("I'm in split, data:{:?}", data);
-    let mut ret_data = Default::default();
+    let mut ret_data = data.clone();
     if let Some(remote_nw_addr) = data.get(DATA_NW_ADDR_KEY) {
         let data_loc = if let Some(d) = data.get(DATA_DATA_LOC_KEY) {
             d
@@ -74,6 +84,19 @@ fn handle_reducer(data: &HashMap<String, String>) -> HashMap<String, String> {
     data.clone()
 }
 
+fn handle_sink(data: &HashMap<String, String>) -> HashMap<String, String> {
+    let since_the_epoch = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("Time went backwards")
+        .as_nanos();
+    // Profile result
+    let start_tick = data.get(PROFILE_START_TICK).expect("not found start tick");
+    let start_tick: u128 = start_tick.trim().parse().unwrap();
+    let offset = since_the_epoch - start_tick;
+    println!("passed {} us", offset / 1000);
+    data.clone()
+}
+
 pub(crate) fn handle_ce(event: &mut Event) -> Result<String, actix_web::Error> {
     println!("get ce {:?}", event);
     let (_, _, data) = event.take_data();
@@ -95,6 +118,9 @@ pub(crate) fn handle_ce(event: &mut Event) -> Result<String, actix_web::Error> {
         }
         CE_REDUCER => {
             handle_reducer(&data_hash)
+        }
+        CE_SINK => {
+            handle_sink(&data_hash)
         }
         _ => {
             handle_trigger(&data_hash)
