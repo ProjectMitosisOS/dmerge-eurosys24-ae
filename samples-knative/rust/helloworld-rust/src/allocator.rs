@@ -93,6 +93,7 @@ impl AllocatorMaster {
 
         let mut sz = size_of::<usize>();
         let new_hooks = &self.hooks as *const extent_hooks_t;
+        // Attention!!!: The command name must end with '\0'
         let _ = mallctl(
             "arenas.create\0".as_ptr() as _,
             &mut arena_id as *mut usize as _,

@@ -9,3 +9,27 @@ void *create_heap(unsigned long long start_addr, unsigned long long mem_sz) {
                     MAP_PRIVATE | MAP_ANON, -1, 0);
     return ptr;
 }
+
+int
+sopen() {
+    return open("/dev/mitosis-syscalls", O_RDWR);
+}
+
+int
+call_register(int sd, unsigned long long peak_addr) {
+    if (ioctl(sd, Register, peak_addr) == -1) {
+        return -1;
+    }
+
+    return 0;
+}
+
+
+int
+call_pull(int sd) {
+    if (ioctl(sd, Pull, 0) == -1) {
+        return -1;
+    }
+
+    return 0;
+}

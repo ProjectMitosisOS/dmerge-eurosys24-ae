@@ -45,7 +45,7 @@ fn init() {}
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    let addr = 0x4ff8c00000 as u64;
+    let addr = 0x4ffff5a00000 as u64;
     let mem_sz = 1024 * 1024 * 1024 as u64;
 
     unsafe {
@@ -77,6 +77,8 @@ async fn main() -> std::io::Result<()> {
             .service(df_fetch_split)
             .service(df_fetch_mapper)
             .service(df_fetch_reducer)
+            .service(dmerge_register)
+            .service(dmerge_pull)
     }).bind("127.0.0.1:8080")?
         .workers(12)
         .run()

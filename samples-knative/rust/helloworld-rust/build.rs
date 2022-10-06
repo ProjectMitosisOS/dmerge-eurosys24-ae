@@ -6,7 +6,10 @@ use std::path::PathBuf;
 
 const INCLUDED_TYPES: &[&str] = &[];
 const INCLUDED_FUNCS: &[&str] = &[
-    "create_heap"
+    "create_heap",
+    "sopen",
+    "call_register",
+    "call_pull",
 ];
 
 fn main() {
