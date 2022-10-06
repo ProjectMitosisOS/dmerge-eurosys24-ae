@@ -998,6 +998,7 @@ dependencies = [
  "futures",
  "hyper",
  "jemalloc-sys",
+ "lazy_static",
  "libc",
  "qstring",
  "reqwest",

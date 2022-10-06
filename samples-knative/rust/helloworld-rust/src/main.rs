@@ -2,8 +2,10 @@
 c_size_t,
 core_intrinsics
 )]
+#![feature(get_mut_unchecked)]
 
 use std::alloc::GlobalAlloc;
+use std::sync::{Arc, Mutex};
 use actix_web::{App, HttpServer};
 
 mod service;
@@ -17,6 +19,8 @@ pub use allocator::*;
 use crate::service::*;
 use crate::util::*;
 
+#[macro_use]
+extern crate lazy_static;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
