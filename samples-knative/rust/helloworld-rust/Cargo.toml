@@ -22,6 +22,9 @@ jemalloc-sys = "0.3.2"
 libc = {version = "^0.2.8", default-features = false}
 thread_local = "1.1.4"
 lazy_static = "1.4.0"
+mitosis-macros = {path = "../../../deps/mitosis/mitosis-macros"}
+
+
 
 [build-dependencies]
 bindgen = "0.53.1"

@@ -1,22 +1,18 @@
 use std::borrow::BorrowMut;
-use libc::{c_char, c_int, c_uint, c_void, memset, size_t};
-
-use std::ptr::{null, null_mut};
-use jemalloc_sys::*;
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::intrinsics::{likely, unlikely};
 use std::mem::size_of;
-use std::sync::{Mutex};
+use std::ptr::{null, null_mut};
+use std::sync::Mutex;
+
+use jemalloc_sys::*;
+use libc::{c_char, c_int, c_uint, c_void, memset, size_t};
 use thread_local::ThreadLocal;
 
 type c_bool = c_int;
 
-use std::collections::HashMap;
-
-lazy_static! {
-    pub static ref ALLOC: Mutex<AllocatorMaster> = Mutex::new(Default::default());
-}
-
+#[derive(Default)]
 pub struct Allocator {
     id: c_int,
 }
@@ -48,11 +44,10 @@ pub struct AllocatorMaster {
 
     heap_top: *mut c_char,
     hooks: extent_hooks_t,
-    thread_allocator: ThreadLocal<Allocator>,
+    thread_allocator: Option<Allocator>,
 }
 
 impl Default for AllocatorMaster {
-
     fn default() -> Self {
         Self {
             start_addr: 0 as *mut c_char,
@@ -64,6 +59,14 @@ impl Default for AllocatorMaster {
     }
 }
 
+pub fn test_allocator() {
+    let ptr = unsafe {
+        crate::get_global_allocator_master_mut().get_thread_allocator().alloc(4096, 0)
+    };
+
+    println!("addr 0x:{:x}", ptr as u64)
+}
+
 impl AllocatorMaster {
     pub fn init(mem_addr: *mut c_char, mem_size: u64) -> Self {
         AllocatorMaster {
@@ -71,44 +74,46 @@ impl AllocatorMaster {
             end_addr: ((mem_addr as u64) + mem_size) as _,
             heap_top: mem_addr,
             hooks: extent_hooks_s {
-                alloc: Some(AllocatorMaster::extent_alloc_hook),
-                dalloc: Some(AllocatorMaster::extent_dalloc_hook),
-                destroy: Some(AllocatorMaster::extent_destroy_hook),
-                commit: Some(AllocatorMaster::extent_commit_hook),
-                decommit: Some(AllocatorMaster::extent_decommit_hook),
-                purge_lazy: Some(AllocatorMaster::extent_purge_lazy_hook),
-                purge_forced: Some(AllocatorMaster::extent_purge_forced_hook),
-                split: Some(AllocatorMaster::extent_split_hook),
-                merge: Some(AllocatorMaster::extent_merge_hook),
+                alloc: Some(extent_alloc_hook),
+                dalloc: Some(extent_dalloc_hook),
+                destroy: Some(extent_destroy_hook),
+                commit: Some(extent_commit_hook),
+                decommit: Some(extent_decommit_hook),
+                purge_lazy: Some(extent_purge_lazy_hook),
+                purge_forced: Some(extent_purge_forced_hook),
+                split: Some(extent_split_hook),
+                merge: Some(extent_merge_hook),
             },
             thread_allocator: Default::default(),
         }
     }
 
     pub unsafe fn get_thread_allocator(&mut self) -> &Allocator {
-        if unlikely(self.thread_allocator.get().is_some()) {
-            self.thread_allocator = ThreadLocal::new();
+        if unlikely(self.thread_allocator.is_none()) {
+            self.thread_allocator = Some(self.get_allocator());
         }
-        self.thread_allocator.get().unwrap()
+        self.thread_allocator.as_ref().expect("error get thread allocator")
     }
 
     pub unsafe fn get_allocator(&self) -> Allocator {
-        let (mut arena_id, mut cache_id) = (0, 0);
+        let (mut arena_id, mut cache_id): (usize, usize) = (0, 0);
 
         let mut sz = size_of::<usize>();
-        let new_hooks = &self.hooks;
-        let _ = mallctl("arenas.create".as_ptr() as _,
-                        &mut arena_id as *mut usize as _,
-                        &mut sz as *mut usize as _,
-                        new_hooks as *const extent_hooks_t as _,
-                        size_of::<*mut extent_hooks_t>());
+        let new_hooks = &self.hooks as *const extent_hooks_t;
+        let _ = mallctl(
+            "arenas.create\0".as_ptr() as _,
+            &mut arena_id as *mut usize as _,
+            &mut sz as *mut usize as _,
+            &new_hooks as *const *const extent_hooks_t as _,
+            size_of::<*const extent_hooks_t>());
 
-        let _ = mallctl("tcache.create".as_ptr() as _,
-                        &mut cache_id as *mut usize as _,
-                        &mut sz as *mut usize as _,
-                        null_mut(),
-                        0);
-        return Allocator::create(MALLOCX_ARENA(arena_id) | MALLOCX_TCACHE(cache_id));
+        let _ = mallctl(
+            "tcache.create\0".as_ptr() as _,
+            &mut cache_id as *mut usize as _,
+            &mut sz as *mut usize as _,
+            null_mut(),
+            0);
+        Allocator::create(MALLOCX_ARENA(arena_id) | MALLOCX_TCACHE(cache_id))
     }
 }
 
@@ -118,131 +123,129 @@ impl AllocatorMaster {
     }
 }
 
-impl AllocatorMaster {
-    #[allow(dead_code)]
-    unsafe extern "C" fn extent_alloc_hook(
-        extent_hooks: *mut extent_hooks_t,
-        new_addr: *mut c_void,
-        size: size_t,
-        alignment: size_t,
-        zero: *mut c_bool,
-        commit: *mut c_bool,
-        arena_ind: c_uint,
-    ) -> *mut c_void {
-        let mut alloc_master = ALLOC.lock()
-            .expect("fail to get allocator master");
+#[allow(dead_code)]
+unsafe extern "C" fn extent_alloc_hook(
+    extent_hooks: *mut extent_hooks_t,
+    new_addr: *mut c_void,
+    size: size_t,
+    alignment: size_t,
+    zero: *mut c_bool,
+    commit: *mut c_bool,
+    arena_ind: c_uint,
+) -> *mut c_void {
+    println!("in extent hook");
+    let mut alloc_master = crate::get_global_allocator_master_mut();
 
-        let mut ret = alloc_master.heap_top as size_t;
-        if ret % alignment != 0 {
-            ret = ret + (alignment - ret % alignment)
-        }
-        if ret + size >= alloc_master.end_addr as size_t {
-            println!("exceed heap size. Want sz:{}", size);
-            return null_mut();
-        }
-
-        alloc_master.heap_top = (ret + size) as *mut c_char;
-        if *zero != 0 {
-            let _ = memset(ret as _, 0, size);
-        }
-        return ret as _;
+    let mut ret = alloc_master.heap_top as size_t;
+    if ret % alignment != 0 {
+        ret = ret + (alignment - ret % alignment)
+    }
+    if ret + size >= alloc_master.end_addr as size_t {
+        println!("exceed heap size. Want sz:{}", size);
+        return null_mut();
     }
 
-    #[allow(dead_code)]
-    unsafe extern "C" fn extent_dalloc_hook(
-        extent_hooks: *mut extent_hooks_t,
-        addr: *mut c_void,
-        size: size_t,
-        committed: c_bool,
-        arena_ind: c_uint,
-    ) -> c_bool {
-        return 0;
+    alloc_master.heap_top = (ret + size) as *mut c_char;
+    if *zero != 0 {
+        let _ = memset(ret as _, 0, size);
     }
+    return ret as _;
+}
 
-    #[allow(dead_code)]
-    unsafe extern "C" fn extent_destroy_hook(
-        extent_hooks: *mut extent_hooks_t,
-        addr: *mut c_void,
-        size: size_t,
-        committed: c_bool,
-        arena_ind: c_uint,
-    ) {
-        return;
-    }
+#[allow(dead_code)]
+unsafe extern "C" fn extent_dalloc_hook(
+    extent_hooks: *mut extent_hooks_t,
+    addr: *mut c_void,
+    size: size_t,
+    committed: c_bool,
+    arena_ind: c_uint,
+) -> c_bool {
+    return 0;
+}
 
-    #[allow(dead_code)]
-    unsafe extern "C" fn extent_commit_hook(
-        extent_hooks: *mut extent_hooks_t,
-        addr: *mut c_void,
-        size: size_t,
-        offset: size_t,
-        length: size_t,
-        arena_ind: c_uint,
-    ) -> c_bool {
-        return 0;
-    }
+#[allow(dead_code)]
+unsafe extern "C" fn extent_destroy_hook(
+    extent_hooks: *mut extent_hooks_t,
+    addr: *mut c_void,
+    size: size_t,
+    committed: c_bool,
+    arena_ind: c_uint,
+) {
+    return;
+}
 
-    #[allow(dead_code)]
-    unsafe extern "C" fn extent_decommit_hook(
-        extent_hooks: *mut extent_hooks_t,
-        addr: *mut c_void,
-        size: size_t,
-        offset: size_t,
-        length: size_t,
-        arena_ind: c_uint,
-    ) -> c_bool {
-        return 0;
-    }
+#[allow(dead_code)]
+unsafe extern "C" fn extent_commit_hook(
+    extent_hooks: *mut extent_hooks_t,
+    addr: *mut c_void,
+    size: size_t,
+    offset: size_t,
+    length: size_t,
+    arena_ind: c_uint,
+) -> c_bool {
+    return 0;
+}
 
-    #[allow(dead_code)]
-    unsafe extern "C" fn extent_purge_lazy_hook(
-        extent_hooks: *mut extent_hooks_t,
-        addr: *mut c_void,
-        size: size_t,
-        offset: size_t,
-        length: size_t,
-        arena_ind: c_uint,
-    ) -> c_bool {
-        return 0;
-    }
+#[allow(dead_code)]
+unsafe extern "C" fn extent_decommit_hook(
+    extent_hooks: *mut extent_hooks_t,
+    addr: *mut c_void,
+    size: size_t,
+    offset: size_t,
+    length: size_t,
+    arena_ind: c_uint,
+) -> c_bool {
+    return 0;
+}
 
-    #[allow(dead_code)]
-    unsafe extern "C" fn extent_purge_forced_hook(
-        extent_hooks: *mut extent_hooks_t,
-        addr: *mut c_void,
-        size: size_t,
-        offset: size_t,
-        length: size_t,
-        arena_ind: c_uint,
-    ) -> c_bool {
-        return 0;
-    }
+#[allow(dead_code)]
+unsafe extern "C" fn extent_purge_lazy_hook(
+    extent_hooks: *mut extent_hooks_t,
+    addr: *mut c_void,
+    size: size_t,
+    offset: size_t,
+    length: size_t,
+    arena_ind: c_uint,
+) -> c_bool {
+    return 0;
+}
 
-    #[allow(dead_code)]
-    unsafe extern "C" fn extent_split_hook(
-        extent_hooks: *mut extent_hooks_t,
-        addr: *mut c_void,
-        size: size_t,
-        size_a: size_t,
-        size_b: size_t,
-        committed: c_bool,
-        arena_ind: c_uint,
-    ) -> c_bool {
-        return 0;
-    }
+#[allow(dead_code)]
+unsafe extern "C" fn extent_purge_forced_hook(
+    extent_hooks: *mut extent_hooks_t,
+    addr: *mut c_void,
+    size: size_t,
+    offset: size_t,
+    length: size_t,
+    arena_ind: c_uint,
+) -> c_bool {
+    return 0;
+}
 
-    #[allow(dead_code)]
-    unsafe extern "C" fn extent_merge_hook(
-        extent_hooks: *mut extent_hooks_t,
-        addr_a: *mut c_void,
-        size_a: size_t,
-        addr_b: *mut c_void,
-        size_b: size_t,
-        committed: c_bool,
-        arena_ind: c_uint,
-    ) -> c_bool {
-        return 0;
-    }
+#[allow(dead_code)]
+unsafe extern "C" fn extent_split_hook(
+    extent_hooks: *mut extent_hooks_t,
+    addr: *mut c_void,
+    size: size_t,
+    size_a: size_t,
+    size_b: size_t,
+    committed: c_bool,
+    arena_ind: c_uint,
+) -> c_bool {
+    return 0;
+}
+
+#[allow(dead_code)]
+unsafe extern "C" fn extent_merge_hook(
+    extent_hooks: *mut extent_hooks_t,
+    addr_a: *mut c_void,
+    size_a: size_t,
+    addr_b: *mut c_void,
+    size_b: size_t,
+    committed: c_bool,
+    arena_ind: c_uint,
+) -> c_bool {
+    return 0;
 }
 
 unsafe impl Sync for AllocatorMaster {}
