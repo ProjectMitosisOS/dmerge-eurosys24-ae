@@ -45,15 +45,20 @@ fn init() {}
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    let addr = 0x4ffff5a00000 as u64;
-    let mem_sz = 1024 * 1024 as u64;
+    let addr = 0x4ff8c00000 as u64;
+    let mem_sz = 1024 * 1024 * 1024 as u64;
 
     unsafe {
         let ptr = crate::bindings::create_heap(addr, mem_sz);
-        println!("get ptr: 0x{:x}", ptr as u64);
-        // crate::ALLOC::init(AllocatorMaster::init(addr as _,
-        //                                          mem_sz));
-        // test_allocator();
+        crate::ALLOC::init(AllocatorMaster::init(addr as _,
+                                                 mem_sz));
+        for i in 0..6 {
+            let all = crate::get_global_allocator_master_mut().get_thread_allocator();
+            let ptr = all.alloc(1024 * 4, 0);
+            println!("[{}] addr 0x:{:x}", i, ptr as u64)
+        }
+
+        *(addr as *mut usize) = 1024;
     }
 
     env_logger::init();

@@ -59,13 +59,6 @@ impl Default for AllocatorMaster {
     }
 }
 
-pub fn test_allocator() {
-    let ptr = unsafe {
-        crate::get_global_allocator_master_mut().get_thread_allocator().alloc(4096, 0)
-    };
-
-    println!("addr 0x:{:x}", ptr as u64)
-}
 
 impl AllocatorMaster {
     pub fn init(mem_addr: *mut c_char, mem_size: u64) -> Self {
@@ -133,7 +126,6 @@ unsafe extern "C" fn extent_alloc_hook(
     commit: *mut c_bool,
     arena_ind: c_uint,
 ) -> *mut c_void {
-    println!("in extent hook");
     let mut alloc_master = crate::get_global_allocator_master_mut();
 
     let mut ret = alloc_master.heap_top as size_t;
