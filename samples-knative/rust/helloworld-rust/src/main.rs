@@ -24,7 +24,7 @@ use crate::util::*;
 extern crate lazy_static;
 
 
-use mitosis_macros::declare_global;
+use macros::declare_global;
 
 declare_global! {
     ALLOC,
