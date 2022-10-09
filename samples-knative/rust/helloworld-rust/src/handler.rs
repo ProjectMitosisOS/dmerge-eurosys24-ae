@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::thread;
 
-use crate::{MapperRequest, ReducerRequest};
+use crate::{MapperRequest, ReducerRequest, server_port};
 
 pub async fn handle_split() {
     let data = "86967897737416471853297327050364959
@@ -18,7 +18,7 @@ pub async fn handle_split() {
         thread::spawn(move || {
             // Calculate the intermediate sum of this segment:
             let _ = reqwest::blocking::Client::new()
-                .post("http://localhost:8080/map")
+                .post(format!("http://localhost:{}/map", server_port()))
                 .json(&MapperRequest { chunk_data: String::from(data_segment) })
                 .send();
         });
@@ -35,7 +35,7 @@ pub async fn handle_mapper(data_segment: &str) {
     // send to reducer
     let client = reqwest::Client::new();
     // let js_payload = json!({"sum": intermediate_sum});
-    let _ = client.post("http://localhost:8080/reduce")
+    let _ = client.post(format!("http://localhost:{}/reduce", server_port()))
         .json(&ReducerRequest { sum: intermediate_sum })
         .send().await;
 }

@@ -25,6 +25,7 @@ extern crate lazy_static;
 
 
 use macros::declare_global;
+use crate::sys_env::{fetch_env, server_port};
 
 declare_global! {
     ALLOC,
@@ -46,7 +47,8 @@ fn init() {}
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     env_logger::init();
-
+    let addr = format!("127.0.0.1:{}", server_port());
+    println!("listen on {}", addr);
     HttpServer::new(|| {
         App::new()
             .wrap(actix_cors::Cors::permissive())
@@ -63,7 +65,8 @@ async fn main() -> std::io::Result<()> {
             .service(df_fetch_reducer)
             .service(dmerge_register)
             .service(dmerge_pull)
-    }).bind("127.0.0.1:8080")?
+            .service(json_micro)
+    }).bind(addr)?
         .workers(12)
         .run()
         .await
