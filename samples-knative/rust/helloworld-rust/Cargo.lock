@@ -82,6 +82,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "actix-protobuf"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d2e1151cdf1d5f30115da7c8e3e4cefadfb6d396973d75354647c4e8fae3a14f"
+dependencies = [
+ "actix-web",
+ "derive_more",
+ "futures-util",
+ "prost",
+]
+
+[[package]]
 name = "actix-router"
 version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -989,6 +1001,7 @@ name = "hellorust"
 version = "0.0.0"
 dependencies = [
  "actix-cors",
+ "actix-protobuf",
  "actix-web",
  "async-std",
  "bindgen",
@@ -1469,6 +1482,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0a2ca2c61bc9f3d74d2886294ab7b9853abd9c1ad903a3ac7815c58989bb7bab"
 dependencies = [
  "unicode-ident",
+]
+
+[[package]]
+name = "prost"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "399c3c31cdec40583bb68f0b18403400d01ec4289c383aa047560439952c4dd7"
+dependencies = [
+ "bytes",
 ]
 
 [[package]]

@@ -67,6 +67,7 @@ async fn main() -> std::io::Result<()> {
             .service(dmerge_pull)
             .service(json_micro)
             .service(json_data)
+            .service(protobuf_data)
     }).bind(addr)?
         .workers(12)
         .run()
