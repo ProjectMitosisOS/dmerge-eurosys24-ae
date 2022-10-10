@@ -16,7 +16,6 @@ const DATA_DATA_LOC_KEY: &str = "data_loc";
 
 // Profiling
 const PROFILE_START_TICK: &str = "start_tick";
-const PROFILE_END_TICK: &str = "end_tick";
 
 /// Reply to next flow step with `data_nw_addr`, `data_loc`, to indicate the
 /// network address and the data location

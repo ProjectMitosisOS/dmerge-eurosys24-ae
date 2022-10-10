@@ -7,7 +7,7 @@ use cloudevents::{AttributesReader, AttributesWriter, Event, EventBuilder, Event
 use serde_json::json;
 use actix_web::{get, post, web, HttpRequest, error, HttpResponse, HttpResponseBuilder};
 use actix_web::http::StatusCode;
-use cloudevents::binding::actix::{HttpRequestExt, HttpResponseBuilderExt};
+use cloudevents::binding::actix::{HttpResponseBuilderExt};
 use cloudevents::binding::reqwest::RequestBuilderExt;
 use serde::{Deserialize, Serialize};
 use futures::StreamExt;

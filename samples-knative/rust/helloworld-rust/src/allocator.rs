@@ -1,14 +1,9 @@
-use std::borrow::BorrowMut;
-use std::cell::RefCell;
-use std::collections::HashMap;
-use std::intrinsics::{likely, unlikely};
+use std::intrinsics::{unlikely};
 use std::mem::size_of;
-use std::ptr::{null, null_mut};
-use std::sync::Mutex;
+use std::ptr::{null_mut};
 
 use jemalloc_sys::*;
 use libc::{c_char, c_int, c_uint, c_void, memset, size_t};
-use thread_local::ThreadLocal;
 
 type c_bool = c_int;
 
@@ -112,12 +107,13 @@ impl AllocatorMaster {
 }
 
 impl AllocatorMaster {
+    #[allow(dead_code)]
     fn total_managed_mem(&self) -> u64 {
         self.end_addr as u64 - self.start_addr as u64
     }
 }
 
-#[allow(dead_code)]
+#[allow(dead_code, unused_variables)]
 unsafe extern "C" fn extent_alloc_hook(
     extent_hooks: *mut extent_hooks_t,
     new_addr: *mut c_void,
@@ -145,7 +141,7 @@ unsafe extern "C" fn extent_alloc_hook(
     return ret as _;
 }
 
-#[allow(dead_code)]
+#[allow(dead_code, unused_variables)]
 unsafe extern "C" fn extent_dalloc_hook(
     extent_hooks: *mut extent_hooks_t,
     addr: *mut c_void,
@@ -156,7 +152,7 @@ unsafe extern "C" fn extent_dalloc_hook(
     return 0;
 }
 
-#[allow(dead_code)]
+#[allow(dead_code, unused_variables)]
 unsafe extern "C" fn extent_destroy_hook(
     extent_hooks: *mut extent_hooks_t,
     addr: *mut c_void,
@@ -167,7 +163,7 @@ unsafe extern "C" fn extent_destroy_hook(
     return;
 }
 
-#[allow(dead_code)]
+#[allow(dead_code, unused_variables)]
 unsafe extern "C" fn extent_commit_hook(
     extent_hooks: *mut extent_hooks_t,
     addr: *mut c_void,
@@ -179,7 +175,7 @@ unsafe extern "C" fn extent_commit_hook(
     return 0;
 }
 
-#[allow(dead_code)]
+#[allow(dead_code, unused_variables)]
 unsafe extern "C" fn extent_decommit_hook(
     extent_hooks: *mut extent_hooks_t,
     addr: *mut c_void,
@@ -191,7 +187,7 @@ unsafe extern "C" fn extent_decommit_hook(
     return 0;
 }
 
-#[allow(dead_code)]
+#[allow(dead_code, unused_variables)]
 unsafe extern "C" fn extent_purge_lazy_hook(
     extent_hooks: *mut extent_hooks_t,
     addr: *mut c_void,
@@ -203,7 +199,7 @@ unsafe extern "C" fn extent_purge_lazy_hook(
     return 0;
 }
 
-#[allow(dead_code)]
+#[allow(dead_code, unused_variables)]
 unsafe extern "C" fn extent_purge_forced_hook(
     extent_hooks: *mut extent_hooks_t,
     addr: *mut c_void,
@@ -215,7 +211,7 @@ unsafe extern "C" fn extent_purge_forced_hook(
     return 0;
 }
 
-#[allow(dead_code)]
+#[allow(dead_code, unused_variables)]
 unsafe extern "C" fn extent_split_hook(
     extent_hooks: *mut extent_hooks_t,
     addr: *mut c_void,
@@ -228,7 +224,7 @@ unsafe extern "C" fn extent_split_hook(
     return 0;
 }
 
-#[allow(dead_code)]
+#[allow(dead_code, unused_variables)]
 unsafe extern "C" fn extent_merge_hook(
     extent_hooks: *mut extent_hooks_t,
     addr_a: *mut c_void,

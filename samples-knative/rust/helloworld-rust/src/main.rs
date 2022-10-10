@@ -4,13 +4,9 @@ core_intrinsics
 )]
 #![feature(get_mut_unchecked)]
 
-use std::alloc::{GlobalAlloc};
-use std::sync::{Arc, Mutex};
 use actix_web::{App, HttpServer};
-use jemalloc_sys::extent_hooks_s;
 
 mod service;
-mod util;
 mod handler;
 pub mod sys_env;
 mod bindings;
@@ -18,14 +14,12 @@ mod allocator;
 
 pub use allocator::*;
 use crate::service::*;
-use crate::util::*;
 
-#[macro_use]
 extern crate lazy_static;
 
 
 use macros::declare_global;
-use crate::sys_env::{fetch_env, server_port};
+use crate::sys_env::*;
 
 declare_global! {
     ALLOC,
@@ -41,8 +35,6 @@ pub unsafe fn get_global_allocator_master_ref() -> &'static crate::AllocatorMast
 pub unsafe fn get_global_allocator_master_mut() -> &'static mut crate::AllocatorMaster {
     crate::ALLOC::get_mut()
 }
-
-fn init() {}
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {

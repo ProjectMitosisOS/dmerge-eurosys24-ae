@@ -1,7 +1,5 @@
 use actix_web::{get, HttpRequest, HttpResponse, HttpResponseBuilder, web};
 use actix_web::http::StatusCode;
-use cloudevents::binding::actix::HttpResponseBuilderExt;
-use cloudevents::Event;
 use serde_json::json;
 use qstring::QString;
 
