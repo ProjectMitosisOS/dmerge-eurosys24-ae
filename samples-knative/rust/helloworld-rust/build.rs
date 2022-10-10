@@ -4,12 +4,15 @@ extern crate cc;
 use std::env;
 use std::path::PathBuf;
 
-const INCLUDED_TYPES: &[&str] = &[];
+const INCLUDED_TYPES: &[&str] = &[
+    "connect_req_t"
+];
 const INCLUDED_FUNCS: &[&str] = &[
     "create_heap",
     "sopen",
     "call_register",
     "call_pull",
+    "call_connect_session",
 ];
 
 fn main() {

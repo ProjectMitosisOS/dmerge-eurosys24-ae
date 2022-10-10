@@ -29,3 +29,17 @@ call_pull(int sd) {
 
     return 0;
 }
+
+static inline int
+call_connect_session(int sd, const char *addr, unsigned int mac_id, unsigned int nic_id) {
+    connect_req_t req;
+    req.gid = addr;
+    req.machine_id = mac_id;
+    req.nic_id = nic_id;
+
+    if (ioctl(sd, ConnectSession, &req) == -1) {
+        return -1;
+    }
+
+    return 0;
+}

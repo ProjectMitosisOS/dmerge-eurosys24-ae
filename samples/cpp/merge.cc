@@ -2,6 +2,7 @@
 #include "../../dmerge-user-libs/include/syscall.h"
 #include <sys/mman.h>
 #include <fcntl.h>
+#include <unistd.h>
 #include "../include/allocator.hh"
 
 using Alloc = AllocatorMaster<73>;
@@ -9,6 +10,9 @@ using Alloc = AllocatorMaster<73>;
 int
 main() {
     int sd = sopen();
+    call_connect_session(sd, "fe80:0000:0000:0000:248a:0703:009c:7c94",
+                         0, 0);
+
     call_pull(sd); // merge (pull)
     uint64_t addr = 0x4ffff5a00000;
     void *ptr = (void *) addr;

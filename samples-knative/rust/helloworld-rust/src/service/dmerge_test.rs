@@ -1,7 +1,7 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 use actix_web::{get, HttpRequest, HttpResponse, HttpResponseBuilder, web};
 use actix_web::http::StatusCode;
-use libc::c_int;
+use libc::{c_char, c_int};
 use serde_json::json;
 
 /// Fetch origin data
@@ -37,19 +37,26 @@ pub async fn dmerge_register(req: HttpRequest,
 #[get("/dmerge/pull")]
 pub async fn dmerge_pull(req: HttpRequest,
                          mut payload: web::Payload) -> Result<HttpResponse, actix_web::Error> {
+    let sd = unsafe { crate::bindings::sopen() };
+    unsafe {
+        let gid = std::ffi::CString::new("fe80:0000:0000:0000:248a:0703:009c:7c94")
+            .expect("not valid str");
+        crate::bindings::call_connect_session(sd,
+                                              gid.as_ptr(),
+                                              0, 0);
+        let res = crate::bindings::call_pull(sd);
+    }
     let start_tick = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .expect("Time went backwards")
         .as_nanos();
 
     let addr = 0x4ffff5a00000 as u64;
-
-    let res = unsafe {
-        let sd = crate::bindings::sopen();
-        let res = crate::bindings::call_pull(sd);
+    let data_res = unsafe {
         let mut t = *(addr as *mut c_int) as u64;
         t += 1;
-        res
+        println!("res:{}", t);
+        t
     };
 
     let end_tick = SystemTime::now()
@@ -60,7 +67,7 @@ pub async fn dmerge_pull(req: HttpRequest,
     println!("passed {} us", offset / 1000);
 
     Ok(HttpResponseBuilder::new(StatusCode::OK)
-        .json(json!({"status":res})))
+        .json(json!({"data":data_res})))
 }
 
 
