@@ -10,7 +10,7 @@ use serde_json::{json, to_string};
 pub async fn dmerge_register(req: HttpRequest,
                              mut payload: web::Payload) -> Result<HttpResponse, actix_web::Error> {
     let addr = 0x4ffff5a00000 as u64;
-    let mem_sz = 1024 * 1024 * 1024 * 2 as u64;
+    let mem_sz = 1024 * 1024 * 512  as u64;
 
     // allocate heap
     unsafe {
@@ -18,7 +18,7 @@ pub async fn dmerge_register(req: HttpRequest,
         crate::ALLOC::init(crate::AllocatorMaster::init(addr as _,
                                                         mem_sz));
         let all = crate::get_global_allocator_master_mut().get_thread_allocator();
-        let ptr = all.alloc((mem_sz / 2) as libc::size_t, 0);
+        let ptr = all.alloc(1024 * 1024 as libc::size_t, 0);
     }
     let res = unsafe {
         let sd = crate::bindings::sopen();
@@ -31,7 +31,7 @@ pub async fn dmerge_register(req: HttpRequest,
 #[get("/dmerge/pull")]
 pub async fn dmerge_pull(req: HttpRequest,
                          mut payload: web::Payload) -> Result<HttpResponse, actix_web::Error> {
-    const MEM_SZ: usize = 1024 * 16;
+    const MEM_SZ: usize = 1024 * 1;
     let addr = 0x4ffff5a00000 as u64;
 
     let sd = unsafe { crate::bindings::sopen() };
@@ -42,13 +42,14 @@ pub async fn dmerge_pull(req: HttpRequest,
                                               gid.as_ptr(),
                                               0, 0);
     }
-    unsafe {
-        let res = crate::bindings::call_pull(sd);
-    }
+
     let start_tick = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .expect("Time went backwards")
         .as_nanos();
+    unsafe {
+        let res = crate::bindings::call_pull(sd);
+    }
     let data_res = unsafe {
         let mut t = *(addr as *mut [u8; MEM_SZ]);
         let sum = {
