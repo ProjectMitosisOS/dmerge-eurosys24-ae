@@ -24,10 +24,12 @@ libc = {version = "^0.2.8", default-features = false}
 thread_local = "1.1.4"
 lazy_static = "1.4.0"
 macros = {path = "macros"}
-
+protobuf = "3"
 
 
 [build-dependencies]
 bindgen = "0.53.1"
 cc = "1.0"
 shlex = "0.1"
+protobuf-codegen = "3"
+protoc-rust = "^2.0"

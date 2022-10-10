@@ -1,4 +1,6 @@
+use std::intrinsics::size_of;
 use std::time::{SystemTime, UNIX_EPOCH};
+use actix_protobuf::ProtoBufResponseBuilder;
 use actix_web::{get, HttpRequest, HttpResponse, HttpResponseBuilder, web};
 use actix_web::http::StatusCode;
 use serde_json::{json};
@@ -124,18 +126,28 @@ pub async fn json_data(req: HttpRequest,
     Ok(HttpResponseBuilder::new(StatusCode::OK)
         .json(json!({"tick": serde_json::to_string(&arr).expect("to string failed")})))
 }
+include!(concat!(env!("OUT_DIR"), "/protos/mod.rs"));
+use protobuf::Message;
 
 #[get("/protobuf/data")]
 pub async fn protobuf_data(req: HttpRequest,
                            mut payload: web::Payload) -> Result<HttpResponse, actix_web::Error> {
+    #[inline]
+    pub fn gen_arr_message(mem_size: usize) -> example::ArrMessage {
+        use example::{ArrMessage};
+        let mut msg = ArrMessage::new();
+        let arr_len = mem_size / size_of::<i32>();
+        for i in 0..arr_len {
+            msg.data.push(i as i32);
+        }
+        return msg;
+    }
+
     let qs = qstring::QString::from(req.query_string());
     let size_str = qs.get("size").unwrap_or("1024");
     let mem_sz: usize = size_str.parse::<usize>().expect("parse err");
 
-    let mut arr: Vec<u8> = Vec::with_capacity(mem_sz);
-    for i in 0..mem_sz {
-        arr.push((i % 128) as u8);
-    }
-    Ok(HttpResponseBuilder::new(StatusCode::OK)
-        .json(json!({"tick": serde_json::to_string(&arr).expect("to string failed")})))
+    let arr_message = gen_arr_message(mem_sz as _);
+    let out_bytes: Vec<u8> = arr_message.write_to_bytes().expect("write err");
+    Ok(HttpResponseBuilder::new(StatusCode::OK).protobuf(out_bytes).unwrap())
 }

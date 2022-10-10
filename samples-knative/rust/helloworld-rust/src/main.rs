@@ -11,6 +11,7 @@ mod handler;
 pub mod sys_env;
 mod bindings;
 mod allocator;
+mod proto_parser;
 
 pub use allocator::*;
 use crate::service::*;
@@ -40,7 +41,6 @@ pub unsafe fn get_global_allocator_master_mut() -> &'static mut crate::Allocator
 async fn main() -> std::io::Result<()> {
     env_logger::init();
     let addr = format!("127.0.0.1:{}", server_port());
-    println!("listen on {}", addr);
     HttpServer::new(|| {
         App::new()
             .wrap(actix_cors::Cors::permissive())

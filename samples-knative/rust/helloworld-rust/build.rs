@@ -15,7 +15,17 @@ const INCLUDED_FUNCS: &[&str] = &[
     "call_connect_session",
 ];
 
+#[inline]
+fn proto_gen() {
+    protobuf_codegen::Codegen::new()
+        .cargo_out_dir("protos")
+        .include("src")
+        .input("src/protos/example.proto")
+        .run_from_script();
+}
+
 fn main() {
+    proto_gen();
     let lib_path =
         PathBuf::from(env::current_dir().unwrap().join("target"));
 
