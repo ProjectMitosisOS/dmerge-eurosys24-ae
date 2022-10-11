@@ -9,6 +9,7 @@ cloudevents-sdk = { version = "0.5.0", features = ["actix", "reqwest"] }
 actix-web = "4"
 actix-cors = "0.6.0-beta.8"
 serde_json = "^1.0"
+actix-protobuf = "0.9.0"
 url = { version = "^2.1" }
 env_logger = "0.9.0"
 reqwest = { version = "0.11.11", default-features = false, features = ["rustls-tls", "blocking", "json"] }
@@ -18,3 +19,17 @@ serde = "1.0.144"
 futures = "0.3.23"
 async-std = { version = "1", features = ["attributes", "tokio1"] }
 qstring = "0.7.2"
+jemalloc-sys = "0.3.2"
+libc = {version = "^0.2.8", default-features = false}
+thread_local = "1.1.4"
+lazy_static = "1.4.0"
+macros = {path = "macros"}
+protobuf = "3"
+
+
+[build-dependencies]
+bindgen = "0.53.1"
+cc = "1.0"
+shlex = "0.1"
+protobuf-codegen = "3"
+protoc-rust = "^2.0"

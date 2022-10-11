@@ -1,18 +1,46 @@
+#![feature(
+c_size_t,
+core_intrinsics
+)]
+#![feature(get_mut_unchecked)]
+
 use actix_web::{App, HttpServer};
 
 mod service;
-mod util;
 mod handler;
 pub mod sys_env;
+mod bindings;
+mod allocator;
+mod proto_parser;
 
+pub use allocator::*;
 use crate::service::*;
-use crate::util::*;
+
+extern crate lazy_static;
+
+
+use macros::declare_global;
+use crate::sys_env::*;
+
+declare_global! {
+    ALLOC,
+    crate::allocator::AllocatorMaster
+}
+
+#[inline]
+pub unsafe fn get_global_allocator_master_ref() -> &'static crate::AllocatorMaster {
+    crate::ALLOC::get_ref()
+}
+
+#[inline]
+pub unsafe fn get_global_allocator_master_mut() -> &'static mut crate::AllocatorMaster {
+    crate::ALLOC::get_mut()
+}
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    // std::env::set_var("RUST_LOG", "actix_server=info,actix_web=info");
     env_logger::init();
-
+    let addr = format!("127.0.0.1:{}", server_port());
     HttpServer::new(|| {
         App::new()
             .wrap(actix_cors::Cors::permissive())
@@ -27,7 +55,12 @@ async fn main() -> std::io::Result<()> {
             .service(df_fetch_split)
             .service(df_fetch_mapper)
             .service(df_fetch_reducer)
-    }).bind("127.0.0.1:8080")?
+            .service(dmerge_register)
+            .service(dmerge_pull)
+            .service(json_micro)
+            .service(json_data)
+            .service(protobuf_data)
+    }).bind(addr)?
         .workers(12)
         .run()
         .await

@@ -562,7 +562,6 @@ dependencies = [
  "kernel-module-testlib",
  "krdma-test",
  "mitosis-rust-client",
- "rust-kernel-linux-util",
  "static_assertions",
  "x86_64",
 ]

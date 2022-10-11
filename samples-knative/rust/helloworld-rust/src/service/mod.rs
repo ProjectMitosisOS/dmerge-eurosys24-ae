@@ -1,17 +1,19 @@
 mod cloud_event;
 mod data_flow;
+mod dmerge_test;
+
 pub use data_flow::*;
 use cloudevents::{AttributesReader, AttributesWriter, Event, EventBuilder, EventBuilderV10};
 use serde_json::json;
 use actix_web::{get, post, web, HttpRequest, error, HttpResponse, HttpResponseBuilder};
 use actix_web::http::StatusCode;
-use cloudevents::binding::actix::{HttpRequestExt, HttpResponseBuilderExt};
+use cloudevents::binding::actix::{HttpResponseBuilderExt};
 use cloudevents::binding::reqwest::RequestBuilderExt;
 use serde::{Deserialize, Serialize};
 use futures::StreamExt;
 use crate::handler::{handle_mapper, handle_reducer, handle_split};
-use crate::service::cloud_event::handle_ce;
-
+use cloud_event::handle_ce;
+pub use dmerge_test::*;
 
 const MAX_SIZE: usize = 262_144;
 

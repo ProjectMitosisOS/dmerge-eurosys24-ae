@@ -35,7 +35,7 @@ spec:
         - image: caribouf/helloworld-rust
           env:
             - name: CeType
-              value: "mapper"
+              value: "sink"
             - name: ServiceName
               value: "rust-splitter"
 ---
@@ -60,7 +60,7 @@ spec:
     ref:
       apiVersion: serving.knative.dev/v1
       kind: Service
-      name: event-display
+      name: rust-trigger
 ---
 apiVersion: sources.knative.dev/v1beta2
 kind: PingSource

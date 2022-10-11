@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.2)
 
 include( ExternalProject )
-
+# ./configure --with-jemalloc-prefix=je --prefix=../deps && make -j && make install
 set(jemalloc_INSTALL_DIR ${CMAKE_SOURCE_DIR}/deps/jemalloc)
 ExternalProject_Add(jemalloc
         SOURCE_DIR ${CMAKE_SOURCE_DIR}/deps/jemalloc

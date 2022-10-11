@@ -6,7 +6,8 @@ FROM rust:1.62.1 as builder
 WORKDIR /usr/src/app
 COPY . .
 
-# Install production dependencies and build a release artifact.
+RUN apt update && apt install clang-9 libclang-dev -y
+RUN rustup default nightly-2022-02-04 && rustup component add rust-src && make all
 RUN cargo install --path .
 
 

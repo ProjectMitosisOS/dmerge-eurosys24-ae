@@ -13,3 +13,11 @@ pub(crate) fn fetch_env(key: &str, default: &str) -> String {
         _ => default.to_string()
     }
 }
+
+#[inline]
+pub(crate) fn server_port() -> String {
+    match env::var("PORT") {
+        Ok(env_val) => env_val,
+        _ => "8080".to_string()
+    }
+}

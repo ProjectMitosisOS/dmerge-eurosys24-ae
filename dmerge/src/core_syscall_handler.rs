@@ -5,6 +5,7 @@ use crate::KRdmaKit::rust_kernel_rdma_base::linux_kernel_module::KernelResult;
 use mitosis::remote_paging::AccessInfo;
 use mitosis::os_network::bytes::ToBytes;
 use mitosis::linux_kernel_module;
+use mitosis::linux_kernel_module::println;
 use mitosis::os_network::block_on;
 use mitosis::os_network::timeout::TimeoutWRef;
 use mitosis::rpc_service::HandlerConnectInfo;
@@ -70,7 +71,38 @@ impl mitosis::syscalls::FileOperations for DmergeSyscallHandler {
     fn ioctrl(&mut self, cmd: c_uint, arg: c_ulong) -> c_long {
         match cmd {
             0 => self.syscall_register_heap(arg),
-            1 => self.syscall_pull(arg),
+            1 => {
+                self.syscall_pull(arg)
+            }
+            3 => {
+                use crate::bindings::connect_req_t;
+                use crate::mitosis::linux_kernel_module::bindings::_copy_from_user;
+                let mut req: connect_req_t = Default::default();
+                unsafe {
+                    _copy_from_user(
+                        (&mut req as *mut connect_req_t).cast::<c_void>(),
+                        arg as *mut c_void,
+                        core::mem::size_of_val(&req) as u64,
+                    )
+                };
+
+                let mut addr_buf: [u8; 39] = [0; 39];
+                let addr = {
+                    unsafe {
+                        _copy_from_user(
+                            addr_buf.as_mut_ptr().cast::<c_void>(),
+                            req.gid as *mut c_void,
+                            39,
+                        )
+                    };
+                    // now get addr of GID format
+                    core::str::from_utf8(&addr_buf).unwrap()
+                };
+                let (machine_id, gid, nic_id) = (req.machine_id, String::from(addr), req.nic_id);
+                self.syscall_connect_session(machine_id as _,
+                                             &gid,
+                                             nic_id as _)
+            }
             _ => {
                 -1
             }
@@ -105,12 +137,6 @@ impl DmergeSyscallHandler {
         let (handler_id, machine_id) = (73, 0); // TODO: Use as ioctl args
         let cpu_id = mitosis::get_calling_cpu_id();
 
-        // TODO: use as syscall
-        {
-            self.syscall_connect_session(machine_id,
-                                         &String::from("fe80:0000:0000:0000:248a:0703:009c:7c94"),
-                                         0);
-        }
         // hold the lock on this CPU TODO: add function in MITOSIS
         // unsafe { mitosis::global_locks::get_ref()[cpu_id].lock() };
 

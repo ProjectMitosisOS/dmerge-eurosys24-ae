@@ -25,7 +25,7 @@ static void test_allocator() {
                   (uint64_t) tmp << std::endl;
 //        Alloc::get_thread_allocator()->dealloc(tmp);
     }
-    (*(int *) ptr) = 1024;
+    (*(int *) ptr) = 4096;
     std::cout << std::dec << (uint64_t)(*(int *) ptr) << "\n";
 
     int sd = sopen();

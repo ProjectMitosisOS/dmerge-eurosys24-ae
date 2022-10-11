@@ -5,7 +5,9 @@ use std::path::PathBuf;
 const INCLUDED_TYPES: &[&str] = &[];
 
 // types from kernel
-const INCLUDED_KERNEL_TYPES: &[&str] = &[];
+const INCLUDED_KERNEL_TYPES: &[&str] = &[
+    "connect_req_t",
+];
 
 const INCLUDED_KERNEL_FUNCS: &[&str] = &[];
 
