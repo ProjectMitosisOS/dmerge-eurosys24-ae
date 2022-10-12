@@ -6,7 +6,7 @@ spec:
   template:
     spec:
       containers:
-        - image: gcr.io/knative-releases/knative.dev/eventing-contrib/cmd/appender
+        - image: gcr.lank8s.cn/knative-releases/knative.dev/eventing-contrib/cmd/appender
           env:
             - name: MESSAGE
               value: " - Handled by 0"
@@ -20,7 +20,7 @@ spec:
   template:
     spec:
       containers:
-        - image: gcr.io/knative-releases/knative.dev/eventing-contrib/cmd/appender
+        - image: gcr.lank8s.cn/knative-releases/knative.dev/eventing-contrib/cmd/appender
           env:
             - name: MESSAGE
               value: " - Handled by 1"
@@ -35,7 +35,7 @@ spec:
   template:
     spec:
       containers:
-        - image: gcr.io/knative-releases/knative.dev/eventing-contrib/cmd/appender
+        - image: gcr.lank8s.cn/knative-releases/knative.dev/eventing-contrib/cmd/appender
           env:
             - name: MESSAGE
               value: " - Handled by 2"
@@ -77,7 +77,7 @@ spec:
   template:
     spec:
       containers:
-        - image: gcr.io/knative-releases/knative.dev/eventing-contrib/cmd/event_display
+        - image: gcr.lank8s.cn/knative-releases/knative.dev/eventing-contrib/cmd/event_display
 ---
 apiVersion: sources.knative.dev/v1beta2
 kind: PingSource

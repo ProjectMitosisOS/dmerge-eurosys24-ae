@@ -24,7 +24,7 @@ spec:
       containers:
         -  # This corresponds to
           # https://github.com/knative/eventing-contrib/tree/main/cmd/event_display
-          image: gcr.io/knative-releases/knative.dev/eventing-contrib/cmd/event_display
+          image: gcr.lank8s.cn/knative-releases/knative.dev/eventing-contrib/cmd/event_display
 ---
 apiVersion: eventing.knative.dev/v1
 kind: Trigger
