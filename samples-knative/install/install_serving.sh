@@ -11,6 +11,7 @@ kubectl patch configmap/config-network \
 --type merge \
 --patch '{"data":{"ingress-class":"kourier.ingress.networking.knative.dev"}}'
 
-kubectl apply -f yaml/serving-default-domain.yaml
+# kubectl --namespace kourier-system get service kourier
+# Get the IP of cluster
 
 kubectl apply -f yaml/serving-hpa.yaml
