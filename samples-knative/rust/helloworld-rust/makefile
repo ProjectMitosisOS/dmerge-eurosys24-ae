@@ -10,7 +10,7 @@ SRCS = src/native/wrapper.c
 
 TARGET = $(OUT_DIR)/libwrapper.a
 
-all: $(TARGET)
+wrapper: $(TARGET)
 
 run:
 	make
@@ -36,6 +36,7 @@ clean:
 
 .PHONY: clean all run
 
-build-img:
+build-img: clean wrapper
+	cargo install --path .
 	docker build -t caribouf/helloworld-rust .
 	docker push caribouf/helloworld-rust
