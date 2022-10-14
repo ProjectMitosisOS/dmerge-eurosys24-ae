@@ -5,11 +5,14 @@ use crate::KRdmaKit::rust_kernel_rdma_base::linux_kernel_module::KernelResult;
 use mitosis::remote_paging::AccessInfo;
 use mitosis::os_network::bytes::ToBytes;
 use mitosis::linux_kernel_module;
+use mitosis::linux_kernel_module::file_operations::{File, SeekFrom};
 use mitosis::linux_kernel_module::println;
+use mitosis::linux_kernel_module::user_ptr::{UserSlicePtrReader, UserSlicePtrWriter};
 use mitosis::os_network::block_on;
 use mitosis::os_network::timeout::TimeoutWRef;
 use mitosis::rpc_service::HandlerConnectInfo;
 use mitosis::startup::probe_remote_rpc_end;
+use crate::KRdmaKit::rust_kernel_rdma_base::linux_kernel_module::file_operations::{ReadFn, SeekFn, WriteFn};
 use crate::remote_descriptor_fetch;
 use crate::rpc_service::rpc_handlers::HeapDescriptorQueryReply;
 
@@ -115,6 +118,24 @@ impl mitosis::syscalls::FileOperations for DmergeSyscallHandler {
             (*vma_p).vm_ops = &mut MY_VM_OP as *mut crate::bindings::vm_operations_struct as *mut _;
         }
         0
+    }
+
+    const READ: ReadFn<Self> = Some(Self::read_fn);
+    const WRITE: WriteFn<Self> = Some(Self::write_fn);
+    const SEEK: SeekFn<Self> = Some(Self::seek_fn);
+}
+
+impl DmergeSyscallHandler {
+    fn read_fn(_self: &DmergeSyscallHandler, file: &File, writer: &mut UserSlicePtrWriter, len: u64) -> KernelResult<()> {
+        Ok(())
+    }
+
+    fn write_fn(_self: &DmergeSyscallHandler, writer: &mut UserSlicePtrReader, len: u64) -> KernelResult<()> {
+        Ok(())
+    }
+
+    fn seek_fn(_self: &DmergeSyscallHandler, file: &File, seek_from: SeekFrom) -> KernelResult<u64> {
+        Ok(0)
     }
 }
 

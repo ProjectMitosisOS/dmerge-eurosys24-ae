@@ -16,12 +16,9 @@ endif ()
 
 set(samples
         function merge
-        micro-mapper micro-reducer
         )
 add_executable(function samples/cpp/function.cc)
 add_executable(merge samples/cpp/merge.cc)
-add_executable(micro-mapper samples/workflow/micro/mapper.cc)
-add_executable(micro-reducer samples/workflow/micro/reducer.cc)
 foreach (s ${samples})
     target_link_libraries(${s} pthread ${jemalloc_lib})
     add_dependencies(${s} jemalloc)

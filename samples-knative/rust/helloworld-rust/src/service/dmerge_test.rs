@@ -38,7 +38,7 @@ pub async fn dmerge_pull(req: HttpRequest,
 
     let sd = unsafe { crate::bindings::sopen() };
     unsafe {
-        let gid = std::ffi::CString::new("fe80:0000:0000:0000:248a:0703:009c:7c94")
+        let gid = std::ffi::CString::new("fe80:0000:0000:0000:248a:0703:009c:7ca0")
             .expect("not valid str");
         let mac_id = 0;
         crate::bindings::call_connect_session(sd,

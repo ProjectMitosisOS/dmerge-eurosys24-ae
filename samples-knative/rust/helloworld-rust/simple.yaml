@@ -1,0 +1,12 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: rust-service
+spec:
+  template:
+    spec:
+      containers:
+        - image: caribouf/helloworld-rust
+          resources:
+            limits:
+              hostdev.k8s.io/dev_mitosis-syscalls: 1
