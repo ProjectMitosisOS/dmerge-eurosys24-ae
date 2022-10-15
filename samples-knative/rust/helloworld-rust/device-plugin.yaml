@@ -17,9 +17,10 @@ spec:
       hostNetwork: true
       containers:
         - name: hostdev
-#          image: ccr.ccs.tencentyun.com/paas/hostdev:latest
-          image: caribouf/k8s-hostdev-plugin:0.1
-          args: ["--devs", "/dev/mitosis-syscalls:rwm"]
+          image: ccr.ccs.tencentyun.com/paas/hostdev:latest
+#          image: caribouf/k8s-hostdev-plugin:0.1
+#          args: ["--devs", "/dev/mem:r,/dev/fuse:rwm"]
+          args: ["--devs", "/dev/mem:r,/dev/mitosis-syscalls:rwm"]
           securityContext:
             privileged: true
           volumeMounts:
