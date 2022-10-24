@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
-  name: hostdev-device-plugin
+  name: hostdev-device-dev-plugin
   namespace: kube-system
 spec:
   template:
@@ -9,7 +9,7 @@ spec:
       annotations:
         scheduler.alpha.kubernetes.io/critical-pod: ""
       labels:
-        name: hostdev-device-plugin-ds
+        name: hostdev-device-dev-plugin-ds
     spec:
       tolerations:
         - key: CriticalAddonsOnly
@@ -17,29 +17,31 @@ spec:
       hostNetwork: true
       containers:
         - name: hostdev
-          image: ccr.ccs.tencentyun.com/paas/hostdev:latest
-#          image: caribouf/k8s-hostdev-plugin:0.1
-#          args: ["--devs", "/dev/mem:r,/dev/fuse:rwm"]
-          args: ["--devs", "/dev/mem:r,/dev/mitosis-syscalls:rwm"]
+          image: caribouf/k8s-hostdev-plugin:0.1
+          imagePullPolicy: Always
+          args: ["--devs", "/dev/mitosis-syscalls:rw"]
           securityContext:
             privileged: true
           volumeMounts:
-            - name: device-plugin
+            - name: device-dev-plugin
               mountPath: /var/lib/kubelet/device-plugins
-            - name: dev
-              mountPath: /dev
             - name: mitosis
               mountPath: /dev/mitosis-syscalls
+            - name: ib
+              mountPath: /dev/infiniband/rdma_cm
+          env:
+            - name: DEV_NUM
+              value: "20"
       volumes:
-        - name: device-plugin
+        - name: device-dev-plugin
           hostPath:
             path: /var/lib/kubelet/device-plugins
-        - name: dev
-          hostPath:
-            path: /dev
         - name: mitosis
           hostPath:
             path: /dev/mitosis-syscalls
+        - name: ib
+          hostPath:
+            path: /dev/infiniband/rdma_cm
   selector:
     matchLabels:
-      name: hostdev-device-plugin-ds
+      name: hostdev-device-dev-plugin-ds
