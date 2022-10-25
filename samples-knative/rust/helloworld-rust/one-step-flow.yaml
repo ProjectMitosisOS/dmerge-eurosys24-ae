@@ -16,7 +16,7 @@ spec:
   template:
     spec:
       containers:
-        - image: caribouf/helloworld-rust:0.0.2
+        - image: caribouf/helloworld-rust
           imagePullPolicy: Always
           resources:
             limits:
@@ -36,7 +36,7 @@ spec:
   template:
     spec:
       containers:
-        - image: caribouf/helloworld-rust:0.0.2
+        - image: caribouf/helloworld-rust
           imagePullPolicy: Always
           resources:
             limits:

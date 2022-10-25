@@ -42,7 +42,7 @@ async fn main() -> std::io::Result<()> {
     env_logger::init();
 
     let addr = format!("127.0.0.1:{}", server_port());
-    println!("App start. Listen on:{}", addr);
+    println!("App starting Listen on:{}", addr);
     HttpServer::new(|| {
         App::new()
             .wrap(actix_cors::Cors::permissive())

@@ -32,7 +32,7 @@ $(OBJS) : $(SRCS)
 clean:
 	rm -rf $(OUT_DIR) $(OBJS)
 	rm -rf $(CARGO_BUILD_DIR)
-	cargo clean
+	sh clean-img.sh ; cargo clean
 
 .PHONY: clean all run
 
