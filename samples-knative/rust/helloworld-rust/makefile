@@ -1,6 +1,6 @@
 CC = gcc
 CFLAGS := -Wall -fpic
-
+IMG_TAG = latest
 MKDIR_P = mkdir -p
 OUT_DIR = target
 
@@ -38,5 +38,5 @@ clean:
 
 build-img: clean wrapper
 	cargo install --path .
-	docker build -t caribouf/helloworld-rust .
-	docker push caribouf/helloworld-rust
+	docker build -t caribouf/helloworld-rust:$(IMG_TAG) .
+	docker push caribouf/helloworld-rust:$(IMG_TAG)

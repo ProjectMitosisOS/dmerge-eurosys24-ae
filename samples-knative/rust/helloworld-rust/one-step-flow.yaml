@@ -16,9 +16,13 @@ spec:
   template:
     spec:
       containers:
-        - image: caribouf/helloworld-rust
+        - image: caribouf/helloworld-rust:0.0.2
+          imagePullPolicy: Always
+          resources:
+            limits:
+              hostdev.k8s.io/dev_mitosis-syscalls: 1
           env:
-            - name: CeType
+            - name: EgressCeType
               value: "splitter"
             - name: ServiceName
               value: "rust-trigger"
@@ -32,9 +36,13 @@ spec:
   template:
     spec:
       containers:
-        - image: caribouf/helloworld-rust
+        - image: caribouf/helloworld-rust:0.0.2
+          imagePullPolicy: Always
+          resources:
+            limits:
+              hostdev.k8s.io/dev_mitosis-syscalls: 1
           env:
-            - name: CeType
+            - name: EgressCeType
               value: "sink"
             - name: ServiceName
               value: "rust-splitter"

@@ -26,6 +26,7 @@ fn handle_trigger(data: &HashMap<String, String>) -> HashMap<String, String> {
     // println!("I'm in trigger");
     let mut data = data.clone();
 
+    // Fetch data for origin (in Json)
     let (service_name, revision, path) = (
         fetch_env(SERVICE_NAME_ENV_KEY, "default"),
         fetch_env(REVISION_ENV_KEY, "00001"),
@@ -65,6 +66,7 @@ fn handle_split(data: &HashMap<String, String>) -> HashMap<String, String> {
             fetch_env(SERVICE_NAME_ENV_KEY, "default"),
             fetch_env(REVISION_ENV_KEY, "00001"),
             "/dataflow/fetch/split");
+
         ret_data.insert(DATA_NW_ADDR_KEY.to_string(),
                         format!("http://{}-{}-private{}", service_name, revision, path));
 
@@ -97,7 +99,7 @@ fn handle_sink(data: &HashMap<String, String>) -> HashMap<String, String> {
 }
 
 pub(crate) fn handle_ce(event: &mut Event) -> Result<String, actix_web::Error> {
-    println!("get ce {:?}", event);
+    // println!("get ce {:?}", event);
     let (_, _, data) = event.take_data();
 
     let data_hash = if let Some(data) = data {
@@ -130,7 +132,7 @@ pub(crate) fn handle_ce(event: &mut Event) -> Result<String, actix_web::Error> {
                        serde_json::to_string(&egress_data).unwrap());
 
     // Update egress event type
-    let egress_ce_type = match env::var("CeType") {
+    let egress_ce_type = match env::var("EgressCeType") {
         Ok(ce_type) => ce_type,
         _ => "ce-default".to_string()
     };

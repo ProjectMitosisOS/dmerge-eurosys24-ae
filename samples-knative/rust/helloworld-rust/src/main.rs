@@ -40,7 +40,9 @@ pub unsafe fn get_global_allocator_master_mut() -> &'static mut crate::Allocator
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     env_logger::init();
+
     let addr = format!("127.0.0.1:{}", server_port());
+    println!("App start. Listen on:{}", addr);
     HttpServer::new(|| {
         App::new()
             .wrap(actix_cors::Cors::permissive())
