@@ -51,7 +51,7 @@ fn handle_trigger(data: &HashMap<String, String>) -> HashMap<String, String> {
         crate::init_heap(crate::DEFAULT_HEAP_BASE_ADDR, 1024 * 1024 * 512);
 
         let data_loc_address = crate::DEFAULT_HEAP_BASE_ADDR;
-        *(data_loc_address as *mut usize) = 1025;
+        *(data_loc_address as *mut &str) = "hello world";
     }
 
     let mut data = data.clone();
@@ -123,7 +123,7 @@ fn handle_split(data: &HashMap<String, String>) -> HashMap<String, String> {
 
             let data_loc_address = data_loc.parse::<u64>()
                 .expect("not valid address pattern");
-            let data_read = *(data_loc_address as *mut u64);
+            let data_read = *(data_loc_address as *mut &str);
             println!("get result {}", data_read);
         }
 

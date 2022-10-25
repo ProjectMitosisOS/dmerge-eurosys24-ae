@@ -1,22 +1,42 @@
+use std::ffi::CString;
 use std::intrinsics::size_of;
 use std::time::{SystemTime, UNIX_EPOCH};
 use actix_protobuf::ProtoBufResponseBuilder;
 use actix_web::{get, HttpRequest, HttpResponse, HttpResponseBuilder, web};
 use actix_web::http::StatusCode;
+use libc::c_char;
 use serde_json::{json};
 
 
+#[derive(Clone)]
+struct ExampleStruct {
+    number: u64,
+    name: *const c_char,
+}
+
+unsafe fn push<T>(address: u64, data: &T) where T: Clone {
+    *(address as *mut T) = data.clone();
+}
+
+unsafe fn read_data<T>(address: u64) -> T where T: Clone {
+    (*(address as *mut T)).clone()
+}
 
 /// Fetch origin data
+///
+/// Refer of string conversion: https://gist.github.com/jimmychu0807/9a89355e642afad0d2aeda52e6ad2424
 #[get("/dmerge/register")]
 pub async fn dmerge_register(_req: HttpRequest,
                              mut _payload: web::Payload) -> Result<HttpResponse, actix_web::Error> {
     unsafe {
         crate::init_heap(crate::DEFAULT_HEAP_BASE_ADDR, 1024 * 1024 * 512);
         let data_loc_address = crate::DEFAULT_HEAP_BASE_ADDR;
-        *(data_loc_address as *mut usize) = 1025;
-        let data_read = *(data_loc_address as *mut usize);
-        println!("Register after...get data {}", data_read);
+
+        let name = CString::new("hello world").expect("not ok for c char");
+        push::<ExampleStruct>(data_loc_address,
+                              &ExampleStruct { number: 2412, name: name.as_ptr() });
+        let example = read_data::<ExampleStruct>(data_loc_address);
+        println!("data is:{}", example.number);
     }
     Ok(HttpResponseBuilder::new(StatusCode::OK)
         .json(json!({"status": 0})))
@@ -42,8 +62,9 @@ pub async fn dmerge_pull(req: HttpRequest,
         .as_nanos();
     unsafe {
         let res = crate::bindings::call_pull(sd);
-        let data_read = *(data_loc_address as *mut u64);
-        println!("Pull after...get data {}", data_read);
+        let example = read_data::<ExampleStruct>(data_loc_address);
+        println!("After pull data is:{}", example.number);
+        println!("After pull name is:{}", example.name.to_string());
     }
 
     let end_tick = SystemTime::now()
