@@ -37,6 +37,23 @@ pub unsafe fn get_global_allocator_master_mut() -> &'static mut crate::Allocator
     crate::ALLOC::get_mut()
 }
 
+pub const DEFAULT_HEAP_BASE_ADDR: u64 = 0x4ffff5a00000;
+
+pub unsafe fn init_heap(base_addr: u64, mem_sz: u64) {
+    // allocate heap
+
+    let _ptr = crate::bindings::create_heap(base_addr, mem_sz * 2);
+    crate::ALLOC::init(
+        AllocatorMaster::init(base_addr as _,
+                              mem_sz * 2));
+
+    let _ptr = get_global_allocator_master_mut()
+        .get_thread_allocator()
+        .alloc((mem_sz) as libc::size_t, 0);
+
+    let sd = crate::bindings::sopen();
+    let _ = crate::bindings::call_register(sd, base_addr as u64);
+}
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     env_logger::init();

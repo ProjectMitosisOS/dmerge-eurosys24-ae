@@ -5,37 +5,27 @@ use actix_web::{get, HttpRequest, HttpResponse, HttpResponseBuilder, web};
 use actix_web::http::StatusCode;
 use serde_json::{json};
 
+
+
 /// Fetch origin data
 #[get("/dmerge/register")]
 pub async fn dmerge_register(_req: HttpRequest,
                              mut _payload: web::Payload) -> Result<HttpResponse, actix_web::Error> {
-    let addr = 0x4ffff5a00000 as u64;
-    let mem_sz = 1024 * 1024 * 512 as u64;
-
-    // allocate heap
     unsafe {
-        let _ptr = crate::bindings::create_heap(addr, mem_sz);
-        crate::ALLOC::init(crate::AllocatorMaster::init(addr as _,
-                                                        mem_sz));
-        let all = crate::get_global_allocator_master_mut().get_thread_allocator();
-        let _ptr = all.alloc(1024 * 1024 as libc::size_t, 0);
+        crate::init_heap(crate::DEFAULT_HEAP_BASE_ADDR, 1024 * 1024 * 512);
+        let data_loc_address = crate::DEFAULT_HEAP_BASE_ADDR;
+        *(data_loc_address as *mut usize) = 1025;
+        let data_read = *(data_loc_address as *mut usize);
+        println!("Register after...get data {}", data_read);
     }
-    let res = unsafe {
-        let sd = crate::bindings::sopen();
-        crate::bindings::call_register(sd, addr as u64)
-    };
     Ok(HttpResponseBuilder::new(StatusCode::OK)
-        .json(json!({"status":res})))
+        .json(json!({"status": 0})))
 }
 
 #[get("/dmerge/pull")]
 pub async fn dmerge_pull(req: HttpRequest,
                          mut payload: web::Payload) -> Result<HttpResponse, actix_web::Error> {
-    let qs = qstring::QString::from(req.query_string());
-    let size_str = qs.get("size").unwrap_or("1024");
-    let mem_sz: usize = size_str.parse::<usize>().expect("parse err");
-    let addr = 0x4ffff5a00000 as u64;
-
+    let data_loc_address: u64 = 0x4ffff5a00000;
     let sd = unsafe { crate::bindings::sopen() };
     unsafe {
         let gid = std::ffi::CString::new("fe80:0000:0000:0000:248a:0703:009c:7ca0")
@@ -51,19 +41,10 @@ pub async fn dmerge_pull(req: HttpRequest,
         .expect("Time went backwards")
         .as_nanos();
     unsafe {
-        let _res = crate::bindings::call_pull(sd);
+        let res = crate::bindings::call_pull(sd);
+        let data_read = *(data_loc_address as *mut u64);
+        println!("Pull after...get data {}", data_read);
     }
-    let data_res = unsafe {
-        let t = *(addr as *mut [u8; 1024]);
-        let _sum = {
-            let mut res: u64 = 0;
-            for i in 0..mem_sz {
-                res += t[i] as u64
-            }
-            res
-        };
-        t[1]
-    };
 
     let end_tick = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -73,7 +54,7 @@ pub async fn dmerge_pull(req: HttpRequest,
     println!("passed {} us", passed_ns / 1000);
 
     Ok(HttpResponseBuilder::new(StatusCode::OK)
-        .json(json!({"data":data_res})))
+        .json(json!({"data": 0})))
 }
 
 
@@ -128,6 +109,7 @@ pub async fn json_data(req: HttpRequest,
 }
 include!(concat!(env!("OUT_DIR"), "/protos/mod.rs"));
 use protobuf::Message;
+use crate::{AllocatorMaster, get_global_allocator_master_mut};
 
 #[get("/protobuf/data")]
 pub async fn protobuf_data(req: HttpRequest,
