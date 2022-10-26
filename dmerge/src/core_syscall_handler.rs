@@ -73,9 +73,32 @@ impl mitosis::syscalls::FileOperations for DmergeSyscallHandler {
 
     fn ioctrl(&mut self, cmd: c_uint, arg: c_ulong) -> c_long {
         match cmd {
-            0 => self.syscall_register_heap(arg),
+            0 => {
+                use crate::bindings::register_req_t;
+                use crate::mitosis::linux_kernel_module::bindings::_copy_from_user;
+                let mut req: register_req_t = Default::default();
+                unsafe {
+                    _copy_from_user(
+                        (&mut req as *mut register_req_t).cast::<c_void>(),
+                        arg as *mut c_void,
+                        core::mem::size_of_val(&req) as u64,
+                    )
+                };
+                self.syscall_register_heap(req.heap_base as _, req.heap_hint as _)
+            }
             1 => {
-                self.syscall_pull(arg)
+                use crate::bindings::pull_req_t;
+                use crate::mitosis::linux_kernel_module::bindings::_copy_from_user;
+                let mut req: pull_req_t = Default::default();
+                unsafe {
+                    _copy_from_user(
+                        (&mut req as *mut pull_req_t).cast::<c_void>(),
+                        arg as *mut c_void,
+                        core::mem::size_of_val(&req) as u64,
+                    )
+                };
+                self.syscall_pull(req.heap_hint as _,
+                                  req.machine_id as _)
             }
             3 => {
                 use crate::bindings::connect_req_t;
@@ -115,7 +138,7 @@ impl mitosis::syscalls::FileOperations for DmergeSyscallHandler {
     fn mmap(&mut self, vma_p: *mut mitosis::linux_kernel_module::bindings::vm_area_struct) -> c_int {
         unsafe {
             (*vma_p).vm_private_data = (self as *mut Self).cast::<c_void>();
-            (*vma_p).vm_ops = &mut MY_VM_OP as *mut crate::bindings::vm_operations_struct as *mut _;
+            (*vma_p).vm_ops = &mut MY_VM_OP as *mut mitosis::bindings::vm_operations_struct as *mut _;
         }
         0
     }
@@ -141,21 +164,16 @@ impl DmergeSyscallHandler {
 
 impl DmergeSyscallHandler {
     // ioctrl-0
-    fn syscall_register_heap(&self, arg: c_ulong) -> c_long {
-        mitosis::log::debug!("heap base addr: 0x{:x}", arg);
-
-        let start_virt_addr = arg;
-
+    fn syscall_register_heap(&self, start_virt_addr: u64, hint: usize) -> c_long {
         let heap_service = unsafe { crate::get_shs_mut() };
-        let hint = 73;
         heap_service.register_heap(hint as _, start_virt_addr as _);
         return 0;
     }
 
 
     // ioctrl-1
-    fn syscall_pull(&mut self, _arg: c_ulong) -> c_long {
-        let (handler_id, machine_id) = (73, 0); // TODO: Use as ioctl args
+    fn syscall_pull(&mut self, hander_id: usize, machine_id: usize) -> c_long {
+        let (handler_id, machine_id) = (hander_id, machine_id); // TODO: Use as ioctl args
         let cpu_id = mitosis::get_calling_cpu_id();
 
         // hold the lock on this CPU TODO: add function in MITOSIS
@@ -282,23 +300,23 @@ impl DmergeSyscallHandler {
 
 
 /// The fault handler parts
-static mut MY_VM_OP: crate::bindings::vm_operations_struct = unsafe {
-    core::mem::transmute([0u8; core::mem::size_of::<crate::bindings::vm_operations_struct>()])
+static mut MY_VM_OP: mitosis::bindings::vm_operations_struct = unsafe {
+    core::mem::transmute([0u8; core::mem::size_of::<mitosis::bindings::vm_operations_struct>()])
 };
 
 #[allow(dead_code)]
-unsafe extern "C" fn open_handler(_area: *mut crate::bindings::vm_area_struct) {}
+unsafe extern "C" fn open_handler(_area: *mut mitosis::bindings::vm_area_struct) {}
 
 
 #[allow(dead_code)]
-unsafe extern "C" fn page_fault_handler(vmf: *mut crate::bindings::vm_fault) -> c_int {
+unsafe extern "C" fn page_fault_handler(vmf: *mut mitosis::bindings::vm_fault) -> c_int {
     let handler: *mut DmergeSyscallHandler = (*(*vmf).vma).vm_private_data as *mut _;
     (*handler).handle_page_fault(vmf)
 }
 
 impl DmergeSyscallHandler {
     #[inline(always)]
-    unsafe fn handle_page_fault(&mut self, vmf: *mut crate::bindings::vm_fault) -> c_int {
+    unsafe fn handle_page_fault(&mut self, vmf: *mut mitosis::bindings::vm_fault) -> c_int {
         let fault_addr = (*vmf).address;
         let heap = self.caller_status.heaps.as_mut().unwrap();
 
@@ -326,7 +344,7 @@ impl DmergeSyscallHandler {
                     "[handle_page_fault] Failed to read the remote page, fault addr: 0x{:x}",
                     fault_addr
                 );
-                crate::bindings::FaultFlags::SIGSEGV.bits() as linux_kernel_module::c_types::c_int
+                mitosis::bindings::FaultFlags::SIGSEGV.bits() as linux_kernel_module::c_types::c_int
             }
         }
     }

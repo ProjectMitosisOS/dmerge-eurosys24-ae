@@ -29,7 +29,7 @@ static void test_allocator() {
     std::cout << std::dec << (uint64_t)(*(int *) ptr) << "\n";
 
     int sd = sopen();
-    call_register(sd, (uint64_t) ptr);
+    call_register(sd, (uint64_t) ptr, 74);
 
     int res = *(int *) ptr;
     std::cout << std::dec << "res:" << res << std::endl;

@@ -19,12 +19,12 @@ pub use network::*;
 
 
 mod rpc_service;
+pub mod bindings;
 /// Import MITOSIS
 pub use mitosis;
 pub use mitosis_macros;
 pub use mitosis::KRdmaKit;
 pub use mitosis::log;
-pub use mitosis::bindings;
 
 use crate::mitosis_macros::declare_global;
 pub use core_syscall_handler::DmergeSyscallHandler;

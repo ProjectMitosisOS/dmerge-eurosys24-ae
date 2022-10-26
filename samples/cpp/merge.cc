@@ -11,7 +11,7 @@ int
 main() {
     int sd = sopen();
 
-    call_pull(sd); // merge (pull)
+    call_pull(sd, 74, 0); // merge (pull)
     uint64_t addr = 0x4ffff5a00000;
     void *ptr = (void *) addr;
 

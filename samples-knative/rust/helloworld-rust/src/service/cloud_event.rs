@@ -50,9 +50,10 @@ fn handle_trigger(data: &HashMap<String, String>) -> HashMap<String, String> {
 fn handle_trigger(data: &HashMap<String, String>) -> HashMap<String, String> {
     // FIXME: writing data
     let base_addr = heap_base();
+    let hint = heap_hint();
 
     unsafe {
-        crate::init_heap(base_addr, 1024 * 1024 * 512);
+        crate::init_heap(base_addr, hint, 1024 * 1024 * 512);
 
         let data_loc_address = base_addr;
 

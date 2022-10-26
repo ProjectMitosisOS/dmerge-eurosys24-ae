@@ -22,14 +22,31 @@ pub(crate) fn server_port() -> String {
     }
 }
 
+pub(crate) fn hex_str_to_val(s: &String) -> u64 {
+    use std::i64;
+    i64::from_str_radix(s.trim_start_matches("0x"), 16).expect("not valid hex string") as u64
+}
+
 #[inline]
 pub(crate) fn heap_base() -> u64 {
     use std::i64;
     match env::var("HEAP_BASE_HEX") {
         Ok(base_addr_str) => {
-            let without_prefix = base_addr_str.trim_start_matches("0x");
-            i64::from_str_radix(without_prefix, 16).expect("not valid hex string") as u64
+            hex_str_to_val(&base_addr_str)
         }
         _ => crate::DEFAULT_HEAP_BASE_ADDR
+    }
+}
+
+#[inline]
+pub(crate) fn heap_hint() -> usize {
+    match env::var("HEAP_HINT") {
+        Ok(env_val) => {
+            match env_val.parse::<usize>() {
+                Ok(val) => val,
+                _ => 73
+            }
+        }
+        _ => 73
     }
 }

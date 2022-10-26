@@ -28,7 +28,14 @@ pub async fn dmerge_register(_req: HttpRequest,
 #[get("/dmerge/pull")]
 pub async fn dmerge_pull(req: HttpRequest,
                          mut payload: web::Payload) -> Result<HttpResponse, actix_web::Error> {
-    let data_loc_address: u64 = 0x4ffff5a00000;
+    let qs = qstring::QString::from(req.query_string());
+    let data_loc_address_str = qs.get("addr").unwrap_or("0x4ffff5a00000");
+    let hint_str = qs.get("hint").unwrap_or("73");
+
+    let data_loc_address: u64 = hex_str_to_val(&String::from(data_loc_address_str));
+    let hint = hint_str.parse::<u32>().expect("not valid digital");
+
+    println!("hint is:{}", hint);
     let sd = unsafe { crate::bindings::sopen() };
 
     let start_tick = SystemTime::now()
@@ -36,7 +43,7 @@ pub async fn dmerge_pull(req: HttpRequest,
         .expect("Time went backwards")
         .as_nanos();
     unsafe {
-        let res = crate::bindings::call_pull(sd);
+        let res = crate::bindings::call_pull(sd, hint, 0);
         let example = crate::read_data::<ExampleStruct>(data_loc_address);
         println!("After pull data is:{}", example.number);
     }
@@ -106,7 +113,7 @@ include!(concat!(env!("OUT_DIR"), "/protos/mod.rs"));
 use protobuf::Message;
 use crate::{AllocatorMaster, get_global_allocator_master_mut};
 use crate::service::payload::ExampleStruct;
-use crate::sys_env::heap_base;
+use crate::sys_env::{heap_base, hex_str_to_val};
 
 #[get("/protobuf/data")]
 pub async fn protobuf_data(req: HttpRequest,

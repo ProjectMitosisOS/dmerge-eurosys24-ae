@@ -16,8 +16,10 @@ sopen() {
 }
 
 int
-call_register(int sd, unsigned long long peak_addr) {
-    if (ioctl(sd, Register, peak_addr) == -1) {
+call_register(int sd, unsigned long long peak_addr, unsigned int hint) {
+    register_req_t req = {.heap_base = peak_addr, .heap_hint = hint};
+
+    if (ioctl(sd, Register, &req) == -1) {
         return -1;
     }
 
@@ -26,8 +28,9 @@ call_register(int sd, unsigned long long peak_addr) {
 
 
 int
-call_pull(int sd) {
-    if (ioctl(sd, Pull, 0) == -1) {
+call_pull(int sd, unsigned int hint, unsigned int machine_id) {
+    pull_req_t req = {.heap_hint = hint, .machine_id = machine_id};
+    if (ioctl(sd, Pull, &req) == -1) {
         return -1;
     }
 
