@@ -36,6 +36,16 @@ pub unsafe fn get_global_allocator_master_ref() -> &'static crate::AllocatorMast
 pub unsafe fn get_global_allocator_master_mut() -> &'static mut crate::AllocatorMaster {
     crate::ALLOC::get_mut()
 }
+#[inline]
+pub unsafe fn push<T>(address: u64, data: &T) where T: Clone {
+    *(address as *mut T) = data.clone();
+}
+
+#[inline]
+pub unsafe fn read_data<T>(address: u64) -> T where T: Clone {
+    (*(address as *mut T)).clone()
+}
+
 
 pub const DEFAULT_HEAP_BASE_ADDR: u64 = 0x4ffff5a00000;
 

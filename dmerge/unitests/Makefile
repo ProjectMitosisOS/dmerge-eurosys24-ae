@@ -42,14 +42,5 @@ clean:
 	-rm $(PWD)/Module.symvers
 	$(MAKE) -C $(KDIR) M=$(CURDIR) CC=$(CC) clean
 
-uninstall:
-	sudo rmmod testmodule
-
-install:
-	sudo rmmod testmodule ;python build.py fork && sudo insmod testmodule.ko
-
-parent:
-	python parent.py
-
-child:
-	python child.py
+insmod:
+	sudo rmmod testmodule ; sudo insmod testmodule.ko ; ./connector

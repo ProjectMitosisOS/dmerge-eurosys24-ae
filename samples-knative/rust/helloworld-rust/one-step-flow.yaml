@@ -83,3 +83,13 @@ spec:
       apiVersion: flows.knative.dev/v1
       kind: Sequence
       name: split-handle-seq
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: curl
+spec:
+  containers:
+    - name: curl
+      image: tutum/curl
+      command: ["sleep", "9999999"]

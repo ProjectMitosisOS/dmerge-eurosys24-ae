@@ -1,8 +1,10 @@
 use std::convert::TryFrom;
 use std::{env};
 use std::collections::HashMap;
+use std::ffi::CString;
 use std::time::{SystemTime, UNIX_EPOCH};
 use cloudevents::{AttributesReader, Event};
+use crate::service::payload::ExampleStruct;
 use crate::sys_env::*;
 
 const CE_SPLITTER: &str = "splitter";
@@ -51,7 +53,10 @@ fn handle_trigger(data: &HashMap<String, String>) -> HashMap<String, String> {
         crate::init_heap(crate::DEFAULT_HEAP_BASE_ADDR, 1024 * 1024 * 512);
 
         let data_loc_address = crate::DEFAULT_HEAP_BASE_ADDR;
-        *(data_loc_address as *mut &str) = "hello world";
+
+        let name = CString::new("hello world").expect("not ok for c char");
+        crate::push::<ExampleStruct>(data_loc_address,
+                                     &ExampleStruct { number: 2412, name: name.as_ptr() });
     }
 
     let mut data = data.clone();
@@ -113,18 +118,12 @@ fn handle_split(data: &HashMap<String, String>) -> HashMap<String, String> {
 
         unsafe {
             let sd = crate::bindings::sopen();
-            let gid = std::ffi::CString::new(String::from(remote_nw_addr))
-                .expect("not valid str");
-            let mac_id = 0;
-            crate::bindings::call_connect_session(sd,
-                                                  gid.as_ptr(),
-                                                  mac_id, 0);
             let _ = crate::bindings::call_pull(sd);
 
             let data_loc_address = data_loc.parse::<u64>()
                 .expect("not valid address pattern");
-            let data_read = *(data_loc_address as *mut &str);
-            println!("get result {}", data_read);
+            let example = crate::read_data::<ExampleStruct>(data_loc_address);
+            println!("get result {}", example.number);
         }
 
         // Gid as network address

@@ -18,7 +18,6 @@ spec:
       containers:
         - name: hostdev
           image: caribouf/k8s-hostdev-plugin:0.1
-          imagePullPolicy: Always
           args: ["--devs", "/dev/mitosis-syscalls:rw"]
           securityContext:
             privileged: true

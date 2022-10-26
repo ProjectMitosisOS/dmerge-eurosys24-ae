@@ -15,10 +15,11 @@ endif ()
 
 
 set(samples
-        function merge
+        function merge connector
         )
 add_executable(function samples/cpp/function.cc)
 add_executable(merge samples/cpp/merge.cc)
+add_executable(connector samples/cpp/connector.cc)
 foreach (s ${samples})
     target_link_libraries(${s} pthread ${jemalloc_lib})
     add_dependencies(${s} jemalloc)

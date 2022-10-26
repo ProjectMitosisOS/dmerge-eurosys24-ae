@@ -4,23 +4,9 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use actix_protobuf::ProtoBufResponseBuilder;
 use actix_web::{get, HttpRequest, HttpResponse, HttpResponseBuilder, web};
 use actix_web::http::StatusCode;
-use libc::c_char;
+use libc::{c_char, tm};
 use serde_json::{json};
 
-
-#[derive(Clone)]
-struct ExampleStruct {
-    number: u64,
-    name: *const c_char,
-}
-
-unsafe fn push<T>(address: u64, data: &T) where T: Clone {
-    *(address as *mut T) = data.clone();
-}
-
-unsafe fn read_data<T>(address: u64) -> T where T: Clone {
-    (*(address as *mut T)).clone()
-}
 
 /// Fetch origin data
 ///
@@ -33,9 +19,9 @@ pub async fn dmerge_register(_req: HttpRequest,
         let data_loc_address = crate::DEFAULT_HEAP_BASE_ADDR;
 
         let name = CString::new("hello world").expect("not ok for c char");
-        push::<ExampleStruct>(data_loc_address,
-                              &ExampleStruct { number: 2412, name: name.as_ptr() });
-        let example = read_data::<ExampleStruct>(data_loc_address);
+        crate::push::<ExampleStruct>(data_loc_address,
+                                     &ExampleStruct { number: 2412, name: name.as_ptr() });
+        let example = crate::read_data::<ExampleStruct>(data_loc_address);
         println!("data is:{}", example.number);
     }
     Ok(HttpResponseBuilder::new(StatusCode::OK)
@@ -62,9 +48,8 @@ pub async fn dmerge_pull(req: HttpRequest,
         .as_nanos();
     unsafe {
         let res = crate::bindings::call_pull(sd);
-        let example = read_data::<ExampleStruct>(data_loc_address);
+        let example = crate::read_data::<ExampleStruct>(data_loc_address);
         println!("After pull data is:{}", example.number);
-        println!("After pull name is:{}", example.name.to_string());
     }
 
     let end_tick = SystemTime::now()
@@ -131,6 +116,7 @@ pub async fn json_data(req: HttpRequest,
 include!(concat!(env!("OUT_DIR"), "/protos/mod.rs"));
 use protobuf::Message;
 use crate::{AllocatorMaster, get_global_allocator_master_mut};
+use crate::service::payload::ExampleStruct;
 
 #[get("/protobuf/data")]
 pub async fn protobuf_data(req: HttpRequest,
