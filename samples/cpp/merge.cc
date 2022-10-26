@@ -10,8 +10,6 @@ using Alloc = AllocatorMaster<73>;
 int
 main() {
     int sd = sopen();
-    call_connect_session(sd, "fe80:0000:0000:0000:248a:0703:009c:7ca0",
-                         0, 0);
 
     call_pull(sd); // merge (pull)
     uint64_t addr = 0x4ffff5a00000;

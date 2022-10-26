@@ -21,3 +21,15 @@ pub(crate) fn server_port() -> String {
         _ => "8080".to_string()
     }
 }
+
+#[inline]
+pub(crate) fn heap_base() -> u64 {
+    use std::i64;
+    match env::var("HEAP_BASE_HEX") {
+        Ok(base_addr_str) => {
+            let without_prefix = base_addr_str.trim_start_matches("0x");
+            i64::from_str_radix(without_prefix, 16).expect("not valid hex string") as u64
+        }
+        _ => crate::DEFAULT_HEAP_BASE_ADDR
+    }
+}

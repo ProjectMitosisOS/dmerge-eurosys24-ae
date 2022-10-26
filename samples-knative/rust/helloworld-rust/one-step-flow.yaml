@@ -26,6 +26,8 @@ spec:
               value: "splitter"
             - name: ServiceName
               value: "rust-trigger"
+            - name: HEAP_BASE_HEX
+              value: "0x4ffff5a00000"
 
 ---
 apiVersion: serving.knative.dev/v1
@@ -46,6 +48,8 @@ spec:
               value: "sink"
             - name: ServiceName
               value: "rust-splitter"
+            - name: HEAP_BASE_HEX
+              value: "0x5ffff5a00000"
 ---
 apiVersion: flows.knative.dev/v1
 kind: Sequence

@@ -49,14 +49,15 @@ fn handle_trigger(data: &HashMap<String, String>) -> HashMap<String, String> {
 #[cfg(feature = "proto-dmerge")]
 fn handle_trigger(data: &HashMap<String, String>) -> HashMap<String, String> {
     // FIXME: writing data
+    let base_addr = heap_base();
+
     unsafe {
-        crate::init_heap(crate::DEFAULT_HEAP_BASE_ADDR, 1024 * 1024 * 512);
+        crate::init_heap(base_addr, 1024 * 1024 * 512);
 
-        let data_loc_address = crate::DEFAULT_HEAP_BASE_ADDR;
+        let data_loc_address = base_addr;
 
-        let name = CString::new("hello world").expect("not ok for c char");
         crate::push::<ExampleStruct>(data_loc_address,
-                                     &ExampleStruct { number: 2412, name: name.as_ptr() });
+                                     &ExampleStruct { number: 2412 });
     }
 
     let mut data = data.clone();
@@ -65,7 +66,7 @@ fn handle_trigger(data: &HashMap<String, String>) -> HashMap<String, String> {
     data.insert(DATA_NW_ADDR_KEY.to_string(),
                 format!("fe80:0000:0000:0000:248a:0703:009c:7ca0"));
     // Base address
-    data.insert(DATA_DATA_LOC_KEY.to_string(), crate::DEFAULT_HEAP_BASE_ADDR.to_string());
+    data.insert(DATA_DATA_LOC_KEY.to_string(), base_addr.to_string());
 
     // Profiling data
     let since_the_epoch = SystemTime::now()
@@ -111,26 +112,28 @@ fn handle_split(data: &HashMap<String, String>) -> HashMap<String, String> {
 #[cfg(feature = "proto-dmerge")]
 fn handle_split(data: &HashMap<String, String>) -> HashMap<String, String> {
     let mut ret_data = data.clone();
+    let base_addr = heap_base();
     if let Some(remote_nw_addr) = data.get(DATA_NW_ADDR_KEY) {
         let data_loc = if let Some(d) = data.get(DATA_DATA_LOC_KEY) {
             d.clone()
-        } else { crate::DEFAULT_HEAP_BASE_ADDR.to_string() };
+        } else { base_addr.to_string() };
 
-        unsafe {
-            let sd = crate::bindings::sopen();
-            let _ = crate::bindings::call_pull(sd);
-
-            let data_loc_address = data_loc.parse::<u64>()
-                .expect("not valid address pattern");
-            let example = crate::read_data::<ExampleStruct>(data_loc_address);
-            println!("get result {}", example.number);
-        }
+        // unsafe {
+        //     let sd = crate::bindings::sopen();
+        //     let _ = crate::bindings::call_pull(sd);
+        //
+        //     let data_loc_address = data_loc.parse::<u64>()
+        //         .expect("not valid address pattern");
+        //     let example = crate::read_data::<ExampleStruct>(data_loc_address);
+        //     println!("get result {}", example.number);
+        // }
 
         // Gid as network address
         ret_data.insert(DATA_NW_ADDR_KEY.to_string(),
                         remote_nw_addr.to_string());
         // Base address
-        ret_data.insert(DATA_DATA_LOC_KEY.to_string(), crate::DEFAULT_HEAP_BASE_ADDR.to_string());
+        ret_data.insert(DATA_DATA_LOC_KEY.to_string(),
+                        base_addr.to_string());
     }
     ret_data
 }

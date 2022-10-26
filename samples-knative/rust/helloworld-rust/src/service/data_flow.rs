@@ -1,7 +1,9 @@
+use std::ffi::CString;
 use actix_web::{get, HttpRequest, HttpResponse, HttpResponseBuilder, web};
 use actix_web::http::StatusCode;
 use serde_json::json;
 use qstring::QString;
+use crate::service::payload::ExampleStruct;
 
 const ORIGIN_DATA_STR: &str = "86967897737416471853297327050364959
 11861322575564723963297542624962850
@@ -19,9 +21,10 @@ pub async fn df_fetch_origin(req: HttpRequest,
     let qs = QString::from(req.query_string());
     let data_loc = qs.get("dataloc")
         .ok_or(actix_web::error::ErrorInternalServerError("not found query string"))?;
-    // println!("fetch inner df_fetch_origin, query dataloc:{}", data_loc);
+    let data_str = CString::new(ORIGIN_DATA_STR).expect("not ok for c char");
+    let data_struct = ExampleStruct { number: 2412};
     Ok(HttpResponseBuilder::new(StatusCode::OK)
-        .json(json!({"data_type": "origin data", "data": ORIGIN_DATA_STR})))
+        .json(json!({"data_type": "origin data", "data": data_struct})))
 }
 
 /// Fetch data from split pods

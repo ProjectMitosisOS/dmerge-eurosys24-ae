@@ -1,15 +1,14 @@
 use libc::c_char;
+use serde::Serialize;
 
 
-#[derive(Clone)]
+#[derive(Clone, Serialize)]
 pub struct ExampleStruct {
     pub number: u64,
-    pub name: *const c_char,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Serialize)]
 pub struct DataSourcePayload {
     pub id: u64,
     pub uhash: u64,
-    pub context_text: *const c_char,
 }

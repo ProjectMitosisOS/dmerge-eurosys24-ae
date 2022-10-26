@@ -51,7 +51,7 @@ pub const DEFAULT_HEAP_BASE_ADDR: u64 = 0x4ffff5a00000;
 
 pub unsafe fn init_heap(base_addr: u64, mem_sz: u64) {
     // allocate heap
-
+    println!("create heap on addr: 0x{:x}", base_addr);
     let _ptr = crate::bindings::create_heap(base_addr, mem_sz * 2);
     crate::ALLOC::init(
         AllocatorMaster::init(base_addr as _,
@@ -67,6 +67,9 @@ pub unsafe fn init_heap(base_addr: u64, mem_sz: u64) {
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     env_logger::init();
+    unsafe {
+        crate::init_heap(heap_base(), 1024 * 1024 * 512);
+    }
 
     let addr = format!("127.0.0.1:{}", server_port());
     println!("App starting Listen on:{}", addr);

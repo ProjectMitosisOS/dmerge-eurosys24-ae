@@ -15,12 +15,9 @@ use serde_json::{json};
 pub async fn dmerge_register(_req: HttpRequest,
                              mut _payload: web::Payload) -> Result<HttpResponse, actix_web::Error> {
     unsafe {
-        crate::init_heap(crate::DEFAULT_HEAP_BASE_ADDR, 1024 * 1024 * 512);
-        let data_loc_address = crate::DEFAULT_HEAP_BASE_ADDR;
-
-        let name = CString::new("hello world").expect("not ok for c char");
+        let data_loc_address = heap_base();
         crate::push::<ExampleStruct>(data_loc_address,
-                                     &ExampleStruct { number: 2412, name: name.as_ptr() });
+                                     &ExampleStruct { number: 2412 });
         let example = crate::read_data::<ExampleStruct>(data_loc_address);
         println!("data is:{}", example.number);
     }
@@ -33,14 +30,6 @@ pub async fn dmerge_pull(req: HttpRequest,
                          mut payload: web::Payload) -> Result<HttpResponse, actix_web::Error> {
     let data_loc_address: u64 = 0x4ffff5a00000;
     let sd = unsafe { crate::bindings::sopen() };
-    unsafe {
-        let gid = std::ffi::CString::new("fe80:0000:0000:0000:248a:0703:009c:7ca0")
-            .expect("not valid str");
-        let mac_id = 0;
-        crate::bindings::call_connect_session(sd,
-                                              gid.as_ptr(),
-                                              mac_id, 0);
-    }
 
     let start_tick = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -117,6 +106,7 @@ include!(concat!(env!("OUT_DIR"), "/protos/mod.rs"));
 use protobuf::Message;
 use crate::{AllocatorMaster, get_global_allocator_master_mut};
 use crate::service::payload::ExampleStruct;
+use crate::sys_env::heap_base;
 
 #[get("/protobuf/data")]
 pub async fn protobuf_data(req: HttpRequest,
