@@ -5,8 +5,8 @@ edition = "2018"
 publish = false
 
 [features]
-default = ["proto-json"]
-#default = ["proto-dmerge"]
+#default = ["proto-json"]
+default = ["proto-dmerge"]
 #default = ["proto-protobuf"]
 proto-json = []
 proto-dmerge = []
