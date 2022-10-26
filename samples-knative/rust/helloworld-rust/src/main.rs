@@ -4,6 +4,7 @@ core_intrinsics
 )]
 #![feature(get_mut_unchecked)]
 
+use std::time::{SystemTime, UNIX_EPOCH};
 use actix_web::{App, HttpServer};
 
 mod service;
@@ -60,8 +61,7 @@ pub unsafe fn init_heap(base_addr: u64, hint: usize, mem_sz: u64) {
 
     let _ptr = get_global_allocator_master_mut()
         .get_thread_allocator()
-        .alloc((mem_sz) as libc::size_t, 0);
-
+        .alloc(1024 as libc::size_t, 0);
     let sd = crate::bindings::sopen();
     let _ = crate::bindings::call_register(sd, base_addr as u64, hint as _);
 }

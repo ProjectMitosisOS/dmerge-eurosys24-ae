@@ -35,13 +35,13 @@ pub async fn dmerge_pull(req: HttpRequest,
     let data_loc_address: u64 = hex_str_to_val(&String::from(data_loc_address_str));
     let hint = hint_str.parse::<u32>().expect("not valid digital");
 
-    println!("hint is:{}", hint);
-    let sd = unsafe { crate::bindings::sopen() };
 
     let start_tick = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .expect("Time went backwards")
         .as_nanos();
+    let sd = unsafe { crate::bindings::sopen() };
+
     unsafe {
         let res = crate::bindings::call_pull(sd, hint, 0);
         let example = crate::read_data::<ExampleStruct>(data_loc_address);
