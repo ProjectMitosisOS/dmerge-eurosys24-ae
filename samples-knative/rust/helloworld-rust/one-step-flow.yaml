@@ -28,6 +28,8 @@ spec:
               value: "rust-trigger"
             - name: HEAP_BASE_HEX
               value: "0x4ffff5a00000"
+            - name: HEAP_HINT
+              value: "73"
 
 ---
 apiVersion: serving.knative.dev/v1
@@ -50,6 +52,8 @@ spec:
               value: "rust-splitter"
             - name: HEAP_BASE_HEX
               value: "0x5ffff5a00000"
+            - name: HEAP_HINT
+              value: "74"
 ---
 apiVersion: flows.knative.dev/v1
 kind: Sequence

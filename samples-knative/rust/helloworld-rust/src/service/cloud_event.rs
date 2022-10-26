@@ -15,6 +15,7 @@ const CE_SINK: &str = "sink";
 
 const DATA_NW_ADDR_KEY: &str = "data_nw_addr";
 const DATA_DATA_LOC_KEY: &str = "data_loc";
+const DATA_HINT_KEY: &str = "heap_hint";
 
 // Profiling
 const PROFILE_START_TICK: &str = "start_tick";
@@ -50,11 +51,7 @@ fn handle_trigger(data: &HashMap<String, String>) -> HashMap<String, String> {
 fn handle_trigger(data: &HashMap<String, String>) -> HashMap<String, String> {
     // FIXME: writing data
     let base_addr = heap_base();
-    let hint = heap_hint();
-
     unsafe {
-        crate::init_heap(base_addr, hint, 1024 * 1024 * 512);
-
         let data_loc_address = base_addr;
 
         crate::push::<ExampleStruct>(data_loc_address,
@@ -68,6 +65,7 @@ fn handle_trigger(data: &HashMap<String, String>) -> HashMap<String, String> {
                 format!("fe80:0000:0000:0000:248a:0703:009c:7ca0"));
     // Base address
     data.insert(DATA_DATA_LOC_KEY.to_string(), base_addr.to_string());
+    data.insert(DATA_HINT_KEY.to_string(), heap_hint().to_string());
 
     // Profiling data
     let since_the_epoch = SystemTime::now()
@@ -119,15 +117,19 @@ fn handle_split(data: &HashMap<String, String>) -> HashMap<String, String> {
             d.clone()
         } else { base_addr.to_string() };
 
-        // unsafe {
-        //     let sd = crate::bindings::sopen();
-        //     let _ = crate::bindings::call_pull(sd);
-        //
-        //     let data_loc_address = data_loc.parse::<u64>()
-        //         .expect("not valid address pattern");
-        //     let example = crate::read_data::<ExampleStruct>(data_loc_address);
-        //     println!("get result {}", example.number);
-        // }
+        unsafe {
+            // let hint = data.get(DATA_HINT_KEY)
+            //     .unwrap_or(&String::from("73"))
+            //     .parse::<usize>()
+            //     .expect("not valid hint");
+            let sd = crate::bindings::sopen();
+
+            let data_loc_address = data_loc
+                .parse::<u64>()
+                .expect("not valid address pattern");
+            let _ = crate::bindings::call_pull(sd, 73, 0);
+            let example = crate::read_data::<ExampleStruct>(data_loc_address);
+        }
 
         // Gid as network address
         ret_data.insert(DATA_NW_ADDR_KEY.to_string(),

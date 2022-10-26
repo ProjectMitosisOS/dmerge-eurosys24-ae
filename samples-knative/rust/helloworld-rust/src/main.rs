@@ -69,6 +69,8 @@ pub unsafe fn init_heap(base_addr: u64, hint: usize, mem_sz: u64) {
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     env_logger::init();
+
+    #[cfg(feature = "proto-dmerge")]
     unsafe {
         crate::init_heap(heap_base(), heap_hint(),
                          1024 * 1024 * 512);
