@@ -81,9 +81,8 @@ fn main() {
     println!("cargo:rerun-if-changed=src/native/kernel_helper.h");
 
     builder = builder.header("src/native/kernel_helper.h");
-    println!("cargo:rerun-if-changed=../dmerge-user-libs/include/syscall.h");
     println!("cargo:rerun-if-changed=../dmerge-user-libs/include/common.h");
-    builder = builder.header("../dmerge-user-libs/include/syscall.h");
+    builder = builder.header("../dmerge-user-libs/include/common.h");
     // non-rust translatable type
     builder = builder.opaque_type("xregs_state");
 
