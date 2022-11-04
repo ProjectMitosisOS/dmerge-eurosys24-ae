@@ -6,6 +6,7 @@ core_intrinsics
 
 use std::time::{SystemTime, UNIX_EPOCH};
 use actix_web::{App, HttpServer};
+use libc::memset;
 
 mod service;
 mod handler;
@@ -53,11 +54,13 @@ pub const DEFAULT_HEAP_BASE_ADDR: u64 = 0x4ffff5a00000;
 
 #[cfg(test)]
 mod tests {
+    use jemalloc_sys::mallocx;
     use super::*;
 
     // cargo test -- --nocapture
     #[test]
     fn test_jemalloc_syscall() {
+        use tokio::time::Instant;
         #[cfg(feature = "proto-dmerge")]
         unsafe {
             let base_addr = heap_base();
@@ -66,24 +69,16 @@ mod tests {
             crate::ALLOC::init(
                 AllocatorMaster::init(base_addr as _,
                                       mem_sz));
-            let _ptr = get_global_allocator_master_mut()
-                .get_thread_allocator()
-                .alloc(1024 * 1024 * 512 as libc::size_t, 0);
+            let allocator = get_global_allocator_master_mut()
+                .get_thread_allocator();
+            let _ptr = allocator.alloc(1024 * 1024 * 512 as libc::size_t, 0);
         }
 
-        let start_tick = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .expect("Time went backwards")
-            .as_nanos();
+        let start = Instant::now();
         // Simple syscall
         let sd = unsafe { crate::bindings::sopen() };
 
-        let end_tick = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .expect("Time went backwards")
-            .as_nanos();
-        let passed_ns = end_tick - start_tick;
-        println!("passed {} us", passed_ns / 1000);
+        println!("passed {} us", (Instant::now() - start).as_micros());
     }
 }
 
@@ -91,18 +86,20 @@ pub unsafe fn init_heap(base_addr: u64, hint: usize, mem_sz: u64) {
     // allocate heap
     println!("create heap on addr: 0x{:x} with hint {}", base_addr, hint);
     let _ptr = crate::bindings::create_heap(base_addr, mem_sz);
+    let end = base_addr + mem_sz;
     crate::ALLOC::init(
         AllocatorMaster::init(base_addr as _,
                               mem_sz));
-    // let _ptr = get_global_allocator_master_mut()
-    //     .get_thread_allocator()
-    //     .alloc(1024 * 1024 * 128  as libc::size_t, 0);
+    let _ptr = get_global_allocator_master_mut()
+        .get_thread_allocator()
+        .alloc(1 as libc::size_t, 0);
 
     // touch
     for i in 0..1024 {
         unsafe { *((base_addr + i) as *mut i8) = 0 };
     }
 
+    // memset(_ptr as _, 0, (end - _ptr as u64) as _);
     let sd = crate::bindings::sopen();
     let _ = crate::bindings::call_register(sd, base_addr as u64, hint as _);
 }

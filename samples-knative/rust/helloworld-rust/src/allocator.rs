@@ -1,4 +1,4 @@
-use std::intrinsics::{unlikely};
+use std::intrinsics::{likely, unlikely};
 use std::mem::size_of;
 use std::ptr::{null_mut};
 
@@ -40,6 +40,7 @@ pub struct AllocatorMaster {
     heap_top: *mut c_char,
     hooks: extent_hooks_t,
     thread_allocator: Option<Allocator>,
+    lock: usize,
 }
 
 impl Default for AllocatorMaster {
@@ -50,6 +51,7 @@ impl Default for AllocatorMaster {
             heap_top: 0 as *mut c_char,
             hooks: Default::default(),
             thread_allocator: Default::default(),
+            lock: 0,
         }
     }
 }
@@ -73,6 +75,7 @@ impl AllocatorMaster {
                 merge: Some(extent_merge_hook),
             },
             thread_allocator: Default::default(),
+            lock: 0,
         }
     }
 
@@ -84,25 +87,34 @@ impl AllocatorMaster {
     }
 
     pub unsafe fn get_allocator(&self) -> Allocator {
-        let (mut arena_id, mut cache_id): (usize, usize) = (0, 0);
+        {
+            let _ = std::sync::Mutex::new(self.lock)
+                .lock()
+                .unwrap();
+            if self.total_managed_mem() == 0 {
+                println!("err, total mem is 0");
+            }
+        }
+        let (mut arena_id, mut cache_id): (c_uint, c_uint) = (0, 0);
 
-        let mut sz = size_of::<usize>();
+        let mut sz = size_of::<c_uint>();
         let new_hooks = &self.hooks as *const extent_hooks_t;
         // Attention!!!: The command name must end with '\0'
         let _ = mallctl(
             "arenas.create\0".as_ptr() as _,
-            &mut arena_id as *mut usize as _,
+            &mut arena_id as *mut c_uint as _,
             &mut sz as *mut usize as _,
             &new_hooks as *const *const extent_hooks_t as _,
             size_of::<*const extent_hooks_t>());
 
         let _ = mallctl(
             "tcache.create\0".as_ptr() as _,
-            &mut cache_id as *mut usize as _,
+            &mut cache_id as *mut c_uint as _,
             &mut sz as *mut usize as _,
             null_mut(),
             0);
-        Allocator::create(MALLOCX_ARENA(arena_id) | MALLOCX_TCACHE(cache_id))
+        Allocator::create(MALLOCX_ARENA(arena_id as _) |
+            MALLOCX_TCACHE(cache_id as _))
     }
 }
 
@@ -124,18 +136,20 @@ unsafe extern "C" fn extent_alloc_hook(
     arena_ind: c_uint,
 ) -> *mut c_void {
     let mut alloc_master = crate::get_global_allocator_master_mut();
-
+    let _ = std::sync::Mutex::new(alloc_master.lock)
+        .lock()
+        .unwrap();
     let mut ret = alloc_master.heap_top as size_t;
     if ret % alignment != 0 {
         ret = ret + (alignment - ret % alignment)
     }
     if ret + size >= alloc_master.end_addr as size_t {
-        println!("exceed heap size. Want sz:{}", size);
+        println!("exceed heap size. Want sz: {}", size);
         return null_mut();
     }
 
     alloc_master.heap_top = (ret + size) as *mut c_char;
-    if *zero != 0 {
+    if (*zero & 0x01) != 0 {
         let _ = memset(ret as _, 0, size);
     }
     return ret as _;
@@ -149,7 +163,7 @@ unsafe extern "C" fn extent_dalloc_hook(
     committed: c_bool,
     arena_ind: c_uint,
 ) -> c_bool {
-    return 0;
+    return 1;
 }
 
 #[allow(dead_code, unused_variables)]
@@ -196,7 +210,7 @@ unsafe extern "C" fn extent_purge_lazy_hook(
     length: size_t,
     arena_ind: c_uint,
 ) -> c_bool {
-    return 0;
+    return 1;
 }
 
 #[allow(dead_code, unused_variables)]
@@ -208,7 +222,7 @@ unsafe extern "C" fn extent_purge_forced_hook(
     length: size_t,
     arena_ind: c_uint,
 ) -> c_bool {
-    return 0;
+    return 1;
 }
 
 #[allow(dead_code, unused_variables)]

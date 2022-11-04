@@ -34,7 +34,7 @@ template<int NAME = 0>
 class AllocatorMaster {
 public:
     static void init(char *mem, uint64_t mem_size) {
-        std::lock_guard <std::mutex> guard(lock);
+        std::lock_guard<std::mutex> guard(lock);
         if (total_managed_mem() != 0) {
             std::cout << "AllocatorMaster<" << NAME << "> inited multiple times" << std::endl;
             return;
@@ -57,7 +57,7 @@ public:
          * First we make sanity check on whether AllocatorMaster is initialized
          */
         {
-            std::lock_guard <std::mutex> guard(lock);
+            std::lock_guard<std::mutex> guard(lock);
             if (total_managed_mem() == 0) // not initialized yet
                 return nullptr;
         }
@@ -93,8 +93,8 @@ private:
     static extent_hooks_t hooks;
 
     static thread_local Allocator
-    *
-    thread_allocator;
+            *
+            thread_allocator;
 
 private:
     /**
@@ -102,7 +102,7 @@ private:
      */
     static void *extent_alloc_hook(extent_hooks_t *extent_hooks, void *new_addr, size_t size,
                                    size_t alignment, bool *zero, bool *commit, unsigned arena_ind) {
-        std::lock_guard <std::mutex> guard(lock);
+        std::lock_guard<std::mutex> guard(lock);
         char *ret = (char *) heap_top;
 
         // align the return address
@@ -168,8 +168,8 @@ template<int N> std::mutex AllocatorMaster<N>::lock;
 
 template<int N>
 thread_local Allocator
-*
-AllocatorMaster<N>::thread_allocator = nullptr;
+        *
+        AllocatorMaster<N>::thread_allocator = nullptr;
 
 template<int N>
 extent_hooks_t AllocatorMaster<N>::hooks = {
