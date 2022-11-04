@@ -1,8 +1,11 @@
 #![feature(
 c_size_t,
-core_intrinsics
+core_intrinsics,
+allocator_api,
+get_mut_unchecked,
+nonnull_slice_from_raw_parts,
+alloc_layout_extra
 )]
-#![feature(get_mut_unchecked)]
 
 use std::time::{SystemTime, UNIX_EPOCH};
 use actix_web::{App, HttpServer};
@@ -66,14 +69,14 @@ mod tests {
         #[cfg(feature = "proto-dmerge")]
         unsafe {
             let base_addr = heap_base();
-            let mem_sz = 1024 * 1024 * 1024;
+            let mem_sz = 1024 * 1024 * 32;
             let _ptr = crate::bindings::create_heap(base_addr, mem_sz);
+            memset(base_addr as _, 0, mem_sz as _);
             crate::ALLOC::init(
                 AllocatorMaster::init(base_addr as _,
                                       mem_sz));
             let allocator = get_global_allocator_master_mut()
                 .get_thread_allocator();
-            let _ptr = allocator.alloc(1024 * 1024 * 512 as libc::size_t, 0);
         }
 
         let start = Instant::now();
@@ -81,6 +84,12 @@ mod tests {
         let sd = unsafe { crate::bindings::sopen() };
 
         println!("passed {} us", (Instant::now() - start).as_micros());
+        {
+            let mut arr: Vec<u32, JemallocAllocator> = Vec::new_in(JemallocAllocator);
+            for i in 0..1024 {
+                arr.push(32);
+            }
+        }
     }
 }
 

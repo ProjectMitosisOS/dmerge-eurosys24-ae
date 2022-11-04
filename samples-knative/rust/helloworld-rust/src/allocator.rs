@@ -1,18 +1,22 @@
 use std::intrinsics::{likely, unlikely};
 use std::mem::size_of;
 use std::ptr::{null_mut};
+use core::alloc::{AllocError, Allocator};
+use core::ptr::NonNull;
 
+use core::alloc::Layout;
+use crate::get_global_allocator_master_mut;
 use jemalloc_sys::*;
 use libc::{c_char, c_int, c_uint, c_void, memset, size_t};
 
 type c_bool = c_int;
 
 #[derive(Default)]
-pub struct Allocator {
+pub struct JeAllocator {
     id: c_int,
 }
 
-impl Allocator {
+impl JeAllocator {
     pub fn create(id: c_int) -> Self {
         Self { id }
     }
@@ -39,7 +43,7 @@ pub struct AllocatorMaster {
 
     heap_top: *mut c_char,
     hooks: extent_hooks_t,
-    thread_allocator: Option<Allocator>,
+    thread_allocator: Option<JeAllocator>,
     lock: usize,
 }
 
@@ -79,14 +83,14 @@ impl AllocatorMaster {
         }
     }
 
-    pub unsafe fn get_thread_allocator(&mut self) -> &Allocator {
+    pub unsafe fn get_thread_allocator(&mut self) -> &JeAllocator {
         if unlikely(self.thread_allocator.is_none()) {
             self.thread_allocator = Some(self.get_allocator());
         }
         self.thread_allocator.as_ref().expect("error get thread allocator")
     }
 
-    pub unsafe fn get_allocator(&self) -> Allocator {
+    pub unsafe fn get_allocator(&self) -> JeAllocator {
         {
             let _ = std::sync::Mutex::new(self.lock)
                 .lock()
@@ -113,7 +117,7 @@ impl AllocatorMaster {
             &mut sz as *mut usize as _,
             null_mut(),
             0);
-        Allocator::create(MALLOCX_ARENA(arena_id as _) |
+        JeAllocator::create(MALLOCX_ARENA(arena_id as _) |
             MALLOCX_TCACHE(cache_id as _))
     }
 }
@@ -254,3 +258,29 @@ unsafe extern "C" fn extent_merge_hook(
 unsafe impl Sync for AllocatorMaster {}
 
 unsafe impl Send for AllocatorMaster {}
+
+
+#[derive(Copy, Clone, Default, Debug)]
+pub struct JemallocAllocator;
+
+unsafe impl Allocator for JemallocAllocator {
+    fn allocate(&self, layout: Layout) -> Result<NonNull<[u8]>, AllocError> {
+        match layout.size() {
+            0 => Ok(NonNull::slice_from_raw_parts(layout.dangling(), 0)),
+            // SAFETY: `layout` is non-zero in size,
+            size => unsafe {
+                let allocator = get_global_allocator_master_mut()
+                    .get_thread_allocator();
+                let raw_ptr = allocator.alloc(size as _, 0) as *mut u8;
+                let ptr = NonNull::new(raw_ptr).ok_or(AllocError)?;
+                Ok(NonNull::slice_from_raw_parts(ptr, size))
+            }
+        }
+    }
+
+    unsafe fn deallocate(&self, ptr: NonNull<u8>, _layout: Layout) {
+        let allocator = get_global_allocator_master_mut()
+            .get_thread_allocator();
+        allocator.dealloc(ptr.as_ptr() as *mut c_void);
+    }
+}
