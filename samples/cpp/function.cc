@@ -15,7 +15,7 @@ static void test_allocator() {
     for (int i = 0; i < mem_sz; ++i) {
         *(char *) (base_addr + i) = '\0';
     }
-//    auto cur_ptr = Alloc::get_thread_allocator()->alloc(1024);
+    auto cur_ptr = Alloc::get_thread_allocator()->alloc(1024 * 1024 * 128);
 
     base_addr += OFFSET;
     (*(int *) base_addr) = 4096;

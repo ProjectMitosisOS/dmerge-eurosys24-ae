@@ -51,17 +51,58 @@ pub unsafe fn read_data<T>(address: u64) -> T where T: Clone {
 
 pub const DEFAULT_HEAP_BASE_ADDR: u64 = 0x4ffff5a00000;
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // cargo test -- --nocapture
+    #[test]
+    fn test_jemalloc_syscall() {
+        #[cfg(feature = "proto-dmerge")]
+        unsafe {
+            let base_addr = heap_base();
+            let mem_sz = 1024 * 1024 * 1024;
+            let _ptr = crate::bindings::create_heap(base_addr, mem_sz);
+            crate::ALLOC::init(
+                AllocatorMaster::init(base_addr as _,
+                                      mem_sz));
+            let _ptr = get_global_allocator_master_mut()
+                .get_thread_allocator()
+                .alloc(1024 * 1024 * 512 as libc::size_t, 0);
+        }
+
+        let start_tick = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("Time went backwards")
+            .as_nanos();
+        // Simple syscall
+        let sd = unsafe { crate::bindings::sopen() };
+
+        let end_tick = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("Time went backwards")
+            .as_nanos();
+        let passed_ns = end_tick - start_tick;
+        println!("passed {} us", passed_ns / 1000);
+    }
+}
+
 pub unsafe fn init_heap(base_addr: u64, hint: usize, mem_sz: u64) {
     // allocate heap
     println!("create heap on addr: 0x{:x} with hint {}", base_addr, hint);
-    let _ptr = crate::bindings::create_heap(base_addr, mem_sz * 2);
+    let _ptr = crate::bindings::create_heap(base_addr, mem_sz);
     crate::ALLOC::init(
         AllocatorMaster::init(base_addr as _,
-                              mem_sz * 2));
+                              mem_sz));
+    // let _ptr = get_global_allocator_master_mut()
+    //     .get_thread_allocator()
+    //     .alloc(1024 * 1024 * 128  as libc::size_t, 0);
 
-    let _ptr = get_global_allocator_master_mut()
-        .get_thread_allocator()
-        .alloc(1024 as libc::size_t, 0);
+    // touch
+    for i in 0..1024 {
+        unsafe { *((base_addr + i) as *mut i8) = 0 };
+    }
+
     let sd = crate::bindings::sopen();
     let _ = crate::bindings::call_register(sd, base_addr as u64, hint as _);
 }
