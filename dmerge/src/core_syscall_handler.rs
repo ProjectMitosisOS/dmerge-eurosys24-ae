@@ -60,10 +60,10 @@ impl mitosis::syscalls::FileOperations for DmergeSyscallHandler {
             MY_VM_OP.access = None;
         }
 
-        {
-            let task = mitosis::kern_wrappers::task::Task::new();
-            task.generate_mm();
-        }
+        // {
+        //     let task = mitosis::kern_wrappers::task::Task::new();
+        //     task.generate_mm();
+        // }
 
         Ok(Self {
             file: file as *mut _,

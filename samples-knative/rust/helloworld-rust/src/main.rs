@@ -54,7 +54,9 @@ pub const DEFAULT_HEAP_BASE_ADDR: u64 = 0x4ffff5a00000;
 
 #[cfg(test)]
 mod tests {
+    use std::sync::atomic::{compiler_fence, Ordering};
     use jemalloc_sys::mallocx;
+    use libc::malloc;
     use super::*;
 
     // cargo test -- --nocapture
@@ -86,20 +88,15 @@ pub unsafe fn init_heap(base_addr: u64, hint: usize, mem_sz: u64) {
     // allocate heap
     println!("create heap on addr: 0x{:x} with hint {}", base_addr, hint);
     let _ptr = crate::bindings::create_heap(base_addr, mem_sz);
-    let end = base_addr + mem_sz;
+    // touch all of the memory
+    memset(base_addr as _, 0, mem_sz as _);
     crate::ALLOC::init(
         AllocatorMaster::init(base_addr as _,
                               mem_sz));
-    let _ptr = get_global_allocator_master_mut()
-        .get_thread_allocator()
-        .alloc(1 as libc::size_t, 0);
+    // let _ptr = get_global_allocator_master_mut()
+    //     .get_thread_allocator()
+    //     .alloc(1 as libc::size_t, 0);
 
-    // touch
-    for i in 0..1024 {
-        unsafe { *((base_addr + i) as *mut i8) = 0 };
-    }
-
-    // memset(_ptr as _, 0, (end - _ptr as u64) as _);
     let sd = crate::bindings::sopen();
     let _ = crate::bindings::call_register(sd, base_addr as u64, hint as _);
 }
@@ -111,7 +108,7 @@ async fn main() -> std::io::Result<()> {
     #[cfg(feature = "proto-dmerge")]
     unsafe {
         crate::init_heap(heap_base(), heap_hint(),
-                         1024 * 1024 * 512);
+                         1024 * 1024 * 128);
     }
 
     let addr = format!("127.0.0.1:{}", server_port());
