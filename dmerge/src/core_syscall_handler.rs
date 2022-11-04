@@ -331,6 +331,7 @@ impl DmergeSyscallHandler {
                                                  access_info.as_ref().unwrap())
             }
         } else {
+            crate::log::error!("Not find page for fault_addr 0x{:x}", fault_addr);
             None
         };
 
