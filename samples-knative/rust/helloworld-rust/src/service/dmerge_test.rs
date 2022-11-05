@@ -12,14 +12,24 @@ use serde_json::{json};
 ///
 /// Refer of string conversion: https://gist.github.com/jimmychu0807/9a89355e642afad0d2aeda52e6ad2424
 #[get("/dmerge/register")]
-pub async fn dmerge_register(_req: HttpRequest,
+pub async fn dmerge_register(req: HttpRequest,
                              mut _payload: web::Payload) -> Result<HttpResponse, actix_web::Error> {
+    let qs = qstring::QString::from(req.query_string());
+    let size_str = qs.get("size").unwrap_or("1024");
+    let mem_sz: usize = size_str.parse::<usize>().expect("parse err");
+
     unsafe {
         let data_loc_address = heap_base();
+        let mut vec: Vec<u32, JemallocAllocator> = Vec::new_in(JemallocAllocator);
+        for i in 0..mem_sz / 4 {
+            vec.push(1);
+        }
+
+        let data_loc_address = jemalloc_alloc::<ExampleStruct>() as u64;
         crate::push::<ExampleStruct>(data_loc_address,
-                                     &ExampleStruct { number: 2412 });
+                                     &ExampleStruct { number: 2412, vec_data: vec });
         let example = crate::read_data::<ExampleStruct>(data_loc_address);
-        println!("data is:{}", example.number);
+        println!("data is:{}, len is:{}, addr is: 0x{:x}", example.number, example.vec_data.len(), data_loc_address);
     }
     Ok(HttpResponseBuilder::new(StatusCode::OK)
         .json(json!({"status": 0})))
@@ -35,7 +45,6 @@ pub async fn dmerge_pull(req: HttpRequest,
     let data_loc_address: u64 = hex_str_to_val(&String::from(data_loc_address_str));
     let hint = hint_str.parse::<u32>().expect("not valid digital");
 
-
     let start_tick = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .expect("Time went backwards")
@@ -45,7 +54,7 @@ pub async fn dmerge_pull(req: HttpRequest,
     unsafe {
         let res = crate::bindings::call_pull(sd, hint, 0);
         let example = crate::read_data::<ExampleStruct>(data_loc_address);
-        println!("After pull data is:{}", example.number);
+        println!("After pull data is:{}, first element is: {}", example.number, example.vec_data[0]);
     }
 
     let end_tick = SystemTime::now()
@@ -53,7 +62,7 @@ pub async fn dmerge_pull(req: HttpRequest,
         .expect("Time went backwards")
         .as_nanos();
     let passed_ns = end_tick - start_tick;
-    println!("passed {} us", passed_ns / 1000);
+    println!("passed {} ms", passed_ns as f64 / 1000_000 as f64);
 
     Ok(HttpResponseBuilder::new(StatusCode::OK)
         .json(json!({"data": 0})))
@@ -90,7 +99,7 @@ pub async fn json_micro(req: HttpRequest,
         .expect("Time went backwards")
         .as_nanos();
     let passed_ns = end_tick - start_tick;
-    println!("passed {} us", passed_ns / 1000);
+    println!("passed {} ms", passed_ns as f64 / 1000_000 as f64);
     Ok(HttpResponseBuilder::new(StatusCode::OK)
         .json(json!({"user": "python"})))
 }
@@ -102,16 +111,16 @@ pub async fn json_data(req: HttpRequest,
     let size_str = qs.get("size").unwrap_or("1024");
     let mem_sz: usize = size_str.parse::<usize>().expect("parse err");
 
-    let mut arr: Vec<u8> = Vec::with_capacity(mem_sz);
-    for i in 0..mem_sz {
-        arr.push((i % 128) as u8);
+    let mut arr: Vec<u32> = Vec::with_capacity(mem_sz);
+    for i in 0..mem_sz / 4 {
+        arr.push(1);
     }
     Ok(HttpResponseBuilder::new(StatusCode::OK)
         .json(json!({"tick": serde_json::to_string(&arr).expect("to string failed")})))
 }
 include!(concat!(env!("OUT_DIR"), "/protos/mod.rs"));
 use protobuf::Message;
-use crate::{AllocatorMaster, get_global_allocator_master_mut};
+use crate::{AllocatorMaster, get_global_allocator_master_mut, jemalloc_alloc, JemallocAllocator};
 use crate::service::payload::ExampleStruct;
 use crate::sys_env::{heap_base, hex_str_to_val};
 

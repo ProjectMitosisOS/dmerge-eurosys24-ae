@@ -4,6 +4,7 @@ use std::collections::HashMap;
 use std::ffi::CString;
 use std::time::{SystemTime, UNIX_EPOCH};
 use cloudevents::{AttributesReader, Event};
+use crate::{jemalloc_alloc, JemallocAllocator};
 use crate::service::payload::ExampleStruct;
 use crate::sys_env::*;
 
@@ -50,12 +51,15 @@ fn handle_trigger(data: &HashMap<String, String>) -> HashMap<String, String> {
 #[cfg(feature = "proto-dmerge")]
 fn handle_trigger(data: &HashMap<String, String>) -> HashMap<String, String> {
     // FIXME: writing data
-    let base_addr = heap_base();
+    let base_addr = unsafe { jemalloc_alloc::<ExampleStruct>() as u64 };
     unsafe {
         let data_loc_address = base_addr;
-
+        let mut vec: Vec<u32, JemallocAllocator> = Vec::new_in(JemallocAllocator);
+        for i in 0..1024 {
+            vec.push((i + 5) * 2);
+        }
         crate::push::<ExampleStruct>(data_loc_address,
-                                     &ExampleStruct { number: 2412 });
+                                     &ExampleStruct { number: 2412, vec_data: vec });
     }
 
     let mut data = data.clone();
@@ -118,17 +122,19 @@ fn handle_split(data: &HashMap<String, String>) -> HashMap<String, String> {
         } else { base_addr.to_string() };
 
         unsafe {
-            // let hint = data.get(DATA_HINT_KEY)
-            //     .unwrap_or(&String::from("73"))
-            //     .parse::<usize>()
-            //     .expect("not valid hint");
+            let hint = data.get(DATA_HINT_KEY)
+                .unwrap_or(&String::from("73"))
+                .parse::<usize>()
+                .expect("not valid hint");
             let sd = crate::bindings::sopen();
 
             let data_loc_address = data_loc
                 .parse::<u64>()
                 .expect("not valid address pattern");
-            let _ = crate::bindings::call_pull(sd, 73, 0);
+            // NOTE: machine id denotes as the remote machine number, used for RPC routing
+            let _ = crate::bindings::call_pull(sd, hint as _, 0);
             let example = crate::read_data::<ExampleStruct>(data_loc_address);
+            println!("After pull data is:{}, len is: {}", example.number, example.vec_data.len());
         }
 
         // Gid as network address

@@ -8,6 +8,7 @@ use core::alloc::Layout;
 use crate::get_global_allocator_master_mut;
 use jemalloc_sys::*;
 use libc::{c_char, c_int, c_uint, c_void, memset, size_t};
+use crate::service::payload::ExampleStruct;
 
 type c_bool = c_int;
 
@@ -35,6 +36,21 @@ impl JeAllocator {
     pub unsafe fn free(&self, ptr: *mut c_void) {
         dallocx(ptr, self.id as c_int);
     }
+}
+
+#[inline]
+pub unsafe fn jemalloc_alloc<T: Sized>() -> *mut T {
+    let sz = size_of::<T>();
+    let allocator = get_global_allocator_master_mut()
+        .get_thread_allocator();
+    allocator.alloc(sz, 0) as *mut T
+}
+
+#[inline]
+pub unsafe fn jemalloc_free(ptr: *mut c_void) {
+    let allocator = get_global_allocator_master_mut()
+        .get_thread_allocator();
+    allocator.free(ptr);
 }
 
 pub struct AllocatorMaster {

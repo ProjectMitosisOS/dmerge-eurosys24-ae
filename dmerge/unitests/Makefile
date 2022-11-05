@@ -43,4 +43,4 @@ clean:
 	$(MAKE) -C $(KDIR) M=$(CURDIR) CC=$(CC) clean
 
 insmod:
-	sudo rmmod testmodule ; sudo insmod testmodule.ko ; ./connector
+	sudo rmmod testmodule ; sudo insmod testmodule.ko ;sleep 1;  ./connector

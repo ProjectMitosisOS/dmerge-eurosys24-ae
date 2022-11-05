@@ -117,7 +117,7 @@ async fn main() -> std::io::Result<()> {
     #[cfg(feature = "proto-dmerge")]
     unsafe {
         crate::init_heap(heap_base(), heap_hint(),
-                         1024 * 1024 * 128);
+                         1024 * 1024 * 1024);
     }
 
     let addr = format!("127.0.0.1:{}", server_port());
