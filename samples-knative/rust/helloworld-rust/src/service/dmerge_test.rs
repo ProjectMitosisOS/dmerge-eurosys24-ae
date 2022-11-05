@@ -29,7 +29,7 @@ pub async fn dmerge_register(req: HttpRequest,
         crate::push::<ExampleStruct>(data_loc_address,
                                      &ExampleStruct { number: 2412, vec_data: vec });
         let example = crate::read_data::<ExampleStruct>(data_loc_address);
-        println!("data is:{}, len is:{}, addr is: 0x{:x}", example.number, example.vec_data.len(), data_loc_address);
+        // println!("data is:{}, len is:{}, addr is: 0x{:x}", example.number, example.vec_data.len(), data_loc_address);
     }
     Ok(HttpResponseBuilder::new(StatusCode::OK)
         .json(json!({"status": 0})))
@@ -54,7 +54,12 @@ pub async fn dmerge_pull(req: HttpRequest,
     unsafe {
         let res = crate::bindings::call_pull(sd, hint, 0);
         let example = crate::read_data::<ExampleStruct>(data_loc_address);
-        println!("After pull data is:{}, first element is: {}", example.number, example.vec_data[0]);
+
+        let mut sum = 0;
+        for num in example.vec_data {
+            sum += num as u64;
+        }
+        println!("After pull data is:{}, sum is: {}", example.number, sum);
     }
 
     let end_tick = SystemTime::now()
