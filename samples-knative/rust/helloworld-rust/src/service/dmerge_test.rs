@@ -19,17 +19,17 @@ pub async fn dmerge_register(req: HttpRequest,
     let mem_sz: usize = size_str.parse::<usize>().expect("parse err");
 
     unsafe {
-        let data_loc_address = heap_base();
+        let bbox = crate::init_jemalloc_box::<ExampleStruct>();
+        let data_loc_address = bbox.as_ptr() as u64;
+        let example = crate::read_data::<ExampleStruct>(data_loc_address);
         let mut vec: Vec<u32, JemallocAllocator> = Vec::new_in(JemallocAllocator);
         for i in 0..mem_sz / 4 {
             vec.push(1);
         }
 
-        let data_loc_address = jemalloc_alloc::<ExampleStruct>() as u64;
-        crate::push::<ExampleStruct>(data_loc_address,
-                                     &ExampleStruct { number: 2412, vec_data: vec });
-        let example = crate::read_data::<ExampleStruct>(data_loc_address);
-        // println!("data is:{}, len is:{}, addr is: 0x{:x}", example.number, example.vec_data.len(), data_loc_address);
+        example.vec_data = vec;
+        example.number = 4124;
+        println!("data is:{}, len is:{}, addr is: 0x{:x}", example.number, example.vec_data.len(), data_loc_address);
     }
     Ok(HttpResponseBuilder::new(StatusCode::OK)
         .json(json!({"status": 0})))
@@ -56,8 +56,8 @@ pub async fn dmerge_pull(req: HttpRequest,
         let example = crate::read_data::<ExampleStruct>(data_loc_address);
 
         let mut sum = 0;
-        for num in example.vec_data {
-            sum += num as u64;
+        for num in example.vec_data.iter() {
+            sum += *num as u64;
         }
         println!("After pull data is:{}, sum is: {}", example.number, sum);
     }
@@ -125,7 +125,7 @@ pub async fn json_data(req: HttpRequest,
 }
 include!(concat!(env!("OUT_DIR"), "/protos/mod.rs"));
 use protobuf::Message;
-use crate::{AllocatorMaster, get_global_allocator_master_mut, jemalloc_alloc, JemallocAllocator};
+use crate::{AllocatorMaster, get_global_allocator_master_mut, jemalloc_alloc, jemalloc_free, JemallocAllocator};
 use crate::service::payload::ExampleStruct;
 use crate::sys_env::{heap_base, hex_str_to_val};
 

@@ -295,8 +295,7 @@ unsafe impl Allocator for JemallocAllocator {
     }
 
     unsafe fn deallocate(&self, ptr: NonNull<u8>, _layout: Layout) {
-        let allocator = get_global_allocator_master_mut()
-            .get_thread_allocator();
-        allocator.dealloc(ptr.as_ptr() as *mut c_void);
+        jemalloc_free(ptr.as_ptr() as _);
+        // println!("deallocate, ptr 0x{:x}", ptr.as_ptr() as u64);
     }
 }

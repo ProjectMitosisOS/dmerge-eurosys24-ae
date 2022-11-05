@@ -50,17 +50,18 @@ fn handle_trigger(data: &HashMap<String, String>) -> HashMap<String, String> {
 // Fetch data for origin (in Dmerge)
 #[cfg(feature = "proto-dmerge")]
 fn handle_trigger(data: &HashMap<String, String>) -> HashMap<String, String> {
-    // FIXME: writing data
-    let base_addr = unsafe { jemalloc_alloc::<ExampleStruct>() as u64 };
-    unsafe {
-        let data_loc_address = base_addr;
-        let mut vec: Vec<u32, JemallocAllocator> = Vec::new_in(JemallocAllocator);
-        for i in 0..1024 {
-            vec.push((i + 5) * 2);
-        }
-        crate::push::<ExampleStruct>(data_loc_address,
-                                     &ExampleStruct { number: 2412, vec_data: vec });
+    let bbox = unsafe { crate::init_jemalloc_box::<ExampleStruct>() };
+    let base_addr
+        = bbox.as_ptr() as u64;
+
+    let obj = unsafe { crate::read_data::<ExampleStruct>(base_addr) };
+
+    let mut vec: Vec<u32, JemallocAllocator> = Vec::new_in(JemallocAllocator);
+    for _i in 0..16777216 / 4 { // 16M
+        vec.push(1);
     }
+
+    obj.vec_data = vec;
 
     let mut data = data.clone();
 

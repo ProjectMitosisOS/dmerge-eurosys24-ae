@@ -7,6 +7,7 @@ nonnull_slice_from_raw_parts,
 alloc_layout_extra
 )]
 
+use std::mem::MaybeUninit;
 use std::time::{SystemTime, UNIX_EPOCH};
 use actix_web::{App, HttpServer};
 use libc::memset;
@@ -25,6 +26,7 @@ extern crate lazy_static;
 
 
 use macros::declare_global;
+use crate::service::payload::ExampleStruct;
 use crate::sys_env::*;
 
 declare_global! {
@@ -43,13 +45,18 @@ pub unsafe fn get_global_allocator_master_mut() -> &'static mut crate::Allocator
 }
 
 #[inline]
-pub unsafe fn push<T>(address: u64, data: &T) where T: Clone {
-    *(address as *mut T) = data.clone();
+pub unsafe fn init_from_obj<T>() -> *mut T {
+    jemalloc_alloc::<ExampleStruct>() as _
 }
 
 #[inline]
-pub unsafe fn read_data<T>(address: u64) -> T where T: Clone {
-    (*(address as *mut T)).clone()
+pub unsafe fn init_jemalloc_box<T>() -> Box<MaybeUninit<T>, JemallocAllocator> {
+    Box::new_uninit_in(JemallocAllocator)
+}
+
+#[inline]
+pub unsafe fn read_data<T>(address: u64) -> &'static mut T {
+    &mut *(address as *mut T)
 }
 
 
@@ -63,7 +70,7 @@ mod tests {
     use super::*;
 
     // cargo test -- --nocapture
-    #[test]
+    // #[test]
     fn test_jemalloc_syscall() {
         use tokio::time::Instant;
         #[cfg(feature = "proto-dmerge")]
@@ -89,6 +96,37 @@ mod tests {
             for i in 0..1024 {
                 arr.push(32);
             }
+        }
+    }
+
+    #[test]
+    fn test_jemalloc() {
+        use crate::service::payload::ExampleStruct;
+
+        unsafe {
+            let base_addr = heap_base();
+            let mem_sz = 1024 * 1024 * 32;
+            let _ptr = crate::bindings::create_heap(base_addr, mem_sz);
+            crate::ALLOC::init(
+                AllocatorMaster::init(base_addr as _,
+                                      mem_sz));
+            for i in 0..12 {
+                let bbox = crate::init_jemalloc_box::<ExampleStruct>() ;
+                let data_loc_address
+                    = bbox.as_ptr() as u64;
+
+                let example = crate::read_data::<ExampleStruct>(data_loc_address);
+
+                let mut vec: Vec<u32, JemallocAllocator> = Vec::new_in(JemallocAllocator);
+                for i in 0..1024 {
+                    vec.push(1);
+                }
+                // example.vec_data = vec;
+                println!("addr is 0x{:x}", data_loc_address as u64);
+                // jemalloc_free(data_loc_address as _);
+            }
+
+
         }
     }
 }
