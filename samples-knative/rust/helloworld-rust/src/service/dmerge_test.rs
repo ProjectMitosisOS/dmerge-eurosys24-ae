@@ -15,10 +15,12 @@ pub async fn dmerge_register(req: HttpRequest,
     let mem_sz: usize = size_str.parse::<usize>().expect("parse err");
 
     let start_tick = crate::service::bench::cur_tick_nano();
+    let start = Instant::now();
 
     // critical path
     let data_loc = crate::service::bench::dmerge_register_core(
         mem_sz as _);
+    println!("[push meta] {} ms", (Instant::now() - start).as_micros() as f64 / 1000.0);
 
     // merge
     {
@@ -72,34 +74,51 @@ pub async fn json_micro(req: HttpRequest,
     let start_tick = crate::service::bench::cur_tick_nano();
 
     let data = "86967897737416471853297327050364959";
+
+    let start = Instant::now();
+
     let res = reqwest::Client::new()
         .get(format!("http://localhost:{}/{}/data?size={}",
                      crate::server_port(), data_type, mem_sz.to_string()))
         .json(&crate::MapperRequest { chunk_data: String::from("86967897737416471853297327050364959") })
         .send().await;
+    println!("[data seri and fetch]: {} ms", (Instant::now() - start).as_micros() as f64 / 1000.0);
+
+
     if res.is_err() {
         println!("not success");
     } else {
         let bytes = res.expect("fail to get reply").bytes().await.expect("fail to get bytes").to_vec();
         match data_type {
             "json" => {
-                let v = serde_json::from_slice::<crate::service::bench::SeriBenchObj>(bytes.as_slice())
+                let start = Instant::now();
+
+                let v = serde_json::from_slice::<crate::service::bench::SeriDigitialBenchObj>(bytes.as_slice())
                     .expect("unwrap");
+                println!("[deserialize data] {} ms", (Instant::now() - start).as_micros() as f64 / 1000.0);
+                let start = Instant::now();
 
                 let mut sum = 0;
                 for item in v.payload.iter() {
                     sum += *item;
                 }
-                println!("len: {}, and sum: {}", v.payload.len(), sum);
+                println!("[execution on data] {} ms", (Instant::now() - start).as_micros() as f64 / 1000.0);
             }
             "protobuf" => {
                 use example::{ArrMessage};
+                let start = Instant::now();
                 let msg = ArrMessage::parse_from_bytes(bytes.as_slice()).expect("not valid struct");
+
+                println!("[deserialize data] {} ms", (Instant::now() - start).as_micros() as f64 / 1000.0);
+                let start = Instant::now();
+
                 let mut sum = 0;
                 for item in msg.data.iter() {
                     sum += *item;
                 }
-                println!("len: {}, and sum: {}", msg.data.len(), sum);
+                println!("[execution on data] {} ms", (Instant::now() - start).as_micros() as f64 / 1000.0);
+
+                // println!("len: {}, and sum: {}", msg.data.len(), sum);
             }
             _ => unimplemented!()
         };
@@ -118,17 +137,18 @@ pub async fn json_data(req: HttpRequest,
     let qs = qstring::QString::from(req.query_string());
     let size_str = qs.get("size").unwrap_or("1024");
     let mem_sz: usize = size_str.parse::<usize>().expect("parse err");
-    let mut arr: Vec<crate::service::bench::BenchEntryType> = Vec::with_capacity(mem_sz);
-    let len = mem_sz as u64 / (size_of::<crate::service::bench::BenchEntryType>() as u64);
+    let mut arr: Vec<crate::service::bench::DigitialBenchEntryType> = Vec::with_capacity(mem_sz);
+    let len = mem_sz as u64 / (size_of::<crate::service::bench::DigitialBenchEntryType>() as u64);
 
     for _i in 0..len {
         arr.push(1);
     }
     Ok(HttpResponseBuilder::new(StatusCode::OK)
-        .json(&crate::service::bench::SeriBenchObj { number: 1024, payload: arr }))
+        .json(&crate::service::bench::SeriDigitialBenchObj { number: 1024, payload: arr }))
 }
 include!(concat!(env!("OUT_DIR"), "/protos/mod.rs"));
 use protobuf::Message;
+use tokio::time::Instant;
 use crate::sys_env::{hex_str_to_val};
 
 #[get("/protobuf/data")]
@@ -138,7 +158,7 @@ pub async fn protobuf_data(req: HttpRequest,
     pub fn gen_arr_message(mem_size: usize) -> example::ArrMessage {
         use example::{ArrMessage};
         let mut msg = ArrMessage::new();
-        let arr_len = mem_size / size_of::<crate::service::bench::BenchEntryType>();
+        let arr_len = mem_size / size_of::<crate::service::bench::DigitialBenchEntryType>();
         for _i in 0..arr_len {
             msg.data.push(1);
         }
