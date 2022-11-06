@@ -50,18 +50,8 @@ fn handle_trigger(data: &HashMap<String, String>) -> HashMap<String, String> {
 // Fetch data for origin (in Dmerge)
 #[cfg(feature = "proto-dmerge")]
 fn handle_trigger(data: &HashMap<String, String>) -> HashMap<String, String> {
-    let bbox = unsafe { crate::init_jemalloc_box::<ExampleStruct>() };
-    let base_addr
-        = bbox.as_ptr() as u64;
-
-    let obj = unsafe { crate::read_data::<ExampleStruct>(base_addr) };
-
-    let mut vec: Vec<u32, JemallocAllocator> = Vec::new_in(JemallocAllocator);
-    for _i in 0..16777216 / 4 { // 16M
-        vec.push(1);
-    }
-
-    // obj.vec_data = vec;
+    let payload_sz = 1024 * 1024; // 1M
+    let base_addr = crate::service::bench::dmerge_register_core(payload_sz as _);
 
     let mut data = data.clone();
 
@@ -121,22 +111,17 @@ fn handle_split(data: &HashMap<String, String>) -> HashMap<String, String> {
         let data_loc = if let Some(d) = data.get(DATA_DATA_LOC_KEY) {
             d.clone()
         } else { base_addr.to_string() };
+        let hint = data.get(DATA_HINT_KEY)
+            .unwrap_or(&String::from("73"))
+            .parse::<usize>()
+            .expect("not valid hint");
 
-        unsafe {
-            let hint = data.get(DATA_HINT_KEY)
-                .unwrap_or(&String::from("73"))
-                .parse::<usize>()
-                .expect("not valid hint");
-            let sd = crate::bindings::sopen();
+        let data_loc_address = data_loc
+            .parse::<u64>()
+            .expect("not valid address pattern");
 
-            let data_loc_address = data_loc
-                .parse::<u64>()
-                .expect("not valid address pattern");
-            // NOTE: machine id denotes as the remote machine number, used for RPC routing
-            let _ = crate::bindings::call_pull(sd, hint as _, 0);
-            let example = crate::read_data::<ExampleStruct>(data_loc_address);
-            println!("After pull data is:{}, len is: {}", example.number, example.vec_data.len());
-        }
+        let _ =
+            crate::service::bench::dmerge_pull_core(0, hint as _, data_loc_address);
 
         // Gid as network address
         ret_data.insert(DATA_NW_ADDR_KEY.to_string(),

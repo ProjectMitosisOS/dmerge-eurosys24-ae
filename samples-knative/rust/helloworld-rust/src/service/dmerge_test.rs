@@ -56,9 +56,10 @@ pub async fn dmerge_pull(req: HttpRequest,
     let hint = hint_str.parse::<u32>().expect("not valid digital");
 
     // critical path
-    let ret_data = crate::service::bench::dmerge_pull_core(0,
-                                                           hint as _,
-                                                           data_loc_address);
+    let ret_data =
+        crate::service::bench::dmerge_pull_core(0,
+                                                hint as _,
+                                                data_loc_address);
     Ok(HttpResponseBuilder::new(StatusCode::OK)
         .json(json!({"data": 0})))
 }

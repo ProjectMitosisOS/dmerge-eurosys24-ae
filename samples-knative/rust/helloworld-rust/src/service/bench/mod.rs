@@ -62,6 +62,8 @@ pub fn dmerge_register_core(payload_sz: u64) -> u64 {
 pub fn dmerge_pull_core(machine_id: usize,
                         hint: usize,
                         data_loc_address: u64) -> HashMap<String, String> {
+    println!("[Pull Core] machine id: {}, hint: {}, addr base: 0x{:x}",
+             machine_id, hint, data_loc_address);
     let mut ret_data: HashMap<String, String> = Default::default();
 
     let sd = unsafe { crate::bindings::sopen() };
@@ -73,7 +75,7 @@ pub fn dmerge_pull_core(machine_id: usize,
     for item in example.vec_data.iter() {
         sum += *item;
     }
-    println!("After pull data is:{}, sum is: {}", example.number, sum);
+    println!("After pull data is: {}, sum is: {}", example.number, sum);
 
     ret_data
 }
