@@ -61,7 +61,7 @@ fn handle_trigger(data: &HashMap<String, String>) -> HashMap<String, String> {
         vec.push(1);
     }
 
-    obj.vec_data = vec;
+    // obj.vec_data = vec;
 
     let mut data = data.clone();
 

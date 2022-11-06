@@ -5,14 +5,22 @@ use crate::JemallocAllocator;
 use crate::service::cloud_event::*;
 use crate::service::payload::ExampleStruct;
 use crate::sys_env::{heap_base, heap_hint};
+use serde::{Deserialize, Serialize};
 
 #[derive(Clone)]
-pub struct BenchObj {
+pub struct DMergeBenchObj {
     pub number: u64,
     pub vec_data: Vec<u32, JemallocAllocator>,
 }
 
-impl Default for BenchObj {
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SeriBenchObj {
+    pub number: u64,
+    pub payload: Vec<u32>,
+}
+
+impl Default for DMergeBenchObj {
     fn default() -> Self {
         Self { number: 0, vec_data: Vec::new_in(JemallocAllocator) }
     }
@@ -29,12 +37,12 @@ pub fn cur_tick_nano() -> u128 {
 // Prepare for data, and return address
 pub fn dmerge_register_core(payload_sz: u64) -> u64 {
     let bbox =
-        unsafe { crate::init_jemalloc_box::<BenchObj>() };
+        unsafe { crate::init_jemalloc_box::<DMergeBenchObj>() };
     let base_addr
         = bbox.as_ptr() as u64;
 
     let obj =
-        unsafe { crate::read_data::<BenchObj>(base_addr) };
+        unsafe { crate::read_data::<DMergeBenchObj>(base_addr) };
 
     type EntryType = u32;
     let mut vec: Vec<EntryType, JemallocAllocator> = Vec::new_in(JemallocAllocator);
