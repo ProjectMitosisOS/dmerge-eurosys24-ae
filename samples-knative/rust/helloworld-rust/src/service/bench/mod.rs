@@ -4,7 +4,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use crate::JemallocAllocator;
 use crate::service::cloud_event::*;
 use crate::service::payload::ExampleStruct;
-use crate::sys_env::heap_hint;
+use crate::sys_env::{heap_base, heap_hint};
 
 #[derive(Clone)]
 pub struct BenchObj {
@@ -18,10 +18,16 @@ impl Default for BenchObj {
     }
 }
 
+#[inline]
+pub fn cur_tick_nano() -> u128 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("Time went backwards")
+        .as_nanos()
+}
 
 // Prepare for data, and return address
-pub fn dmerge_register_core(payload_sz: u64,
-                            meta: &HashMap<String, String>) -> HashMap<String, String> {
+pub fn dmerge_register_core(payload_sz: u64) -> HashMap<String, String> {
     let bbox =
         unsafe { crate::init_jemalloc_box::<BenchObj>() };
     let base_addr
@@ -42,7 +48,7 @@ pub fn dmerge_register_core(payload_sz: u64,
     println!("data is:{}, len is:{}, addr is: 0x{:x}",
              obj.number, obj.vec_data.len(), base_addr);
 
-    let mut data = meta.clone();
+    let mut data: HashMap<String, String> = Default::default();
 
     // Gid as network address
     data.insert(DATA_NW_ADDR_KEY.to_string(),
@@ -52,15 +58,27 @@ pub fn dmerge_register_core(payload_sz: u64,
     data.insert(DATA_HINT_KEY.to_string(), heap_hint().to_string());
 
     // Profiling data
-    let since_the_epoch = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .expect("Time went backwards");
-    data.insert(PROFILE_START_TICK.to_string(), since_the_epoch.as_nanos().to_string());
-
-
+    let since_the_epoch = cur_tick_nano();
+    data.insert(PROFILE_START_TICK.to_string(), since_the_epoch.to_string());
     data
 }
 
-pub fn dmerge_pull_core() {
-    unimplemented!()
+pub fn dmerge_pull_core(machine_id: usize,
+                        hint: usize,
+                        data_loc_address: u64) -> HashMap<String, String> {
+    let mut ret_data: HashMap<String, String> = Default::default();
+
+    let sd = unsafe { crate::bindings::sopen() };
+    let _ = unsafe { crate::bindings::call_pull(sd, hint as _, machine_id as _) };
+
+    let example = unsafe { crate::read_data::<ExampleStruct>(data_loc_address) };
+    let mut sum = 0;
+    for item in example.vec_data.iter() {
+        sum += *item;
+    }
+    println!("After pull data is:{}, sum is: {}", example.number, sum);
+
+    let since_the_epoch = cur_tick_nano();
+    ret_data.insert(PROFILE_START_TICK.to_string(), since_the_epoch.to_string());
+    ret_data
 }

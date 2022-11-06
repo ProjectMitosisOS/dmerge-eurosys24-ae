@@ -20,7 +20,7 @@ pub async fn dmerge_register(req: HttpRequest,
 
     // critical path
     let _ = crate::service::bench::dmerge_register_core(
-        mem_sz as _, &Default::default());
+        mem_sz as _);
 
     Ok(HttpResponseBuilder::new(StatusCode::OK)
         .json(json!({"status": 0})))
@@ -32,31 +32,21 @@ pub async fn dmerge_pull(req: HttpRequest,
     let qs = qstring::QString::from(req.query_string());
     let data_loc_address_str = qs.get("addr").unwrap_or("0x4ffff5a00000");
     let hint_str = qs.get("hint").unwrap_or("73");
-
     let data_loc_address: u64 = hex_str_to_val(&String::from(data_loc_address_str));
     let hint = hint_str.parse::<u32>().expect("not valid digital");
 
-    let start_tick = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .expect("Time went backwards")
-        .as_nanos();
-    let sd = unsafe { crate::bindings::sopen() };
+    let start_tick = crate::service::bench::cur_tick_nano();
 
-    unsafe {
-        let res = crate::bindings::call_pull(sd, hint, 0);
-        let example = crate::read_data::<ExampleStruct>(data_loc_address);
-
-        let mut sum = 0;
-        for num in example.vec_data.iter() {
-            sum += *num as u64;
-        }
-        println!("After pull data is:{}, sum is: {}", example.number, sum);
-    }
-
-    let end_tick = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .expect("Time went backwards")
-        .as_nanos();
+    // critical path
+    let ret_data = crate::service::bench::dmerge_pull_core(0,
+                                                           hint as _,
+                                                           data_loc_address);
+    // end of critical path
+    let end_tick: u128 = ret_data.get(PROFILE_START_TICK)
+        .expect("not found start tick")
+        .trim()
+        .parse()
+        .expect("parse error");
     let passed_ns = end_tick - start_tick;
     println!("passed {} ms", passed_ns as f64 / 1000_000 as f64);
 
@@ -73,10 +63,7 @@ pub async fn json_micro(req: HttpRequest,
     let data_type = qs.get("type").unwrap_or("json");
     let mem_sz: usize = size_str.parse::<usize>().expect("parse err");
 
-    let start_tick = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .expect("Time went backwards")
-        .as_nanos();
+    let start_tick = crate::service::bench::cur_tick_nano();
 
     let data = "86967897737416471853297327050364959";
     let res = reqwest::Client::new()
@@ -90,10 +77,7 @@ pub async fn json_micro(req: HttpRequest,
         let _t = res.expect("").text();
     }
 
-    let end_tick = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .expect("Time went backwards")
-        .as_nanos();
+    let end_tick = crate::service::bench::cur_tick_nano();
     let passed_ns = end_tick - start_tick;
     println!("passed {} ms", passed_ns as f64 / 1000_000 as f64);
     Ok(HttpResponseBuilder::new(StatusCode::OK)
@@ -117,6 +101,7 @@ pub async fn json_data(req: HttpRequest,
 include!(concat!(env!("OUT_DIR"), "/protos/mod.rs"));
 use protobuf::Message;
 use crate::{AllocatorMaster, get_global_allocator_master_mut, jemalloc_alloc, jemalloc_free, JemallocAllocator};
+use crate::service::cloud_event::PROFILE_START_TICK;
 use crate::service::payload::ExampleStruct;
 use crate::sys_env::{heap_base, hex_str_to_val};
 
