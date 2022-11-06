@@ -83,10 +83,10 @@ pub async fn json_micro(req: HttpRequest,
     if res.is_err() {
         println!("not success");
     } else {
-        let reply_flow = res.expect("fail to get data").text().await.expect("fail to get data");
+        let bytes = res.expect("fail to get reply").bytes().await.expect("fail to get bytes").to_vec();
         match data_type {
             "json" => {
-                let v = serde_json::from_str::<crate::service::bench::SeriBenchObj>(&reply_flow)
+                let v = serde_json::from_slice::<crate::service::bench::SeriBenchObj>(bytes.as_slice())
                     .expect("unwrap");
 
                 let mut sum = 0;
@@ -97,7 +97,7 @@ pub async fn json_micro(req: HttpRequest,
             }
             "protobuf" => {
                 use example::{ArrMessage};
-                let msg = ArrMessage::parse_from_bytes(reply_flow.as_bytes()).expect("not valid struct");
+                let msg = ArrMessage::parse_from_bytes(bytes.as_slice()).expect("not valid struct");
                 let mut sum = 0;
                 for item in msg.data.iter() {
                     sum += *item;
