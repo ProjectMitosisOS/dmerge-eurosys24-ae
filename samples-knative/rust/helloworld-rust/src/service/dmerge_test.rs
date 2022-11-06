@@ -18,9 +18,32 @@ pub async fn dmerge_register(req: HttpRequest,
     let size_str = qs.get("size").unwrap_or("1024");
     let mem_sz: usize = size_str.parse::<usize>().expect("parse err");
 
+    let start_tick = crate::service::bench::cur_tick_nano();
+
     // critical path
-    let _ = crate::service::bench::dmerge_register_core(
+    let ret_data = crate::service::bench::dmerge_register_core(
         mem_sz as _);
+
+    {
+        let data_loc = if let Some(d) = ret_data.get(DATA_DATA_LOC_KEY) {
+            d.clone()
+        } else { heap_base().to_string() };
+        let url = format!("http://localhost:8090/dmerge/pull?addr=0x{:x}",
+                          data_loc.parse::<u64>().expect("not valid digital"));
+        // curl localhost:8090/dmerge/pull?addr=0x4ffff5c00000
+        let res = reqwest::Client::new()
+            .get(url)
+            .json(&crate::MapperRequest { chunk_data: "tmp".parse()? })
+            .send().await;
+        if res.is_err() {
+            println!("not success");
+        } else {
+            let _t = res.expect("").text();
+        }
+    }
+    let end_tick = crate::service::bench::cur_tick_nano();
+    let passed_ns = end_tick - start_tick;
+    println!("passed {} ms", passed_ns as f64 / 1000_000 as f64);
 
     Ok(HttpResponseBuilder::new(StatusCode::OK)
         .json(json!({"status": 0})))
@@ -35,21 +58,10 @@ pub async fn dmerge_pull(req: HttpRequest,
     let data_loc_address: u64 = hex_str_to_val(&String::from(data_loc_address_str));
     let hint = hint_str.parse::<u32>().expect("not valid digital");
 
-    let start_tick = crate::service::bench::cur_tick_nano();
-
     // critical path
     let ret_data = crate::service::bench::dmerge_pull_core(0,
                                                            hint as _,
                                                            data_loc_address);
-    // end of critical path
-    let end_tick: u128 = ret_data.get(PROFILE_START_TICK)
-        .expect("not found start tick")
-        .trim()
-        .parse()
-        .expect("parse error");
-    let passed_ns = end_tick - start_tick;
-    println!("passed {} ms", passed_ns as f64 / 1000_000 as f64);
-
     Ok(HttpResponseBuilder::new(StatusCode::OK)
         .json(json!({"data": 0})))
 }
@@ -101,7 +113,7 @@ pub async fn json_data(req: HttpRequest,
 include!(concat!(env!("OUT_DIR"), "/protos/mod.rs"));
 use protobuf::Message;
 use crate::{AllocatorMaster, get_global_allocator_master_mut, jemalloc_alloc, jemalloc_free, JemallocAllocator};
-use crate::service::cloud_event::PROFILE_START_TICK;
+use crate::service::cloud_event::{DATA_DATA_LOC_KEY, PROFILE_START_TICK};
 use crate::service::payload::ExampleStruct;
 use crate::sys_env::{heap_base, hex_str_to_val};
 

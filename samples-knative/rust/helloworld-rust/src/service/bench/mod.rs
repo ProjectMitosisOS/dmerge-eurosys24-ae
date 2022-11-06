@@ -58,8 +58,6 @@ pub fn dmerge_register_core(payload_sz: u64) -> HashMap<String, String> {
     data.insert(DATA_HINT_KEY.to_string(), heap_hint().to_string());
 
     // Profiling data
-    let since_the_epoch = cur_tick_nano();
-    data.insert(PROFILE_START_TICK.to_string(), since_the_epoch.to_string());
     data
 }
 
@@ -78,7 +76,7 @@ pub fn dmerge_pull_core(machine_id: usize,
     }
     println!("After pull data is:{}, sum is: {}", example.number, sum);
 
-    let since_the_epoch = cur_tick_nano();
-    ret_data.insert(PROFILE_START_TICK.to_string(), since_the_epoch.to_string());
+    // let since_the_epoch = cur_tick_nano();
+    // ret_data.insert(PROFILE_START_TICK.to_string(), since_the_epoch.to_string());
     ret_data
 }
