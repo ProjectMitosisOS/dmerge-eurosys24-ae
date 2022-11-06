@@ -27,7 +27,7 @@ pub fn cur_tick_nano() -> u128 {
 }
 
 // Prepare for data, and return address
-pub fn dmerge_register_core(payload_sz: u64) -> HashMap<String, String> {
+pub fn dmerge_register_core(payload_sz: u64) -> u64 {
     let bbox =
         unsafe { crate::init_jemalloc_box::<BenchObj>() };
     let base_addr
@@ -48,17 +48,7 @@ pub fn dmerge_register_core(payload_sz: u64) -> HashMap<String, String> {
     println!("data is:{}, len is:{}, addr is: 0x{:x}",
              obj.number, obj.vec_data.len(), base_addr);
 
-    let mut data: HashMap<String, String> = Default::default();
-
-    // Gid as network address
-    data.insert(DATA_NW_ADDR_KEY.to_string(),
-                format!("fe80:0000:0000:0000:248a:0703:009c:7ca0"));
-    // Base address
-    data.insert(DATA_DATA_LOC_KEY.to_string(), base_addr.to_string());
-    data.insert(DATA_HINT_KEY.to_string(), heap_hint().to_string());
-
-    // Profiling data
-    data
+    base_addr
 }
 
 pub fn dmerge_pull_core(machine_id: usize,
@@ -71,12 +61,11 @@ pub fn dmerge_pull_core(machine_id: usize,
 
     let example = unsafe { crate::read_data::<ExampleStruct>(data_loc_address) };
     let mut sum = 0;
+
     for item in example.vec_data.iter() {
         sum += *item;
     }
     println!("After pull data is:{}, sum is: {}", example.number, sum);
 
-    // let since_the_epoch = cur_tick_nano();
-    // ret_data.insert(PROFILE_START_TICK.to_string(), since_the_epoch.to_string());
     ret_data
 }

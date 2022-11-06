@@ -21,19 +21,16 @@ pub async fn dmerge_register(req: HttpRequest,
     let start_tick = crate::service::bench::cur_tick_nano();
 
     // critical path
-    let ret_data = crate::service::bench::dmerge_register_core(
+    let data_loc = crate::service::bench::dmerge_register_core(
         mem_sz as _);
 
+    // merge
     {
-        let data_loc = if let Some(d) = ret_data.get(DATA_DATA_LOC_KEY) {
-            d.clone()
-        } else { heap_base().to_string() };
         let url = format!("http://localhost:8090/dmerge/pull?addr=0x{:x}",
-                          data_loc.parse::<u64>().expect("not valid digital"));
-        // curl localhost:8090/dmerge/pull?addr=0x4ffff5c00000
+                          data_loc);
         let res = reqwest::Client::new()
             .get(url)
-            .json(&crate::MapperRequest { chunk_data: "tmp".parse()? })
+            .json(&crate::MapperRequest { chunk_data: "chunk data".parse()? })
             .send().await;
         if res.is_err() {
             println!("not success");
