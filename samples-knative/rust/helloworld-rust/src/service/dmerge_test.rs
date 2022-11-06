@@ -1,10 +1,6 @@
-use std::ffi::CString;
 use std::intrinsics::size_of;
-use std::time::{SystemTime, UNIX_EPOCH};
-use actix_protobuf::ProtoBufResponseBuilder;
 use actix_web::{get, HttpRequest, HttpResponse, HttpResponseBuilder, web};
 use actix_web::http::StatusCode;
-use libc::{c_char, tm};
 use serde_json::{json};
 
 
@@ -119,13 +115,11 @@ pub async fn json_micro(req: HttpRequest,
 #[get("/json/data")]
 pub async fn json_data(req: HttpRequest,
                        mut payload: web::Payload) -> Result<HttpResponse, actix_web::Error> {
-    type EntryType = u32;
-
     let qs = qstring::QString::from(req.query_string());
     let size_str = qs.get("size").unwrap_or("1024");
     let mem_sz: usize = size_str.parse::<usize>().expect("parse err");
-    let mut arr: Vec<EntryType> = Vec::with_capacity(mem_sz);
-    let len = mem_sz as u64 / (size_of::<EntryType>() as u64);
+    let mut arr: Vec<crate::service::bench::BenchEntryType> = Vec::with_capacity(mem_sz);
+    let len = mem_sz as u64 / (size_of::<crate::service::bench::BenchEntryType>() as u64);
 
     for _i in 0..len {
         arr.push(1);
@@ -135,11 +129,7 @@ pub async fn json_data(req: HttpRequest,
 }
 include!(concat!(env!("OUT_DIR"), "/protos/mod.rs"));
 use protobuf::Message;
-use crate::{AllocatorMaster, get_global_allocator_master_mut, jemalloc_alloc, jemalloc_free, JemallocAllocator};
-use crate::service::bench::DMergeBenchObj;
-use crate::service::cloud_event::{DATA_DATA_LOC_KEY, PROFILE_START_TICK};
-use crate::service::payload::ExampleStruct;
-use crate::sys_env::{heap_base, hex_str_to_val};
+use crate::sys_env::{hex_str_to_val};
 
 #[get("/protobuf/data")]
 pub async fn protobuf_data(req: HttpRequest,
@@ -148,7 +138,7 @@ pub async fn protobuf_data(req: HttpRequest,
     pub fn gen_arr_message(mem_size: usize) -> example::ArrMessage {
         use example::{ArrMessage};
         let mut msg = ArrMessage::new();
-        let arr_len = mem_size / size_of::<i32>();
+        let arr_len = mem_size / size_of::<crate::service::bench::BenchEntryType>();
         for _i in 0..arr_len {
             msg.data.push(1);
         }

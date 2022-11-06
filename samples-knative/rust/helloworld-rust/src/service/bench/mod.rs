@@ -2,22 +2,23 @@ use std::collections::HashMap;
 use std::intrinsics::size_of;
 use std::time::{SystemTime, UNIX_EPOCH};
 use crate::JemallocAllocator;
-use crate::service::cloud_event::*;
 use crate::service::payload::ExampleStruct;
-use crate::sys_env::{heap_base, heap_hint};
 use serde::{Deserialize, Serialize};
+
+pub type BenchEntryType = u32;
+
 
 #[derive(Clone)]
 pub struct DMergeBenchObj {
     pub number: u64,
-    pub vec_data: Vec<u32, JemallocAllocator>,
+    pub vec_data: Vec<BenchEntryType, JemallocAllocator>,
 }
 
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SeriBenchObj {
     pub number: u64,
-    pub payload: Vec<u32>,
+    pub payload: Vec<BenchEntryType>,
 }
 
 impl Default for DMergeBenchObj {
@@ -44,9 +45,8 @@ pub fn dmerge_register_core(payload_sz: u64) -> u64 {
     let obj =
         unsafe { crate::read_data::<DMergeBenchObj>(base_addr) };
 
-    type EntryType = u32;
-    let mut vec: Vec<EntryType, JemallocAllocator> = Vec::new_in(JemallocAllocator);
-    let len = payload_sz / (size_of::<EntryType>() as u64);
+    let mut vec: Vec<BenchEntryType, JemallocAllocator> = Vec::new_in(JemallocAllocator);
+    let len = payload_sz / (size_of::<BenchEntryType>() as u64);
     for _i in 0..len {
         vec.push(1);
     }
@@ -64,7 +64,7 @@ pub fn dmerge_pull_core(machine_id: usize,
                         data_loc_address: u64) -> HashMap<String, String> {
     println!("[Pull Core] machine id: {}, hint: {}, addr base: 0x{:x}",
              machine_id, hint, data_loc_address);
-    let mut ret_data: HashMap<String, String> = Default::default();
+    let ret_data: HashMap<String, String> = Default::default();
 
     let sd = unsafe { crate::bindings::sopen() };
     let _ = unsafe { crate::bindings::call_pull(sd, hint as _, machine_id as _) };

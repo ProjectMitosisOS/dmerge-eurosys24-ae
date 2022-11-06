@@ -1,4 +1,4 @@
-use std::intrinsics::{likely, unlikely};
+use std::intrinsics::{unlikely};
 use std::mem::size_of;
 use std::ptr::{null_mut};
 use core::alloc::{AllocError, Allocator};
@@ -8,7 +8,6 @@ use core::alloc::Layout;
 use crate::get_global_allocator_master_mut;
 use jemalloc_sys::*;
 use libc::{c_char, c_int, c_uint, c_void, memset, size_t};
-use crate::service::payload::ExampleStruct;
 
 type c_bool = c_int;
 

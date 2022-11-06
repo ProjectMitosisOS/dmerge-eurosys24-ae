@@ -1,11 +1,8 @@
 use std::convert::TryFrom;
 use std::{env};
 use std::collections::HashMap;
-use std::ffi::CString;
 use std::time::{SystemTime, UNIX_EPOCH};
 use cloudevents::{AttributesReader, Event};
-use crate::{jemalloc_alloc, JemallocAllocator};
-use crate::service::payload::ExampleStruct;
 use crate::sys_env::*;
 
 pub(crate) const CE_SPLITTER: &str = "splitter";

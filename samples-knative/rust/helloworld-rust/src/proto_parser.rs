@@ -1,10 +1,10 @@
-use std::intrinsics::size_of;
 use protobuf::{EnumOrUnknown, Message};
 
 include!(concat!(env!("OUT_DIR"), "/protos/mod.rs"));
 
 use example::{get_response, GetRequest, GetResponse};
 
+#[allow(dead_code)]
 pub fn test_proto() {
     // Encode example request
     let mut out_msg = GetRequest::new();

@@ -8,7 +8,6 @@ alloc_layout_extra
 )]
 
 use std::mem::MaybeUninit;
-use std::time::{SystemTime, UNIX_EPOCH};
 use actix_web::{App, HttpServer};
 use libc::memset;
 

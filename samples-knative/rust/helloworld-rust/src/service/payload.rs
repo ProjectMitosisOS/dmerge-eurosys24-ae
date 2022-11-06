@@ -1,5 +1,4 @@
-use libc::c_char;
-use serde::{Serialize, Serializer};
+use serde::{Serialize};
 use crate::JemallocAllocator;
 
 
