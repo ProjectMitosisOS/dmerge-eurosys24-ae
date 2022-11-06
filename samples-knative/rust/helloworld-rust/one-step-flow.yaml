@@ -51,7 +51,7 @@ spec:
             - name: ServiceName
               value: "rust-splitter"
             - name: HEAP_BASE_HEX
-              value: "0x5ffff5a00000"
+              value: "0x6ffff5a00000"
             - name: HEAP_HINT
               value: "74"
 ---

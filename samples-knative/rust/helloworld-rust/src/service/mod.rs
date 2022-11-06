@@ -2,6 +2,7 @@ mod cloud_event;
 mod data_flow;
 mod dmerge_test;
 pub mod payload;
+pub mod bench;
 
 pub use data_flow::*;
 

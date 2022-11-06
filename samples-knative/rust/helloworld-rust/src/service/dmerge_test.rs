@@ -18,19 +18,10 @@ pub async fn dmerge_register(req: HttpRequest,
     let size_str = qs.get("size").unwrap_or("1024");
     let mem_sz: usize = size_str.parse::<usize>().expect("parse err");
 
-    unsafe {
-        let bbox = crate::init_jemalloc_box::<ExampleStruct>();
-        let data_loc_address = bbox.as_ptr() as u64;
-        let example = crate::read_data::<ExampleStruct>(data_loc_address);
-        let mut vec: Vec<u32, JemallocAllocator> = Vec::new_in(JemallocAllocator);
-        for i in 0..mem_sz / 4 {
-            vec.push(1);
-        }
+    // critical path
+    let _ = crate::service::bench::dmerge_register_core(
+        mem_sz as _, &Default::default());
 
-        example.vec_data = vec;
-        example.number = 4124;
-        println!("data is:{}, len is:{}, addr is: 0x{:x}", example.number, example.vec_data.len(), data_loc_address);
-    }
     Ok(HttpResponseBuilder::new(StatusCode::OK)
         .json(json!({"status": 0})))
 }

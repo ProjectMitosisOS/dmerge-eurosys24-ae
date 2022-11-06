@@ -44,11 +44,13 @@ pub unsafe fn get_global_allocator_master_mut() -> &'static mut crate::Allocator
     crate::ALLOC::get_mut()
 }
 
+// Should be freed manually
 #[inline]
 pub unsafe fn init_from_obj<T>() -> *mut T {
     jemalloc_alloc::<ExampleStruct>() as _
 }
 
+// Auto free
 #[inline]
 pub unsafe fn init_jemalloc_box<T>() -> Box<MaybeUninit<T>, JemallocAllocator> {
     Box::new_uninit_in(JemallocAllocator)
@@ -111,7 +113,7 @@ mod tests {
                 AllocatorMaster::init(base_addr as _,
                                       mem_sz));
             for i in 0..12 {
-                let bbox = crate::init_jemalloc_box::<ExampleStruct>() ;
+                let bbox = crate::init_jemalloc_box::<ExampleStruct>();
                 let data_loc_address
                     = bbox.as_ptr() as u64;
 
@@ -122,11 +124,9 @@ mod tests {
                     vec.push(1);
                 }
                 // example.vec_data = vec;
-                println!("addr is 0x{:x}", data_loc_address as u64);
+                // println!("addr is 0x{:x}", data_loc_address as u64);
                 // jemalloc_free(data_loc_address as _);
             }
-
-
         }
     }
 }

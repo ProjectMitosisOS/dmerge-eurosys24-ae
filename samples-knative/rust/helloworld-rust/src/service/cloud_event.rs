@@ -8,18 +8,18 @@ use crate::{jemalloc_alloc, JemallocAllocator};
 use crate::service::payload::ExampleStruct;
 use crate::sys_env::*;
 
-const CE_SPLITTER: &str = "splitter";
-const CE_MAPPER: &str = "mapper";
-const CE_REDUCER: &str = "reducer";
-const CE_SINK: &str = "sink";
+pub(crate) const CE_SPLITTER: &str = "splitter";
+pub(crate) const CE_MAPPER: &str = "mapper";
+pub(crate) const CE_REDUCER: &str = "reducer";
+pub(crate) const CE_SINK: &str = "sink";
 
 
-const DATA_NW_ADDR_KEY: &str = "data_nw_addr";
-const DATA_DATA_LOC_KEY: &str = "data_loc";
-const DATA_HINT_KEY: &str = "heap_hint";
+pub(crate) const DATA_NW_ADDR_KEY: &str = "data_nw_addr";
+pub(crate) const DATA_DATA_LOC_KEY: &str = "data_loc";
+pub(crate) const DATA_HINT_KEY: &str = "heap_hint";
 
 // Profiling
-const PROFILE_START_TICK: &str = "start_tick";
+pub(crate) const PROFILE_START_TICK: &str = "start_tick";
 
 /// Reply to next flow step with `data_nw_addr`, `data_loc`, to indicate the
 /// network address and the data location
