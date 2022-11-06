@@ -13,15 +13,18 @@ if (NOT jemalloc_lib)
     set(jemalloc_lib "")
 endif ()
 
+set(ggflags_DIR "${CMAKE_SOURCE_DIR}/deps/mitosis/deps/gflags")
+add_subdirectory(${CMAKE_SOURCE_DIR}/deps/mitosis/deps/gflags gflags_dir)
+
 
 set(samples
         function merge connector
         )
-add_executable(function samples/cpp/function.cc)
-add_executable(merge samples/cpp/merge.cc)
-add_executable(connector samples/cpp/connector.cc)
+add_executable(function samples-cpp/cpp/function.cc)
+add_executable(merge samples-cpp/cpp/merge.cc)
+add_executable(connector samples-cpp/cpp/connector.cc)
 foreach (s ${samples})
-    target_link_libraries(${s} pthread ${jemalloc_lib})
+    target_link_libraries(${s} pthread ${jemalloc_lib} gflags)
     add_dependencies(${s} jemalloc)
 endforeach (s)
 
