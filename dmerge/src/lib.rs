@@ -35,6 +35,7 @@ declare_global!(
     crate::shadow_heap::ShadowHeapService
 );
 
+declare_global!(global_locks, alloc::vec::Vec<mitosis::linux_kernel_module::mutex::LinuxMutex<()>>);
 
 #[inline]
 pub unsafe fn get_shs_ref() -> &'static crate::shadow_heap::ShadowHeapService {

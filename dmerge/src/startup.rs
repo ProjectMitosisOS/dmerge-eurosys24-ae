@@ -7,6 +7,21 @@ use mitosis::rpc_caller_pool::CallerPool;
 fn start_instance(config: &Config) -> core::option::Option<()> {
     init_mitosis(config)?;
     init_rpc(config, crate::rpc_service::worker)?;
+    // global lock
+    {
+        use alloc::vec::Vec;
+        let mut locks = Vec::new();
+        for _ in 0..config.max_core_cnt {
+            locks.push(mitosis::linux_kernel_module::mutex::LinuxMutex::new(()));
+        }
+
+        for i in 0..locks.len() {
+            locks[i].init();
+        }
+
+        unsafe { crate::global_locks::init(locks) };
+    }
+
     Some(())
 }
 
@@ -49,6 +64,7 @@ pub fn start_dmerge(config: &Config) -> core::option::Option<()> {
 pub fn end_dmerge() {
     unsafe {
         crate::sh_service::drop();
+        crate::global_locks::drop();
         mitosis::startup::end_instance();
     };
 }

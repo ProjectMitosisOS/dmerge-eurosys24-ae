@@ -164,6 +164,7 @@ impl DmergeSyscallHandler {
 
 impl DmergeSyscallHandler {
     // ioctrl-0
+    // TODO: hint修改为kernel自动生成
     fn syscall_register_heap(&self, start_virt_addr: u64, hint: usize) -> c_long {
         let heap_service = unsafe { crate::get_shs_mut() };
         heap_service.register_heap(hint as _, start_virt_addr as _);
@@ -173,11 +174,11 @@ impl DmergeSyscallHandler {
 
     // ioctrl-1
     fn syscall_pull(&mut self, hander_id: usize, machine_id: usize) -> c_long {
-        let (handler_id, machine_id) = (hander_id, machine_id); // TODO: Use as ioctl args
+        let (handler_id, machine_id) = (hander_id, machine_id);
         let cpu_id = mitosis::get_calling_cpu_id();
 
         // hold the lock on this CPU TODO: add function in MITOSIS
-        // unsafe { mitosis::global_locks::get_ref()[cpu_id].lock() };
+        unsafe { crate::global_locks::get_ref()[cpu_id].lock() };
 
         let caller = unsafe {
             mitosis::rpc_caller_pool::CallerPool::get_global_caller(cpu_id)
@@ -213,7 +214,7 @@ impl DmergeSyscallHandler {
                 "sanity check pending reqs {:?}",
                 caller.get_pending_reqs(remote_session_id)
             );
-            // unsafe { mitosis::global_locks::get_ref()[cpu_id].unlock() };
+            unsafe { crate::global_locks::get_ref()[cpu_id].unlock() };
             return -1;
         };
 
@@ -269,7 +270,7 @@ impl DmergeSyscallHandler {
             }
             Err(e) => {
                 crate::log::error!("client receiver reply err {:?}", e);
-                // unsafe { mitosis::global_locks::get_ref()[cpu_id].unlock() };
+                unsafe { crate::global_locks::get_ref()[cpu_id].unlock() };
                 return -1;
             }
         };
