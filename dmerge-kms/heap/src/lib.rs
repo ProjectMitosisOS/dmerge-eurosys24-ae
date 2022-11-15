@@ -44,6 +44,6 @@ impl Drop for Module {
 linux_kernel_module::kernel_module!(
     Module,
     author: b"lfm",
-    description: b"A kernel module for testing system calls",
+    description: b"Kernel module for Distributed Merge",
     license: b"GPL"
 );
