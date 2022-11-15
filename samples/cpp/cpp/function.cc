@@ -26,8 +26,6 @@ static void test_allocator() {
 
     int res = *(int *) base_addr;
     std::cout << std::dec << "res:" << res << std::endl;
-    (*(int *) base_addr) = 2048;
-
 }
 
 // producer
