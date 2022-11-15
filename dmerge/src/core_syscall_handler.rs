@@ -6,7 +6,6 @@ use mitosis::remote_paging::AccessInfo;
 use mitosis::os_network::bytes::ToBytes;
 use mitosis::linux_kernel_module;
 use mitosis::linux_kernel_module::file_operations::{File, SeekFrom};
-use mitosis::linux_kernel_module::println;
 use mitosis::linux_kernel_module::user_ptr::{UserSlicePtrReader, UserSlicePtrWriter};
 use mitosis::os_network::block_on;
 use mitosis::os_network::timeout::TimeoutWRef;
@@ -149,15 +148,15 @@ impl mitosis::syscalls::FileOperations for DmergeSyscallHandler {
 }
 
 impl DmergeSyscallHandler {
-    fn read_fn(_self: &DmergeSyscallHandler, file: &File, writer: &mut UserSlicePtrWriter, len: u64) -> KernelResult<()> {
+    fn read_fn(_self: &DmergeSyscallHandler, _file: &File, _writer: &mut UserSlicePtrWriter, _len: u64) -> KernelResult<()> {
         Ok(())
     }
 
-    fn write_fn(_self: &DmergeSyscallHandler, writer: &mut UserSlicePtrReader, len: u64) -> KernelResult<()> {
+    fn write_fn(_self: &DmergeSyscallHandler, _writer: &mut UserSlicePtrReader, _len: u64) -> KernelResult<()> {
         Ok(())
     }
 
-    fn seek_fn(_self: &DmergeSyscallHandler, file: &File, seek_from: SeekFrom) -> KernelResult<u64> {
+    fn seek_fn(_self: &DmergeSyscallHandler, _file: &File, _seek_from: SeekFrom) -> KernelResult<u64> {
         Ok(0)
     }
 }
@@ -167,7 +166,7 @@ impl DmergeSyscallHandler {
     // TODO: hint修改为kernel自动生成
     fn syscall_register_heap(&self, start_virt_addr: u64, hint: usize) -> c_long {
         let heap_service = unsafe { crate::get_shs_mut() };
-        heap_service.register_heap(hint as _, start_virt_addr as _);
+        let _ = heap_service.register_heap(hint as _, start_virt_addr as _);
         return 0;
     }
 
@@ -177,7 +176,7 @@ impl DmergeSyscallHandler {
         let (handler_id, machine_id) = (hander_id, machine_id);
         let cpu_id = mitosis::get_calling_cpu_id();
 
-        // hold the lock on this CPU TODO: add function in MITOSIS
+        // hold the lock on this CPU
         unsafe { crate::global_locks::get_ref()[cpu_id].lock() };
 
         let caller = unsafe {
@@ -322,7 +321,7 @@ impl DmergeSyscallHandler {
         let heap = self.caller_status.heaps.as_mut().unwrap();
 
         let new_page = if let Some(_pa) =
-        heap.descriptor.lookup_pg_table(fault_addr) {
+            heap.descriptor.lookup_pg_table(fault_addr) {
             let access_info = AccessInfo::new(&heap.descriptor.machine_info);
             if access_info.is_none() {
                 crate::log::error!("failed to create access info");
