@@ -50,6 +50,7 @@ fn init_rpc(config: &Config,
     Some(())
 }
 
+/// Body function for starting the DMerge.
 pub fn start_dmerge(config: &Config) -> core::option::Option<()> {
     unsafe {
         crate::sh_service::init(Default::default());
