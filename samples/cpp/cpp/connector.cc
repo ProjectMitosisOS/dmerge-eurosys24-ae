@@ -1,6 +1,6 @@
-#include "../../dmerge-user-libs/include/syscall.h"
+#include "../../../dmerge-user-libs/include/syscall.h"
 #include "../include/allocator.hh"
-#include <gflags/gflags.h>
+#include "gflags/gflags.h"
 #include <cassert>
 
 
