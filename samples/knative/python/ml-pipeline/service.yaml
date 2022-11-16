@@ -1,0 +1,101 @@
+# A default broker
+apiVersion: eventing.knative.dev/v1
+kind: Broker
+metadata:
+  name: default-broker
+  namespace: default
+  annotations:
+    # Note: you can set the eventing.knative.dev/broker.class annotation to change the class of the broker.
+    # The default broker class is MTChannelBasedBroker, but Knative also supports use of the other class.
+    eventing.knative.dev/broker.class: MTChannelBasedBroker
+spec: { }
+---
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: ml-pipeline
+  namespace: default
+spec:
+  template:
+    spec:
+      containers:
+        - name: ml-pipeline
+          image: caribouf/ml-pipeline
+          imagePullPolicy: Always
+          env:
+            - name: CE_SPECVERSION
+              value: "0.3"
+            - name: CE_TYPE
+              value: "dev.knative.samples.mlpipeline"
+---
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: event-display
+  namespace: default
+spec:
+  template:
+    spec:
+      containers:
+        - name: event-display
+          image: gcr.lank8s.cn/knative-releases/knative.dev/eventing/cmd/event_display
+
+---
+apiVersion: eventing.knative.dev/v1
+kind: Trigger
+metadata:
+  name: mlpipeline-trigger
+  namespace: default
+spec:
+  broker: default-broker
+  filter:
+    attributes:
+      type: dev.knative.samples.mlpipeline
+      source: ml-pipeline
+  subscriber:
+    ref:
+      apiVersion: serving.knative.dev/v1
+      kind: Service
+      name: event-display
+---
+apiVersion: eventing.knative.dev/v1
+kind: Trigger
+metadata:
+  name: ping-trigger
+  namespace: default
+spec:
+  broker: default-broker
+  filter:
+    attributes:
+      type: dev.knative.samples.mlpipeline
+      source: ping
+  subscriber:
+    ref:
+      apiVersion: serving.knative.dev/v1
+      kind: Service
+      name: ml-pipeline
+---
+apiVersion: sources.knative.dev/v1beta2
+kind: PingSource
+metadata:
+  name: ping-source
+spec:
+  schedule: "*/1 * * * *"
+  contentType: "application/json"
+  data: '{"message": "Even or odd?"}'
+  sink:
+    ref:
+      apiVersion: serving.knative.dev/v1
+      kind: Service
+      name: ml-pipeline
+
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: curl
+spec:
+  containers:
+    - name: curl
+      image: radial/busyboxplus:curl
+      command: ["sleep", "9999999"]
