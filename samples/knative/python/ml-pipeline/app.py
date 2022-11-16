@@ -1,8 +1,10 @@
 import os
 
+import redis
 from flask import Flask, request, make_response
 import uuid
 import requests
+import redis_client
 import util
 from cloudevents.http import from_http, CloudEvent
 from functions import *
@@ -32,15 +34,16 @@ def faas_entry():
 
 
 def handle_ce(event: CloudEvent):
-    data = event.data
-    out_data = {}
+    meta = event.data
     source_tp = event['type']
     if source_tp == PING_TP:
-        splitter(data)
+        out_data = splitter(meta)
     elif source_tp == SPLITTER_TP:
-        trainer(data)
+        out_data = trainer(meta)
     elif source_tp == TRAINER_TP:
-        reduce(data)  # Finish
+        out_data = reduce(meta)  # Finish
+    else:  # Default case
+        out_data = reduce(meta)
     return out_data
 
 

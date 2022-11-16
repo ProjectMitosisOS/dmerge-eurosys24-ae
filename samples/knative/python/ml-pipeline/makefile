@@ -11,11 +11,14 @@ clean-img:
 # kubectl -n default get broker default-broker
 
 
-deploy-broker:
-	kubectl apply -f broker.yaml
+deploy-meta:
+	kubectl apply -f meta.yaml
 
 deploy-app:
 	kubectl apply -f service.yaml
+
+undeploy-app:
+	kubectl delete -f service.yaml
 
 trigger:
 	curl -v ${URL} \
