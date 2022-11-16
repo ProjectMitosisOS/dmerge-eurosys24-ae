@@ -10,6 +10,13 @@ clean-img:
 	docker rmi -f  `docker images | grep '<none>' | awk '{print $3}'`
 # kubectl -n default get broker default-broker
 
+
+deploy-broker:
+	kubectl apply -f broker.yaml
+
+deploy-app:
+	kubectl apply -f service.yaml
+
 trigger:
 	curl -v ${URL} \
 	-X POST \
