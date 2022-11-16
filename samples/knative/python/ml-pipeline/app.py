@@ -9,11 +9,12 @@ app = Flask(__name__)
 
 ce_specversion = os.environ.get('CE_SPECVERSION', '0.3')
 ce_type = os.environ.get("CE_TYPE", "default")
+if_debug = os.environ.get("DEBUG", True)
 
 
 @app.route('/', methods=['POST'])
 def hello_world():
-    app.logger.warning(request.data)
+    app.logger.debug(dict(request.headers))
     response = make_response({
         "msg": "Hello world!"
     })
@@ -21,9 +22,8 @@ def hello_world():
                                            ce_specversion=ce_specversion,
                                            ce_type=ce_type,
                                            ce_source="ml-pipeline")
-    app.logger.warning(response.headers)
     return response
 
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=8080)
+    app.run(debug=if_debug, host='0.0.0.0', port=8080)

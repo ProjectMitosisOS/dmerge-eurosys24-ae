@@ -26,7 +26,7 @@ run:
     	-X POST \
         -H "Ce-Id: 536808d3-88be-4077-9d7a-a3f162705f79" \
         -H "Ce-Specversion: 1.0" \
-        -H "Ce-Type: dev.knative.samples.mlpipeline" \
-        -H "Ce-Source: ping" \
+        -H "Ce-Type: dev.knative.sources.ping" \
+        -H "Ce-Source: ping-pong" \
         -H "Content-Type: application/json" \
         -d '{"msg":"Hello World from the curl pod."}'
