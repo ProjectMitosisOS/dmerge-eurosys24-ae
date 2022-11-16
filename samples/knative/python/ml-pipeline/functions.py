@@ -1,27 +1,33 @@
 import redis_client
+from redis_client import *
+
+test_data_file_path = 'dataset/Digits_Test.txt'
+train_data_file_path = 'dataset/Digits_Train.txt'
+
+# Dump before running
+dump_file_to_kv(train_data_file_path)
+dump_file_to_kv(test_data_file_path)
 
 
 def splitter(meta):
     out_data = meta.copy()
-    redis_client.put('foo', 'bar')
 
-    out_data['key'] = 'foo'
+    content = read_file_from_kv(train_data_file_path)
+    redis_client.put(train_data_file_path, len(content))
+
+    out_data['key'] = train_data_file_path
     return out_data
 
 
 def trainer(meta):
     out_data = meta.copy()
-    redis_client.put('trainer', 'java')
 
-    out_data['kkk'] = 'trainer'
+    data = redis_client.get(meta['key'])
+    out_data['len-of-content'] = data
+
     return out_data
 
 
 def reduce(meta):
     out_data = meta.copy()
-    out_data['data'] = {
-        'key': redis_client.get(meta['key']),
-        'kkk': redis_client.get(meta['kkk'])
-    }
-
     return out_data
