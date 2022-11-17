@@ -8,6 +8,9 @@ from multiprocessing import Process, Manager
 
 
 def handler(event):
+    """
+    FIXME: When in workflow, it should be parallel trainers.
+    """
     filename = "/tmp/Digits_Train_Transform.txt"
     train_data = np.genfromtxt(filename, delimiter='\t')
 
