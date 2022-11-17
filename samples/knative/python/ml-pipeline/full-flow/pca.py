@@ -59,7 +59,7 @@ def PCA():
     feature_fraction = []
     num_bundles = 0
     count = 0
-    for tri in list_hyper_params: # of len 16
+    for tri in list_hyper_params:  # of len 16
         feature_fraction.append(tri[2])
         max_depth.append(tri[1])
         num_of_trees.append(tri[0])
@@ -77,5 +77,3 @@ def PCA():
 
     print(returnedDic)
     return PCA_file_name, returnedDic
-
-
