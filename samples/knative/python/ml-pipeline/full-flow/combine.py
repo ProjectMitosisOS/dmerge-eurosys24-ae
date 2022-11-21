@@ -13,8 +13,8 @@ def handler(event):
     Z = [x for _, x in sorted(zip(accuracy_list, configs_list))]
     returned_configs = Z[-10:len(accuracy_list)]
     returned_latecy = sorted(accuracy_list)[-10:len(accuracy_list)]
-    print(returned_configs)
-    print(returned_latecy)
+    # print(returned_configs)
+    # print(returned_latecy)
     return {
         'statusCode': 200,
         'accuracy': returned_configs,

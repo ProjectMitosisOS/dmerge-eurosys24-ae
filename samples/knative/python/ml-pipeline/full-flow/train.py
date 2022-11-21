@@ -14,14 +14,14 @@ def handler(event):
     filename = "/tmp/Digits_Train_Transform.txt"
     train_data = np.genfromtxt(filename, delimiter='\t')
 
-    print("train data shape")
-    print(train_data.shape)
+    # print("train data shape")
+    # print(train_data.shape)
 
     y_train = train_data[0:5000, 0]
     X_train = train_data[0:5000, 1:train_data.shape[1]]
     # lgb_train = lgb.Dataset(X_train, y_train)
 
-    print(type(y_train))
+    # print(type(y_train))
     # print(type(lgb_train))
     manager = Manager()
     return_dict = manager.dict()

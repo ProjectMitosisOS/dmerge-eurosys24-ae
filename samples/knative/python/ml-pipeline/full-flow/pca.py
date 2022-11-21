@@ -10,7 +10,7 @@ test_data_file_path = '../dataset/Digits_Test.txt'
 train_data_file_path = '../dataset/Digits_Train.txt'
 
 
-def PCA():
+def PCA(partition_num=16):
     content = dump_file_to_kv(train_data_file_path)
     train_data = genfromtxt(json.loads(content))
 
@@ -42,7 +42,6 @@ def PCA():
     end_time = int(round(time.time() * 1000))
 
     ### Construct return params
-    bundle_size = 16
     list_hyper_params = []
 
     for feature_fraction in [0.25, 0.5, 0.75, 0.95]:
@@ -59,12 +58,13 @@ def PCA():
     feature_fraction = []
     num_bundles = 0
     count = 0
+    bundle_size = len(list_hyper_params) / partition_num
     for tri in list_hyper_params:  # of len 16
         feature_fraction.append(tri[2])
         max_depth.append(tri[1])
         num_of_trees.append(tri[0])
         count += 1
-        if (count >= bundle_size):
+        if count >= bundle_size:
             count = 0
             num_bundles += 1
             j = {"mod_index": num_bundles,
@@ -75,5 +75,5 @@ def PCA():
             feature_fraction = []
             returnedDic["detail"]["indeces"].append(j)
 
-    print(returnedDic)
+    # print(returnedDic)
     return PCA_file_name, returnedDic
