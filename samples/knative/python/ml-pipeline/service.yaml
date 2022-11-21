@@ -82,7 +82,25 @@ spec:
 apiVersion: serving.knative.dev/v1
 kind: Service
 metadata:
-  name: reducer
+  name: reducer-0
+  namespace: default
+spec:
+  template:
+    spec:
+      containers:
+        - name: ml-pipeline
+          image: val01:5000/ml-pipeline
+          imagePullPolicy: Always
+          env:
+            - name: CE_SPECVERSION
+              value: "0.3"
+            - name: CE_TYPE
+              value: "reducer"
+---
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: reducer-1
   namespace: default
 spec:
   template:
@@ -112,7 +130,7 @@ spec:
 apiVersion: flows.knative.dev/v1
 kind: Parallel
 metadata:
-  name: parallel
+  name: mapper-parallel
 spec:
   channelTemplate:
     apiVersion: messaging.knative.dev/v1
@@ -136,9 +154,36 @@ spec:
   reply:
     ref:
       apiVersion: flows.knative.dev/v1
-      kind: Sequence
-      name: reducer-sequence
+      kind: Parallel
+      name: reducer-parallel
 ---
+
+apiVersion: flows.knative.dev/v1
+kind: Parallel
+metadata:
+  name: reducer-parallel
+spec:
+  channelTemplate:
+    apiVersion: messaging.knative.dev/v1
+    kind: InMemoryChannel
+  branches:
+    - subscriber:
+        ref:
+          apiVersion: serving.knative.dev/v1
+          kind: Service
+          name: reducer-0
+    - subscriber:
+        ref:
+          apiVersion: serving.knative.dev/v1
+          kind: Service
+          name: reducer-1
+  reply:
+    ref:
+      apiVersion: serving.knative.dev/v1
+      kind: Service
+      name: event-display
+---
+# Main body of MapReduce-alike framework
 apiVersion: flows.knative.dev/v1
 kind: Sequence
 metadata:
@@ -155,26 +200,7 @@ spec:
     - ref: # Parallel for mapper. Note!!!: Parallel shall not be followed by other seq services
         apiVersion: flows.knative.dev/v1
         kind: Parallel
-        name: parallel
----
-apiVersion: flows.knative.dev/v1
-kind: Sequence
-metadata:
-  name: reducer-sequence
-spec:
-  channelTemplate:
-    apiVersion: messaging.knative.dev/v1
-    kind: InMemoryChannel
-  steps:
-    - ref: # Reducers
-        apiVersion: serving.knative.dev/v1
-        kind: Service
-        name: reducer
-  reply:
-    ref:
-      apiVersion: serving.knative.dev/v1
-      kind: Service
-      name: event-display
+        name: mapper-parallel
 ---
 # Trigger of ping message
 apiVersion: eventing.knative.dev/v1
