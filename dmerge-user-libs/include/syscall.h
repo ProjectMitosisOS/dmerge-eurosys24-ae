@@ -15,11 +15,11 @@ static inline int
 call_register(int sd, unsigned long long peak_addr, unsigned int hint) {
     register_req_t req = {.heap_base = peak_addr, .heap_hint = hint};
 
-    if (ioctl(sd, Register, &req) == -1) {
+    int ret = ioctl(sd, Register, &req);
+    if (ret == -1) {
         return -1;
     }
-
-    return 0;
+    return ret;
 }
 
 

@@ -22,8 +22,8 @@ static void test_allocator() {
     std::cout << std::dec << (uint64_t) (*(int *) base_addr) << "\n";
 
     int sd = sopen();
-    call_register(sd, (uint64_t) base_addr, 73);
-
+    int heap_id = call_register(sd, (uint64_t) base_addr, 73);
+    std::cout << std::dec << "heap id: " << heap_id << std::endl;
     int res = *(int *) base_addr;
     std::cout << std::dec << "res:" << res << std::endl;
 }

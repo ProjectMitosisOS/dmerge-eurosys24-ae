@@ -19,7 +19,9 @@ pub use network::*;
 
 
 mod rpc_service;
+mod id_generator;
 pub mod bindings;
+
 /// Import MITOSIS
 pub use mitosis;
 pub use mitosis_macros;
@@ -28,7 +30,7 @@ pub use mitosis::log;
 
 use crate::mitosis_macros::declare_global;
 pub use core_syscall_handler::DmergeSyscallHandler;
-
+use id_generator::IdFactory;
 
 declare_global!(
     sh_service,
@@ -45,4 +47,17 @@ pub unsafe fn get_shs_ref() -> &'static crate::shadow_heap::ShadowHeapService {
 #[inline]
 pub unsafe fn get_shs_mut() -> &'static mut crate::shadow_heap::ShadowHeapService {
     crate::sh_service::get_mut()
+}
+
+declare_global!(heap_id_generator, crate::id_generator::IdFactory);
+
+
+#[inline]
+pub unsafe fn get_heap_id_generator_ref() -> &'static crate::id_generator::IdFactory {
+    crate::heap_id_generator::get_ref()
+}
+
+#[inline]
+pub unsafe fn get_heap_id_generator_mut() -> &'static mut crate::id_generator::IdFactory {
+    crate::heap_id_generator::get_mut()
 }

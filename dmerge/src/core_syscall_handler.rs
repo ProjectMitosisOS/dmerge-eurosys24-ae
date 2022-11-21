@@ -6,6 +6,7 @@ use mitosis::remote_paging::AccessInfo;
 use mitosis::os_network::bytes::ToBytes;
 use mitosis::linux_kernel_module;
 use mitosis::linux_kernel_module::file_operations::{File, SeekFrom};
+use mitosis::linux_kernel_module::println;
 use mitosis::linux_kernel_module::user_ptr::{UserSlicePtrReader, UserSlicePtrWriter};
 use mitosis::os_network::block_on;
 use mitosis::os_network::timeout::TimeoutWRef;
@@ -83,7 +84,9 @@ impl mitosis::syscalls::FileOperations for DmergeSyscallHandler {
                         core::mem::size_of_val(&req) as u64,
                     )
                 };
-                self.syscall_register_heap(req.heap_base as _, req.heap_hint as _)
+                let heap_hint = unsafe { crate::get_heap_id_generator_mut().alloc_one_id() };
+                let _ = self.syscall_register_heap(req.heap_base as _, heap_hint as _);
+                heap_hint as _
             }
             1 => {
                 use crate::bindings::pull_req_t;

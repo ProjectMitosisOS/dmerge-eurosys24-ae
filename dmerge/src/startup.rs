@@ -22,6 +22,10 @@ fn start_instance(config: &Config) -> core::option::Option<()> {
         unsafe { crate::global_locks::init(locks) };
     }
 
+    {
+        unsafe {crate::heap_id_generator::init(crate::id_generator::IdFactory::create())}
+    }
+
     Some(())
 }
 
@@ -66,6 +70,7 @@ pub fn end_dmerge() {
     unsafe {
         crate::sh_service::drop();
         crate::global_locks::drop();
+        crate::heap_id_generator::drop();
         mitosis::startup::end_instance();
     };
 }
