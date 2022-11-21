@@ -8,7 +8,7 @@ spec:
     spec:
       containers:
         - name: ml-pipeline
-          image: caribouf/ml-pipeline
+          image: val01:5000/ml-pipeline
           imagePullPolicy: Always
           env:
             - name: CE_SPECVERSION
@@ -19,20 +19,64 @@ spec:
 apiVersion: serving.knative.dev/v1
 kind: Service
 metadata:
-  name: trainer
+  name: trainer-0
   namespace: default
 spec:
   template:
     spec:
       containers:
         - name: ml-pipeline
-          image: caribouf/ml-pipeline
+          image: val01:5000/ml-pipeline
           imagePullPolicy: Always
           env:
             - name: CE_SPECVERSION
               value: "0.3"
             - name: CE_TYPE
               value: "trainer"
+            - name: ID
+              value: "0"
+
+---
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: trainer-1
+  namespace: default
+spec:
+  template:
+    spec:
+      containers:
+        - name: ml-pipeline
+          image: val01:5000/ml-pipeline
+          imagePullPolicy: Always
+          env:
+            - name: CE_SPECVERSION
+              value: "0.3"
+            - name: CE_TYPE
+              value: "trainer"
+            - name: ID
+              value: "1"
+
+---
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: trainer-2
+  namespace: default
+spec:
+  template:
+    spec:
+      containers:
+        - name: ml-pipeline
+          image: val01:5000/ml-pipeline
+          imagePullPolicy: Always
+          env:
+            - name: CE_SPECVERSION
+              value: "0.3"
+            - name: CE_TYPE
+              value: "trainer"
+            - name: ID
+              value: "2"
 
 ---
 apiVersion: serving.knative.dev/v1
@@ -45,7 +89,7 @@ spec:
     spec:
       containers:
         - name: ml-pipeline
-          image: caribouf/ml-pipeline
+          image: val01:5000/ml-pipeline
           imagePullPolicy: Always
           env:
             - name: CE_SPECVERSION
@@ -66,6 +110,36 @@ spec:
 
 # Workflow related
 apiVersion: flows.knative.dev/v1
+kind: Parallel
+metadata:
+  name: parallel
+spec:
+  channelTemplate:
+    apiVersion: messaging.knative.dev/v1
+    kind: InMemoryChannel
+  branches:
+    - subscriber:
+        ref:
+          apiVersion: serving.knative.dev/v1
+          kind: Service
+          name: trainer-0
+    - subscriber:
+        ref:
+          apiVersion: serving.knative.dev/v1
+          kind: Service
+          name: trainer-1
+    - subscriber:
+        ref:
+          apiVersion: serving.knative.dev/v1
+          kind: Service
+          name: trainer-2
+  reply:
+    ref:
+      apiVersion: flows.knative.dev/v1
+      kind: Sequence
+      name: reducer-sequence
+---
+apiVersion: flows.knative.dev/v1
 kind: Sequence
 metadata:
   name: sequence
@@ -74,15 +148,25 @@ spec:
     apiVersion: messaging.knative.dev/v1
     kind: InMemoryChannel
   steps:
-    - ref:
+    - ref: # Spliter
         apiVersion: serving.knative.dev/v1
         kind: Service
         name: splitter
-    - ref:
-        apiVersion: serving.knative.dev/v1
-        kind: Service
-        name: trainer
-    - ref:
+    - ref: # Parallel for mapper. Note!!!: Parallel shall not be followed by other seq services
+        apiVersion: flows.knative.dev/v1
+        kind: Parallel
+        name: parallel
+---
+apiVersion: flows.knative.dev/v1
+kind: Sequence
+metadata:
+  name: reducer-sequence
+spec:
+  channelTemplate:
+    apiVersion: messaging.knative.dev/v1
+    kind: InMemoryChannel
+  steps:
+    - ref: # Reducers
         apiVersion: serving.knative.dev/v1
         kind: Service
         name: reducer

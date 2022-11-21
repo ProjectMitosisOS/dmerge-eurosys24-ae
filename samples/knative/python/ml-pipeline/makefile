@@ -39,4 +39,4 @@ run:
         -H "Ce-Type: dev.knative.sources.ping" \
         -H "Ce-Source: ping-pong" \
         -H "Content-Type: application/json" \
-        -d '{"msg":"Hello World from the curl pod."}'
+        -d '{"msg":"Check parallel."}'

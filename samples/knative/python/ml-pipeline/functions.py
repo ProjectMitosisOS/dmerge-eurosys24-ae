@@ -48,10 +48,12 @@ def splitter(meta):
 
 
 def trainer(meta):
+    print("I'm in trainer")
     out_data = meta.copy()
     return out_data
 
 
 def reduce(meta):
+    print("I'm in reducer")
     out_data = meta.copy()
     return out_data
