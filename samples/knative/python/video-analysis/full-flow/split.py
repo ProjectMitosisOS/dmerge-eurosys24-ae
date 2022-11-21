@@ -12,10 +12,18 @@ length_regexp = 'Duration: (\d{2}):(\d{2}):(\d{2})\.\d+,'
 re_length = re.compile(length_regexp)
 
 
-def lambda_handler(src_video=0):
-    filename = '../dataset/min_0.mp4'
+def lambda_handler(src_video=0, partition_num=2):
+    """
+    Each video with length 60s, split into chunks with 2s length.
+    Thus, we have 30 chunks overall. And we can further partition these 30 chunks into `partition_num`
+    :param src_video: source video ID. See resources in `dataset`
+    :param partition_num: Partition number. It should be the factor of `30` (e.g. 1, 3, 5, 6, 15, 30)
+    :return: A list of the events with length of `partition_num`
+    """
+    filename = '../dataset/min_{}.mp4'.format(str(src_video))
     command = FFMPEG_STATIC + " -i '" + filename + "' 2>&1 | grep 'Duration'"
-    DOP = 1
+    # factor of 30
+    DOP = partition_num
     print('command:', command)
     output = subprocess.Popen(command,
                               shell=True,
@@ -31,11 +39,11 @@ def lambda_handler(src_video=0):
         video_length = int(matches.group(1)) * 3600 + \
                        int(matches.group(2)) * 60 + \
                        int(matches.group(3))
-        print("Video length in seconds: " + str(video_length))
+        print("Video length in seconds: " + str(video_length))  # 60s
 
         start = 0
         chunk_size = 2  # in seconds
-        while (start < video_length):
+        while start < video_length:
             end = min(video_length - start, chunk_size)
             millis = int(round(time.time() * 1000))
             millis_list.append(millis)
