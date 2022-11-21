@@ -11,11 +11,16 @@ def handler(event):
     """
     FIXME: When in workflow, it should be parallel trainers.
     """
+    start_time = int(round(time.time() * 1000))
+
+    start_download = int(round(time.time() * 1000))
+    # TODO: download from external
     filename = "/tmp/Digits_Train_Transform.txt"
     train_data = np.genfromtxt(filename, delimiter='\t')
+    end_download = int(round(time.time() * 1000))
+    end_time = int(round(time.time() * 1000))
 
-    # print("train data shape")
-    # print(train_data.shape)
+    start_process = int(round(time.time() * 1000))
 
     y_train = train_data[0:5000, 0]
     X_train = train_data[0:5000, 1:train_data.shape[1]]
@@ -42,6 +47,10 @@ def handler(event):
             ths[t].start()
         for t in range(threads):
             ths[t].join()
+
+    end_process = int(round(time.time() * 1000))
+    print("download duration: " + str(end_time - start_time))
+    print("E2E duration: " + str(end_time - start_time))
     j = {
         'statusCode': 200,
         'body': json.dumps('Done Training Threads = ' + str(threads)),
@@ -95,15 +104,17 @@ def train_tree(t_index, X_train, y_train, event, num_of_trees, max_depth, featur
     save_path = "/tmp/" + model_name
     gbm.save_model(save_path)
 
-    # print("Ready to uploaded " + model_name)
-    # start_upload = int(round(time.time() * 1000))
+    print("Ready to uploaded " + model_name)
+    start_upload = int(round(time.time() * 1000))
     # TODO: Upload
     # s3_client.upload_file("/tmp/" + model_name, bucket_name, "ML_Pipeline/" + model_name, Config=config)
-    # end_upload = int(round(time.time() * 1000))
-    # print("model uploaded " + model_name)
+    end_upload = int(round(time.time() * 1000))
+    print("model uploaded " + model_name)
 
     return_dict[str(runs) + "_" + str(max_depth) + "_" + str(feature_fraction)] = acc
     process_dict[str(runs) + "_" + str(max_depth) + "_" + str(feature_fraction)] = (end_process - start_process)
+    upload_dict[str(runs) + "_" + str(max_depth) + "_" + str(feature_fraction)] = (end_upload - start_upload)
+
     return {
         'statusCode': 200,
         'body': json.dumps('Done Training With Accuracy = ' + str(acc)),

@@ -12,10 +12,16 @@ train_data_file_path = '../dataset/Digits_Train.txt'
 
 def PCA(partition_num=16):
     content = dump_file_to_kv(train_data_file_path)
+    start_time = int(round(time.time() * 1000))
+
+    start_download = int(round(time.time() * 1000))
+    # TODO: download from external
     train_data = genfromtxt(json.loads(content))
+    end_download = int(round(time.time() * 1000))
 
     print('finish download')
-    start_time = int(round(time.time() * 1000))
+    start_process = int(round(time.time() * 1000))
+
     ###########################
     train_labels = train_data[:, 0]
 
@@ -38,6 +44,13 @@ def PCA(partition_num=16):
 
     PCA_file_name = "/tmp/Digits_Train_Transform.txt"
     np.savetxt(PCA_file_name, first_n_A_label, delimiter="\t")
+
+    end_process = int(round(time.time() * 1000))
+
+    start_upload = int(round(time.time() * 1000))
+    ## TODO: Upload to external
+    end_upload = int(round(time.time() * 1000))
+
     ###########################
     end_time = int(round(time.time() * 1000))
 
@@ -67,7 +80,8 @@ def PCA(partition_num=16):
         if count >= bundle_size:
             count = 0
             num_bundles += 1
-            j = {"mod_index": num_bundles,
+            j = {"mod_index": num_bundles, "PCA_Download": (end_download - start_download),
+                 "PCA_Process": (end_process - start_process), "PCA_Upload": (end_upload - start_upload),
                  "key1": "inv_300", "num_of_trees": num_of_trees, "max_depth": max_depth,
                  "feature_fraction": feature_fraction, "threads": 6}
             num_of_trees = []
@@ -75,5 +89,5 @@ def PCA(partition_num=16):
             feature_fraction = []
             returnedDic["detail"]["indeces"].append(j)
 
-    # print(returnedDic)
+    print(returnedDic)
     return PCA_file_name, returnedDic
