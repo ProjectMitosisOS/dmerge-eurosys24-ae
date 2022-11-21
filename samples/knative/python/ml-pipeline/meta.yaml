@@ -1,4 +1,13 @@
 apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: config-deployment
+  namespace: knative-serving
+data:
+  queueSidecarImage: gcr.lank8s.cn/knative-releases/knative.dev/serving/cmd/queue
+  registriesSkippingTagResolving: val01:5000 # !!!For private registry, we need to let knative skip tag resolving on val host
+---
+apiVersion: v1
 kind: Pod
 metadata:
   name: curl

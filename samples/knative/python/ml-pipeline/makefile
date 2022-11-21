@@ -1,4 +1,4 @@
-IMG_NAME=caribouf/ml-pipeline
+IMG_NAME=val01:5000/caribouf/ml-pipeline
 URL=http://ml-pipeline.default.127.0.0.1.sslip.io
 
 
