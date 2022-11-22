@@ -100,24 +100,6 @@ spec:
 apiVersion: serving.knative.dev/v1
 kind: Service
 metadata:
-  name: reducer-1
-  namespace: default
-spec:
-  template:
-    spec:
-      containers:
-        - name: ml-pipeline
-          image: val01:5000/ml-pipeline
-          imagePullPolicy: Always
-          env:
-            - name: CE_SPECVERSION
-              value: "0.3"
-            - name: CE_TYPE
-              value: "reducer"
----
-apiVersion: serving.knative.dev/v1
-kind: Service
-metadata:
   name: event-display
 spec:
   template:
@@ -172,11 +154,6 @@ spec:
           apiVersion: serving.knative.dev/v1
           kind: Service
           name: reducer-0
-    - subscriber:
-        ref:
-          apiVersion: serving.knative.dev/v1
-          kind: Service
-          name: reducer-1
   reply:
     ref:
       apiVersion: serving.knative.dev/v1
