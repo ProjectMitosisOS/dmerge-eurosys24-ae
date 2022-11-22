@@ -5,6 +5,10 @@ metadata:
   namespace: default
 spec:
   template:
+    metadata:
+      annotations:
+        # Credit to https://knative.dev/docs/serving/autoscaling/scale-bounds/#lower-bound
+        autoscaling.knative.dev/min-scale: "1"
     spec:
       containers:
         - name: ml-pipeline
@@ -23,6 +27,9 @@ metadata:
   namespace: default
 spec:
   template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/min-scale: "1"
     spec:
       containers:
         - name: ml-pipeline
@@ -44,6 +51,9 @@ metadata:
   namespace: default
 spec:
   template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/min-scale: "1"
     spec:
       containers:
         - name: ml-pipeline
@@ -65,6 +75,9 @@ metadata:
   namespace: default
 spec:
   template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/min-scale: "1"
     spec:
       containers:
         - name: ml-pipeline
@@ -76,17 +89,6 @@ spec:
             - name: CE_TYPE
               value: "reducer"
 ---
-apiVersion: serving.knative.dev/v1
-kind: Service
-metadata:
-  name: event-display
-spec:
-  template:
-    spec:
-      containers:
-        - image: gcr.lank8s.cn/knative-releases/knative.dev/eventing-contrib/cmd/event_display
----
-
 # Workflow related
 apiVersion: flows.knative.dev/v1
 kind: Parallel

@@ -1,5 +1,7 @@
 # Example: Training ML Module
 
+
+## Run in single file mode
 Code from [ML-Pipeline](https://github.com/icanforce/Orion-OSDI22/tree/main/Benchmarks_AWS_Lambda/ML-Pipeline).
 
 Please install all requirements in `requirements.txt`
@@ -15,3 +17,22 @@ pip install -r requirements.txt
 > NOTE: The training stage takes so long, so this application is not suitable in DMerge.
 > 
 > But it's helpful to look at the `app.py` to know how to write application in `knative`. Workflow definition file is `service.yaml`, `meta.yaml`, `redis.yaml`
+
+
+## Run in knative workflow mode
+Please ensure you have configured the k8s and knative cluster.
+
+### Step 1
+Deploy essential components
+```shell
+kubectl apply -f meta.yaml
+kubectl apply -f redis.yaml
+```
+
+
+### Step 2
+Deploy knative services and define workflow
+
+```shell
+kubectl apply -f service.yaml
+```
