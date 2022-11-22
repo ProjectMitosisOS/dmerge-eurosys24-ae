@@ -1,0 +1,171 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: splitter
+  namespace: default
+spec:
+  template:
+    spec:
+      containers:
+        - name: ml-pipeline
+          image: val01:5000/ml-pipeline
+          imagePullPolicy: Always
+          env:
+            - name: CE_SPECVERSION
+              value: "0.3"
+            - name: CE_TYPE
+              value: "splitter"
+---
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: trainer-0
+  namespace: default
+spec:
+  template:
+    spec:
+      containers:
+        - name: ml-pipeline
+          image: val01:5000/ml-pipeline
+          imagePullPolicy: Always
+          env:
+            - name: CE_SPECVERSION
+              value: "0.3"
+            - name: CE_TYPE
+              value: "trainer"
+            - name: ID
+              value: "0"
+
+---
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: trainer-1
+  namespace: default
+spec:
+  template:
+    spec:
+      containers:
+        - name: ml-pipeline
+          image: val01:5000/ml-pipeline
+          imagePullPolicy: Always
+          env:
+            - name: CE_SPECVERSION
+              value: "0.3"
+            - name: CE_TYPE
+              value: "trainer"
+            - name: ID
+              value: "1"
+
+---
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: reducer-0
+  namespace: default
+spec:
+  template:
+    spec:
+      containers:
+        - name: ml-pipeline
+          image: val01:5000/ml-pipeline
+          imagePullPolicy: Always
+          env:
+            - name: CE_SPECVERSION
+              value: "0.3"
+            - name: CE_TYPE
+              value: "reducer"
+---
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: event-display
+spec:
+  template:
+    spec:
+      containers:
+        - image: gcr.lank8s.cn/knative-releases/knative.dev/eventing-contrib/cmd/event_display
+---
+
+# Workflow related
+apiVersion: flows.knative.dev/v1
+kind: Parallel
+metadata:
+  name: mapper-parallel
+spec:
+  channelTemplate:
+    apiVersion: messaging.knative.dev/v1
+    kind: InMemoryChannel
+  branches:
+    - subscriber:
+        ref:
+          apiVersion: serving.knative.dev/v1
+          kind: Service
+          name: trainer-0
+    - subscriber:
+        ref:
+          apiVersion: serving.knative.dev/v1
+          kind: Service
+          name: trainer-1
+  reply:
+    ref:
+      apiVersion: flows.knative.dev/v1
+      kind: Parallel
+      name: reducer-parallel
+---
+
+apiVersion: flows.knative.dev/v1
+kind: Parallel
+metadata:
+  name: reducer-parallel
+spec:
+  channelTemplate:
+    apiVersion: messaging.knative.dev/v1
+    kind: InMemoryChannel
+  branches:
+    - subscriber:
+        ref:
+          apiVersion: serving.knative.dev/v1
+          kind: Service
+          name: reducer-0
+  reply:
+    ref:
+      apiVersion: serving.knative.dev/v1
+      kind: Service
+      name: event-display
+---
+# Main body of MapReduce-alike framework
+apiVersion: flows.knative.dev/v1
+kind: Sequence
+metadata:
+  name: sequence
+spec:
+  channelTemplate:
+    apiVersion: messaging.knative.dev/v1
+    kind: InMemoryChannel
+  steps:
+    - ref: # Spliter
+        apiVersion: serving.knative.dev/v1
+        kind: Service
+        name: splitter
+    - ref: # Parallel for mapper. Note!!!: Parallel shall not be followed by other seq services
+        apiVersion: flows.knative.dev/v1
+        kind: Parallel
+        name: mapper-parallel
+---
+# Trigger of ping message
+apiVersion: eventing.knative.dev/v1
+kind: Trigger
+metadata:
+  name: ping-trigger
+  namespace: default
+spec:
+  broker: default-broker
+  filter:
+    attributes:
+      type: dev.knative.sources.ping # Default ping type from Ping-Source
+  subscriber:
+    ref:
+      apiVersion: flows.knative.dev/v1
+      kind: Sequence
+      name: sequence
