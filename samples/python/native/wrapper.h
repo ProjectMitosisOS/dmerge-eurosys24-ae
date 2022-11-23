@@ -81,3 +81,11 @@ call_connect_session(int sd, const char *addr, unsigned int mac_id, unsigned int
 
     return 0;
 }
+
+void write_ptr(int* ptr, int val) {
+    *ptr = val;
+}
+
+int read_ptr(int* ptr) {
+    return *ptr;
+}
