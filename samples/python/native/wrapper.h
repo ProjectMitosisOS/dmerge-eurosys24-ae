@@ -35,9 +35,6 @@ void* create_heap(unsigned long long start_addr, unsigned long long mem_sz) {
                     PROT_READ | PROT_WRITE | PROT_EXEC,
                     MAP_PRIVATE | MAP_ANON, -1, 0);
     unsigned long long addr = (unsigned long long) ptr;
-//    printf("Ptr: 0x%llx\n", (unsigned long long)t);
-//    printf("Ptr: 0x%d\n", (unsigned long long)t);
-    printf("get addr: 0x%llx\n", addr);
     return ptr;
 }
 
