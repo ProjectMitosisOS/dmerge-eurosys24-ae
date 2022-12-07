@@ -24,3 +24,7 @@ int sum(int a[], int len) {
     }
     return sum;
 }
+
+int start() {
+    return 0;
+}
