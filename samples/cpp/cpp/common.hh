@@ -3,11 +3,11 @@
 #include <sys/mman.h>
 #include <fcntl.h>
 #include <unistd.h>
-#include "../include/allocator.hh"
 #include <chrono>
+#include <iostream>
 
 #define OFFSET (1024 * 1024 * 2 + 4096)
-using Alloc = AllocatorMaster<73>;
+#define BASE 0x4ffff5a00000
 
 class TimerClock {
 public:

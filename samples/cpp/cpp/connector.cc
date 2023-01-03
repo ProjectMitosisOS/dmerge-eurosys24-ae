@@ -1,7 +1,7 @@
 #include "../../../dmerge-user-libs/include/syscall.h"
-#include "../include/allocator.hh"
 #include "gflags/gflags.h"
 #include <cassert>
+#include <iostream>
 
 
 DEFINE_string(gid, "fe80:0000:0000:0000:248a:0703:009c:7ca0", "connect gid");
