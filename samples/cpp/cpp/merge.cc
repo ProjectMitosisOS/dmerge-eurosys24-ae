@@ -21,11 +21,5 @@ main(int argc, char *argv[]) {
 
     std::cout << "latency:" << TC.getTimerMicroSec() << "us" << std::endl;
     std::cout << std::dec << "res:" << res << std::endl;
-
-
-    res = *(int *) ptr;
-
-    std::cout << "latency:" << TC.getTimerMicroSec() << "us" << std::endl;
-    std::cout << std::dec << "res:" << res << std::endl;
     return 0;
 }

@@ -1,7 +1,9 @@
 #include "common.hh"
 
 
-static void test_allocator() {
+// producer
+int
+main() {
     uint64_t base_addr = BASE;
 
     base_addr += OFFSET;
@@ -13,11 +15,9 @@ static void test_allocator() {
     int res = *(int *) base_addr;
 //    std::cout << "heap id:" << heap_id << std::endl;
     std::cout << std::dec << "res:" << res << std::endl;
-}
 
-// producer
-int
-main() {
-    test_allocator();
+    for(int i = 0 ;i < 3; ++i) {
+        sleep(1);
+    }
     return 0;
 }
