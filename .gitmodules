@@ -4,3 +4,6 @@
 [submodule "deps/jemalloc"]
 	path = deps/jemalloc
 	url = https://github.com/jemalloc/jemalloc.git
+[submodule "deps/dynlib-wrappers"]
+	path = deps/dynlib-wrappers
+	url = git@ipads.se.sjtu.edu.cn:lufm/dynlib-wrappers.git
