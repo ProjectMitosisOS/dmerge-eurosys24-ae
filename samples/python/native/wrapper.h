@@ -71,7 +71,7 @@ call_connect_session(int sd, const char *addr, unsigned int mac_id, unsigned int
     req.gid = addr;
     req.machine_id = mac_id;
     req.nic_id = nic_id;
-    printf("[connect] get addr: %s\n", addr);
+//    printf("[connect] get addr: %s\n", addr);
     if (ioctl(sd, ConnectSession, &req) == -1) {
         return -1;
     }

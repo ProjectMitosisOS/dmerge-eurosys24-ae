@@ -1,13 +1,22 @@
+import argparse
+
 from bindings import *
 
-addr = 0x4ffff5a00000
-OFFSET = 1024 * 4
+parser = argparse.ArgumentParser(
+    prog='ProgramName',
+    description='What the program does',
+    epilog='Text at the bottom of help')
+parser.add_argument('--addr', type=int, help='address of target object')
+parser.add_argument('--mac_id', type=str, default='fe80:0000:0000:0000:ec0d:9a03:00c8:491c', help='remote mac id')
+args = parser.parse_args()
+addr = args.addr
+mac_id = args.mac_id
 
+print("id: ", hex(addr))
 sd = sopen()
 res = syscall_connect_session(
-    sd,
-    "fe80:0000:0000:0000:ec0d:9a03:00c8:491c", 0, 0)
+    sd, mac_id, 0, 0)
 print("connect res %d" % res)
 
 res = call_pull(sd=sd, hint=1, machine_id=0)
-print(my_read_ptr(addr + OFFSET))
+print(id_deref(addr))
