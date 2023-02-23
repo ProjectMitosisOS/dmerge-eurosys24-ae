@@ -1,5 +1,6 @@
+import numpy as np
 import argparse
-
+import copy
 from bindings import *
 
 parser = argparse.ArgumentParser(
@@ -17,6 +18,9 @@ sd = sopen()
 res = syscall_connect_session(
     sd, mac_id, 0, 0)
 print("connect res %d" % res)
+# obj = np.array([[1, 2, 3], [4, 5, 6]])
+# print(id_deref(id(obj), type(obj)))
 
 res = call_pull(sd=sd, hint=1, machine_id=0)
-print(id_deref(addr))
+arr = id_deref(addr, np.ndarray)
+print(arr)
