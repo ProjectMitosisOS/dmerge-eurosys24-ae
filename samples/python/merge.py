@@ -22,5 +22,5 @@ print("connect res %d" % res)
 # print(id_deref(id(obj), type(obj)))
 
 res = call_pull(sd=sd, hint=1, machine_id=0)
-arr = id_deref(addr, np.ndarray)
+arr = id_deref(addr, None)
 print(arr)
