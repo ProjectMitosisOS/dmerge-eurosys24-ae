@@ -1,4 +1,4 @@
-PY=python
+PY=~/cpython/build/python
 SETUP=setup.py
 
 bindgen:
