@@ -10,6 +10,7 @@ import json
 import random
 import os
 from multiprocessing import Process, Manager
+from util import cur_tick_ms
 
 test_data_file_path = 'dataset/Digits_Test.txt'
 train_data_file_path = 'dataset/Digits_Train.txt'
@@ -19,20 +20,47 @@ dump_file_to_kv(train_data_file_path)
 dump_file_to_kv(test_data_file_path)
 
 
+# Profile is seperated into 4 parts as below:
+# @Execution: Normal data process
+# @Interaction with external resources: Current is Redis KV
+# @Serialize: Data transform into IR
+# @Deserialize: IR transform into Data
+
+def read_lines(path):
+    with open(path) as f:
+        return f.readlines()
+
+
+stageTimeStr = 'stage_time'
+executeTimeStr = 'execute_time'
+interactTimeStr = 'interact_time'
+serializeTimeStr = 'serialize_time'
+deserializeTimeStr = 'deserialize_time'
+networkTimeStr = 'network_time'
+
+
 def splitter(meta):
+    stage_name = "PCA"
+    exe_time = 0
+    interact_time = 0
+    seri_time = 0
+    desei_time = 0
+
     out_data = meta.copy()
+    mapper_num = int(os.environ.get('MAPPER_NUM'))
 
-    mapper_num = 2 if 'mapper_num' not in dict(meta).keys() else int(meta['mapper_num'])
+    start_time = cur_tick_ms()
+    # Step1: Download data from KV
+    tick = cur_tick_ms()
+    content = get(train_data_file_path)
+    interact_time += cur_tick_ms() - tick
+    tick = cur_tick_ms()
 
-    start_time = int(round(time.time() * 1000))
-    start_download = int(round(time.time() * 1000))
-    train_data = np.genfromtxt(read_file_from_kv(train_data_file_path))
-    end_download = int(round(time.time() * 1000))
-    """
-    Start Execution
-    """
-    print('finish download')
-    start_process = int(round(time.time() * 1000))
+    train_data = np.genfromtxt(json.loads(content))
+    desei_time += cur_tick_ms() - tick
+
+    # Step2: Execute Body of PCA
+    tick = cur_tick_ms()
     ###########################
     train_labels = train_data[:, 0]
     A = train_data[:, 1:train_data.shape[1]]
@@ -46,25 +74,24 @@ def splitter(meta):
     values, vectors = eig(VA)
     # project data
     PA = vectors.T.dot(CA.T)
+    exe_time += cur_tick_ms() - tick
 
+    tick = cur_tick_ms()
     np.savetxt("tmp/vectors_pca.txt", vectors, delimiter="\t")
     first_n_A = PA.T[:, 0:100].real
     train_labels = train_labels.reshape(train_labels.shape[0], 1)
     first_n_A_label = np.concatenate((train_labels, first_n_A), axis=1)
     np.savetxt("tmp/Digits_Train_Transform.txt", first_n_A_label, delimiter="\t")
-    end_process = int(round(time.time() * 1000))
+    vectors_pca_dumps_res = json.dumps(read_lines('tmp/vectors_pca.txt'))
+    Digits_Train_Transform_dumps_res = json.dumps(read_lines('tmp/Digits_Train_Transform.txt'))
+    seri_time += cur_tick_ms() - tick
 
-    start_upload = int(round(time.time() * 1000))
-    ## TODO: Upload to external
-    dump_file_to_kv('tmp/vectors_pca.txt')
-    dump_file_to_kv('tmp/Digits_Train_Transform.txt')
-    ##  s3_client.upload_file("/tmp/vectors_pca.txt.npy", bucket_name, "ML_Pipeline/vectors_pca.txt", Config=config)
-    ## s3_client.upload_file("/tmp/Digits_Train_Transform.txt", bucket_name, "ML_Pipeline/train_pca_transform_2.txt", Config=config)
+    tick = cur_tick_ms()
+    # Upload to external
+    put('tmp/vectors_pca.txt', vectors_pca_dumps_res)
+    put('tmp/Digits_Train_Transform.txt', Digits_Train_Transform_dumps_res)
+    interact_time += cur_tick_ms() - tick
 
-    end_upload = int(round(time.time() * 1000))
-    """
-    End Execution
-    """
     end_time = int(round(time.time() * 1000))
 
     list_hyper_params = []
@@ -92,10 +119,15 @@ def splitter(meta):
         if count >= bundle_size:
             count = 0
             num_bundles += 1
-            j = {"mod_index": num_bundles, "PCA_Download": (end_download - start_download),
-                 "PCA_Process": (end_process - start_process), "PCA_Upload": (end_upload - start_upload),
+            j = {"mod_index": num_bundles,
+                 stage_name: {
+                     stageTimeStr: end_time - start_time,
+                     executeTimeStr: exe_time, interactTimeStr: interact_time,
+                     serializeTimeStr: seri_time, deserializeTimeStr: desei_time
+                 },
                  "key1": "inv_300", "num_of_trees": num_of_trees, "max_depth": max_depth,
-                 "feature_fraction": feature_fraction, "threads": 6, "start_tick": start_time}
+                 "feature_fraction": feature_fraction, "threads": 6, "start_tick": start_time,
+                 "leave_tick": cur_tick_ms()}
             num_of_trees = []
             max_depth = []
             feature_fraction = []
@@ -167,18 +199,25 @@ def trainer(meta):
 
     id = int(os.environ.get("ID"))
     event = meta['detail']['indeces'][int(id)]
+    network_time = cur_tick_ms() - event["leave_tick"]
+    exe_time = 0
+    interact_time = 0
+    seri_time = 0
+    desei_time = 0
 
-    start_time = int(round(time.time() * 1000))
+    start_time = cur_tick_ms()
 
-    start_download = int(round(time.time() * 1000))
     # TODO: download from external
     filename = "tmp/Digits_Train_Transform.txt"
-    train_data = np.genfromtxt(read_file_from_kv(filename), delimiter='\t')
-    # train_data = np.genfromtxt(filename, delimiter='\t')
-    end_download = int(round(time.time() * 1000))
+    tick = cur_tick_ms()
+    content = get(filename)
+    interact_time += cur_tick_ms() - tick
 
-    start_process = int(round(time.time() * 1000))
+    tick = cur_tick_ms()
+    train_data = np.genfromtxt(json.loads(content), delimiter='\t')
+    desei_time += cur_tick_ms() - tick
 
+    tick = cur_tick_ms()
     y_train = train_data[0:5000, 0]
     X_train = train_data[0:5000, 1:train_data.shape[1]]
     # lgb_train = lgb.Dataset(X_train, y_train)
@@ -205,31 +244,28 @@ def trainer(meta):
         for t in range(threads):
             ths[t].join()
 
-    end_process = int(round(time.time() * 1000))
-    end_time = int(round(time.time() * 1000))
-    e2e = end_time - start_time
-    print("download duration: " + str(end_time - start_time))
-    print("E2E duration: " + str(e2e))
+    end_time = cur_tick_ms()
+    exe_time += end_time - tick
     j = {
         'statusCode': 200,
-        'body': json.dumps('Done Training Threads = ' + str(threads)),
-        'key1': event['key1'],
-        'duration': e2e,
         'trees_max_depthes': return_dict.keys(),
         'accuracies': return_dict.values(),
-        'process_times': process_dict.values(),
-        'upload_times': upload_dict.values(),
-        'download_times': (end_download - start_download),
-        'PCA_Download': event['PCA_Download'],
-        'PCA_Process': event['PCA_Process'],
-        'PCA_Upload': event['PCA_Upload'],
-        'start_tick': event['start_tick']
+        'PCA': event['PCA'],
+        'Train': {
+            stageTimeStr: (end_time - start_time),
+            executeTimeStr: exe_time, interactTimeStr: interact_time,
+            serializeTimeStr: seri_time, deserializeTimeStr: desei_time,
+        },
+        'start_tick': event['start_tick'],
+        'leave_tick': end_time,
+        networkTimeStr: network_time
     }
     print(j)
     return j
 
 
 def reduce(meta):
+    meta[networkTimeStr] = cur_tick_ms() - meta['leave_tick'] + int(meta[networkTimeStr])
     event = [meta]
     configs_list = []
     accuracy_list = []
@@ -242,15 +278,20 @@ def reduce(meta):
     Z = [x for _, x in sorted(zip(accuracy_list, configs_list))]
     returned_configs = Z[-10:len(accuracy_list)]
     returned_latecy = sorted(accuracy_list)[-10:len(accuracy_list)]
-    end_time = int(round(time.time() * 1000))
+    end_time = cur_tick_ms()
     e2e = end_time - meta['start_tick']
-    return {
+    ret = {
         'statusCode': 200,
         'accuracy': returned_configs,
-        'returned_latecy': returned_latecy,
-        'all_data': event,
-        'e2e_ms': e2e
+        'returned_latency': returned_latecy,
+        'profile': {
+            'PCA': meta['PCA'],
+            'Train': meta['Train'],
+            networkTimeStr: meta[networkTimeStr],
+            'e2e_ms': e2e,
+        },
     }
+    return ret
 
 
 if __name__ == '__main__':

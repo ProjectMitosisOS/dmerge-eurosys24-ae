@@ -6,7 +6,7 @@ import re
 import time
 
 # FIXME: Change it into your ffmpeg path, and Don't put under $HOME path!
-FFMPEG_STATIC = "/usr/local/bin/ffmpeg"
+FFMPEG_STATIC = "ffmpeg" # sudo apt-get install ffmpeg
 
 length_regexp = 'Duration: (\d{2}):(\d{2}):(\d{2})\.\d+,'
 re_length = re.compile(length_regexp)

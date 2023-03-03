@@ -1,4 +1,4 @@
-IMG_NAME=val01:5000/ml-pipeline
+IMG_NAME=caribouf/ml-pipeline
 URL=http://ml-pipeline.default.127.0.0.1.sslip.io
 
 
@@ -13,6 +13,7 @@ clean-img:
 
 deploy-meta:
 	kubectl apply -f meta.yaml
+	kubectl apply -f redis.yaml
 
 deploy-app:
 	kubectl apply -f service.yaml

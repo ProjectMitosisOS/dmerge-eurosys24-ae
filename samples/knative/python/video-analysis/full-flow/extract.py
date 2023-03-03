@@ -4,7 +4,7 @@ import subprocess
 import time
 
 # FIXME: Change it into your ffmpeg path, and Don't put under $HOME path!
-FFMPEG_STATIC = "/usr/local/bin/ffmpeg"
+FFMPEG_STATIC = "ffmpeg"
 
 
 def lambda_handler(event):
