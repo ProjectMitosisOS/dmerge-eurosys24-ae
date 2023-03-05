@@ -46,7 +46,7 @@ def detect_object():
     detection = detector.detectObjectsFromImage(
         input_image=filename,
         output_image_path=output_path,
-        minimum_percentage_probability=10)
+        minimum_percentage_probability=50)
 
     for box in range(len(detection)):
         print(detection[box])
