@@ -5,11 +5,25 @@ import subprocess
 import re
 import time
 
+from minio import Minio
+
+s3_client = Minio(
+    endpoint='127.0.0.1:9000',
+    secure=False,
+    access_key='wSgN80XAPlP5tLgD', secret_key='z9YsQtR2QENolHcM4mrqWLPSYiJBoa7W')
+bucketName = 'video-analysis'
+if not s3_client.bucket_exists(bucketName):
+    s3_client.make_bucket(bucketName)
+
 # FIXME: Change it into your ffmpeg path, and Don't put under $HOME path!
-FFMPEG_STATIC = "ffmpeg" # sudo apt-get install ffmpeg
+FFMPEG_STATIC = "ffmpeg"  # sudo apt-get install ffmpeg
 
 length_regexp = 'Duration: (\d{2}):(\d{2}):(\d{2})\.\d+,'
 re_length = re.compile(length_regexp)
+
+for src_video in ['0', '1', '2', '3', '4', '5', '0909']:
+    filename = '../dataset/min_{}.mp4'.format(str(src_video))
+    s3_client.fput_object(bucketName, "Video_Src/min_" + src_video + ".mp4", filename)
 
 
 def lambda_handler(src_video=0, partition_num=2):
@@ -20,7 +34,8 @@ def lambda_handler(src_video=0, partition_num=2):
     :param partition_num: Partition number. It should be the factor of `30` (e.g. 1, 3, 5, 6, 15, 30)
     :return: A list of the events with length of `partition_num`
     """
-    filename = '../dataset/min_{}.mp4'.format(str(src_video))
+    filename = "/tmp/src.mp4"
+    s3_client.fget_object(bucketName, "Video_Src/min_" + str(src_video) + ".mp4", filename)
     command = FFMPEG_STATIC + " -i '" + filename + "' 2>&1 | grep 'Duration'"
     # factor of 30
     DOP = partition_num
@@ -53,9 +68,10 @@ def lambda_handler(src_video=0, partition_num=2):
 
             count = count + 1
             start = start + chunk_size
-            # TODO: Add to external storage!
-            # s3_client.upload_file("/tmp/" + chunk_video_name, bucket_name, "Video_Chunks_Step/" + chunk_video_name,
-            #                       Config=config)
+            s3_client.fput_object(bucketName,
+                                  "Video_Chunks_Step/" + chunk_video_name,
+                                  "/tmp/" + chunk_video_name,
+                                  )
     print("Done!")
 
     payload = count / DOP
