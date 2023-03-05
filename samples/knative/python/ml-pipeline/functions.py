@@ -1,23 +1,28 @@
+import json
 import os
-
-from redis_client import *
-import numpy as np
-from numpy.linalg import eig
 import time
+from multiprocessing import Process, Manager
+
 import lightgbm as lgb
 import numpy as np
-import json
-import random
-import os
-from multiprocessing import Process, Manager
+from minio import Minio
+from numpy.linalg import eig
+
 from util import cur_tick_ms
 
+LOCAL_RUN = 0
+
+s3_client = Minio(
+    endpoint='minio:9000',
+    secure=False,
+    access_key='ACCESS_KEY', secret_key='SECRET_KEY')
+bucket_name = 'ml-pipeline'
 test_data_file_path = 'dataset/Digits_Test.txt'
 train_data_file_path = 'dataset/Digits_Train.txt'
 
-# Dump before running
-dump_file_to_kv(train_data_file_path)
-dump_file_to_kv(test_data_file_path)
+if not s3_client.bucket_exists(bucket_name):
+    s3_client.make_bucket(bucket_name)
+s3_client.fput_object(bucket_name, "ML_Pipeline/Digits_Train_org.txt", train_data_file_path)
 
 
 # Profile is seperated into 4 parts as below:
@@ -46,17 +51,17 @@ def splitter(meta):
     seri_time = 0
     desei_time = 0
 
-    out_data = meta.copy()
     mapper_num = int(os.environ.get('MAPPER_NUM'))
 
     start_time = cur_tick_ms()
     # Step1: Download data from KV
     tick = cur_tick_ms()
-    content = get(train_data_file_path)
+    filename = "tmp/Digits_Train_Org.txt"
+    s3_client.fget_object(bucket_name, "ML_Pipeline/Digits_Train_org.txt", filename)
     interact_time += cur_tick_ms() - tick
+    # Deserialize the content into numpy array
     tick = cur_tick_ms()
-
-    train_data = np.genfromtxt(json.loads(content))
+    train_data = np.genfromtxt(filename, delimiter='\t')
     desei_time += cur_tick_ms() - tick
 
     # Step2: Execute Body of PCA
@@ -77,19 +82,17 @@ def splitter(meta):
     exe_time += cur_tick_ms() - tick
 
     tick = cur_tick_ms()
-    np.savetxt("tmp/vectors_pca.txt", vectors, delimiter="\t")
+    np.save("tmp/vectors_pca.txt", vectors)
     first_n_A = PA.T[:, 0:100].real
     train_labels = train_labels.reshape(train_labels.shape[0], 1)
     first_n_A_label = np.concatenate((train_labels, first_n_A), axis=1)
     np.savetxt("tmp/Digits_Train_Transform.txt", first_n_A_label, delimiter="\t")
-    vectors_pca_dumps_res = json.dumps(read_lines('tmp/vectors_pca.txt'))
-    Digits_Train_Transform_dumps_res = json.dumps(read_lines('tmp/Digits_Train_Transform.txt'))
     seri_time += cur_tick_ms() - tick
 
     tick = cur_tick_ms()
     # Upload to external
-    put('tmp/vectors_pca.txt', vectors_pca_dumps_res)
-    put('tmp/Digits_Train_Transform.txt', Digits_Train_Transform_dumps_res)
+    s3_client.fput_object(bucket_name, 'ML_Pipeline/vectors_pca.txt', 'tmp/vectors_pca.txt.npy')
+    s3_client.fput_object(bucket_name, 'ML_Pipeline/train_pca_transform_2.txt', 'tmp/Digits_Train_Transform.txt')
     interact_time += cur_tick_ms() - tick
 
     end_time = int(round(time.time() * 1000))
@@ -179,10 +182,8 @@ def trainer(meta):
 
         print("Ready to uploaded " + model_name)
         start_upload = int(round(time.time() * 1000))
-        # TODO: Upload
         gbm.save_model(save_path)
-        # s3_client.upload_file("/tmp/" + model_name, bucket_name, "ML_Pipeline/" + model_name, Config=config)
-        # dump_file_to_kv(save_path)
+        s3_client.fput_object(bucket_name, "ML_Pipeline/" + model_name, save_path)
         end_upload = int(round(time.time() * 1000))
         print("model uploaded " + model_name)
 
@@ -210,14 +211,13 @@ def trainer(meta):
     # TODO: download from external
     filename = "tmp/Digits_Train_Transform.txt"
     tick = cur_tick_ms()
-    content = get(filename)
+    s3_client.fget_object(bucket_name, 'ML_Pipeline/train_pca_transform_2.txt', filename)
     interact_time += cur_tick_ms() - tick
 
     tick = cur_tick_ms()
-    train_data = np.genfromtxt(json.loads(content), delimiter='\t')
+    train_data = np.genfromtxt(filename, delimiter='\t')
     desei_time += cur_tick_ms() - tick
 
-    tick = cur_tick_ms()
     y_train = train_data[0:5000, 0]
     X_train = train_data[0:5000, 1:train_data.shape[1]]
     # lgb_train = lgb.Dataset(X_train, y_train)
@@ -245,7 +245,8 @@ def trainer(meta):
             ths[t].join()
 
     end_time = cur_tick_ms()
-    exe_time += end_time - tick
+    exe_time += sum(process_dict.values())
+    interact_time += sum(upload_dict.values())
     j = {
         'statusCode': 200,
         'trees_max_depthes': return_dict.keys(),
@@ -255,6 +256,7 @@ def trainer(meta):
             stageTimeStr: (end_time - start_time),
             executeTimeStr: exe_time, interactTimeStr: interact_time,
             serializeTimeStr: seri_time, deserializeTimeStr: desei_time,
+            'upload_model_time': upload_dict.values(), 'train_process_time': process_dict.values()
         },
         'start_tick': event['start_tick'],
         'leave_tick': end_time,
@@ -296,4 +298,3 @@ def reduce(meta):
 
 if __name__ == '__main__':
     res = splitter({})
-    pass
