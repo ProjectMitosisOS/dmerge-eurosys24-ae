@@ -4,7 +4,7 @@ import classify
 
 if __name__ == '__main__':
     # Step1: Split
-    result = split.lambda_handler(src_video=3, partition_num=3)
+    result = split.lambda_handler(src_video=1, partition_num=3)
     events = result["detail"]["indeces"]
 
     res_list = []
@@ -15,4 +15,3 @@ if __name__ == '__main__':
         # Step3: Classify
         classify_res = classify.handler(extract_result)
         print(classify_res)
-        break
