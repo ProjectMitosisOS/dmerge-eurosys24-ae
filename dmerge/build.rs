@@ -9,6 +9,7 @@ const INCLUDED_KERNEL_TYPES: &[&str] = &[
     "connect_req_t",
     "register_req_t",
     "pull_req_t",
+    "get_mac_id_req_t",
 ];
 
 const INCLUDED_KERNEL_FUNCS: &[&str] = &[];

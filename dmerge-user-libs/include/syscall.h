@@ -46,3 +46,12 @@ call_connect_session(int sd, const char *addr, unsigned int mac_id, unsigned int
 
     return 0;
 }
+
+static inline int
+call_get_mac_id(int sd, unsigned int nic_idx, const char* mac_id) {
+    get_mac_id_req_t req;
+    req.mac_id = mac_id;
+    req.nic_idx = nic_idx;
+    if (ioctl(sd, GetMacID, &req) == -1) return -1;
+    return 0;
+}

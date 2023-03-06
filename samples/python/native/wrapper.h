@@ -10,6 +10,7 @@ enum LibMITOSISCmd {
     Register = 0,
     Pull = 1,
     ConnectSession = 3,
+    GetMacID = 4,
 };
 
 typedef struct {
@@ -28,6 +29,10 @@ typedef struct {
     unsigned int machine_id;
 } pull_req_t;
 
+typedef struct {
+    unsigned int nic_idx;
+    const char *mac_id;
+} get_mac_id_req_t;
 
 void* create_heap(unsigned long long start_addr, unsigned long long mem_sz) {
     // (void *) 0x4ffff5a00000
@@ -77,6 +82,13 @@ call_connect_session(int sd, const char *addr, unsigned int mac_id, unsigned int
     }
 
     return 0;
+}
+static inline int
+call_get_mac_id(int sd, unsigned int nic_idx, const char* mac_id) {
+    get_mac_id_req_t req;
+    req.mac_id = mac_id;
+    req.nic_idx = nic_idx;
+    return ioctl(sd, GetMacID, &req);
 }
 
 void write_ptr(int* ptr, int val) {

@@ -1,9 +1,8 @@
-import json
 import os
+import pickle
 import time
 
 from PIL import ImageFile
-from imageai.Detection import ObjectDetection
 from minio import Minio
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
@@ -28,38 +27,37 @@ def delete_tmp():
 
 
 def detect_object(input_file):
-    detector = ObjectDetection()
-    model_path = "models/yolo-tiny.h5"
-
-    start_time = cur_tick_ms()
-    rela_path = input_file.split('/')[-1]
-    output_path = "out/output_" + rela_path
-    detector.setModelTypeAsTinyYOLOv3()
-
-    detector.setModelPath(model_path)
-    detector.loadModel()
-    filename = input_file
-
-    detection = detector.detectObjectsFromImage(
-        input_image=filename,
-        output_image_path=output_path,
-        minimum_percentage_probability=40)
-    detect_time = cur_tick_ms() - start_time
-
+    import tensorflow as tf
+    import numpy as np
+    from PIL import Image
     tick = cur_tick_ms()
-    li = json.dumps(detection)
-    json_seri_time = cur_tick_ms() - tick
+    s3_client.fput_object(bucket_name, 'sample', input_file)
+    s3_client.fget_object(bucket_name, 'sample', input_file)
+    next_tick = cur_tick_ms()
+    print(next_tick - tick)
 
-    for box in range(len(detection)):
-        print(detection[box])
+    model = tf.keras.models.load_model('models/yolo-tiny.h5')
+
+    start_tick = cur_tick_ms()
+    img = Image.open(input_file)
+    img = img.resize((224, 224))
+    img_array = np.array(img) / 255.0
+    img_array = np.expand_dims(img_array, axis=0)
+    predictions = model.predict(img_array)
+    end_tick = cur_tick_ms()
+    execute_time = end_tick - start_tick
+
+    start_tick = cur_tick_ms()
+    pickle.dumps(predictions)
+    end_tick = cur_tick_ms()
+    load_time = end_tick - start_tick
 
     dic = {
-        'detect_time': detect_time,
-        'json': json_seri_time
+        'execute_time': execute_time,
+        'load_time': load_time
     }
     print(dic)
-    return dic
 
 
 if __name__ == '__main__':
-    detect_object(input_file='images/val2017/000000000139.jpg')
+    detect_object(input_file='images/sample.jpg')
