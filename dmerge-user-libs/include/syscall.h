@@ -12,8 +12,8 @@ sopen() {
 }
 
 static inline int
-call_register(int sd, unsigned long long peak_addr, unsigned int hint = 0) {
-    register_req_t req = {.heap_base = peak_addr, .heap_hint = hint};
+call_register(int sd, unsigned long long peak_addr) {
+    register_req_t req = {.heap_base = peak_addr};
 
     int ret = ioctl(sd, Register, &req);
     if (ret == -1) {

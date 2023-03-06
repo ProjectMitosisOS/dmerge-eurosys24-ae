@@ -15,7 +15,6 @@ typedef struct {
 
 typedef struct {
     unsigned long long heap_base;
-    unsigned int heap_hint;
 } register_req_t;
 
 typedef struct {

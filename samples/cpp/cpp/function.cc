@@ -16,7 +16,7 @@ main() {
 
     printf("mac id: %s\n", mac_id);
     int heap_id = call_register(sd, (uint64_t) base_addr);
-    int res = *(int *) base_addr;
+    res = *(int *) base_addr;
 
     for(int i = 0 ;i < 10; ++i) {
         sleep(1);

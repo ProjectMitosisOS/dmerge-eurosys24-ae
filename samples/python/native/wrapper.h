@@ -21,7 +21,6 @@ typedef struct {
 
 typedef struct {
     unsigned long long heap_base;
-    unsigned int heap_hint;
 } register_req_t;
 
 typedef struct {
@@ -49,8 +48,8 @@ sopen() {
 }
 
 int
-call_register(int sd, unsigned long long peak_addr, unsigned int hint) {
-    register_req_t req = {.heap_base = peak_addr, .heap_hint = hint};
+call_register(int sd, unsigned long long peak_addr) {
+    register_req_t req = {.heap_base = peak_addr};
 
     int ret = ioctl(sd, Register, &req);
     if (ret == -1) {
