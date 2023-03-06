@@ -1,0 +1,19 @@
+FROM caribouf/cpython-build as build
+
+
+FROM python:3.7.11-slim-buster
+
+COPY --from=build /usr/src/my_python_repo/build /usr/src/python-build
+WORKDIR /usr/src/python-build
+RUN apt-get update && \
+    apt-get install -y curl && \
+    curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py && \
+    ./python get-pip.py && \
+    rm get-pip.py && \
+    ln -sf /usr/src/python-build/python /usr/bin/python && \
+    ln -sf /usr/src/python-build/python /usr/local/bin/python
+
+
+WORKDIR /app
+
+CMD ["python", "--version"]
