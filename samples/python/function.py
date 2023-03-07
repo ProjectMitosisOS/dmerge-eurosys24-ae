@@ -2,9 +2,10 @@ import numpy as np
 import time
 import copy
 from bindings import *
+import os
 
 obj = range(3)
-addr = 0x4ffff5a00000
+addr = int(os.environ.get('BASE_HEX'), 16)
 
 
 def fill_gid(mac_id):
@@ -17,7 +18,7 @@ def fill_gid(mac_id):
 
 
 obj = {
-    'li': [3, 4, 5],
+    'li': [3, 4, 5, 7],
     'str': 'hello world',
     'range': range(30),
 }
@@ -26,8 +27,8 @@ print('obj id:', id(obj), type(obj))
 print(id_deref(id(obj), type(obj)))
 sd = sopen()
 mac_id = fill_gid(syscall_get_gid(sd=sd, nic_idx=0))
-print(f'gid is {mac_id} , addr is {id(obj)}')
 
 hint = call_register(sd=sd, peak_addr=addr)
+print(f'gid is {mac_id} , addr is {id(obj)} ,hint is {hint}')
 while True:
     time.sleep(1)

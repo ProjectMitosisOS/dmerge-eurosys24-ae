@@ -202,7 +202,6 @@ impl DmergeSyscallHandler {
 
 impl DmergeSyscallHandler {
     // ioctrl-0
-    // TODO: hint修改为kernel自动生成
     fn syscall_register_heap(&self, start_virt_addr: u64, hint: usize) -> c_long {
         let heap_service = unsafe { crate::get_shs_mut() };
         let _ = heap_service.register_heap(hint as _, start_virt_addr as _);
