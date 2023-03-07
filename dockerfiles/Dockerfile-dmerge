@@ -1,0 +1,3 @@
+FROM caribouf/cpython-base as base
+
+WORKDIR /app

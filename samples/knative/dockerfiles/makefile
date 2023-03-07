@@ -7,9 +7,9 @@ build:
 	docker build --build-arg ACCESS_TOKEN=${_ACCESS_TOKEN} -f Dockerfile-${BUILD_IMG} -t ${NAME}/${BUILD_IMG} .
 	#docker push ${NAME}/${BUILD_IMG}
 
-base:
-	docker build -f Dockerfile-${BASE_IMG} -t ${NAME}/${BASE_IMG} .
-	#docker push ${NAME}/${BASE_IMG}
+base-img:
+	docker build -f Dockerfile-${BASE_IMG} -t ${NAME}/${BASE_IMG} ../../../deps/
+	#docker push ${NAME}/${BUILD_IMG}
 
 test-build:
 	docker run --rm -it ${NAME}/${BUILD_IMG} /bin/bash
