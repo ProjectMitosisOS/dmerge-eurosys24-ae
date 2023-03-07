@@ -1,15 +1,17 @@
-FROM python:3.7.11-buster as Build
+FROM python:3.7 as Build
 
 ARG ACCESS_TOKEN=token
 
 WORKDIR /usr/src
-RUN git clone https://docker:${ACCESS_TOKEN}@ipads.se.sjtu.edu.cn:1312/distributed-rdma-serverless/distributed-merge/cpython.git my_python_repo && \
+RUN apt-get update && \
+    apt-get install -y curl vim build-essential libblas-dev liblapack-dev libatlas-base-dev gfortran python3-scipy  && \
+    git clone https://docker:${ACCESS_TOKEN}@ipads.se.sjtu.edu.cn:1312/distributed-rdma-serverless/distributed-merge/cpython.git my_python_repo && \
     cd my_python_repo && \
     git checkout 3.7 && \
     mkdir build && cd build && \
     ../configure --with-pydebug && \
-    make -j$(nproc) && \
-    make install
+    make -j && \
+    make install && \
+    rm -rf /usr/src/my_python_repo
 
-
-
+# RUN python -m pip install Flask==2.0.3 requests cloudevents redis numpy==1.21.6 yfinance lightgbm==2.0.7
