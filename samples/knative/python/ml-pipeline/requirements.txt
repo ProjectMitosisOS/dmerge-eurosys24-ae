@@ -2,6 +2,6 @@ Flask==2.0.3
 requests
 cloudevents
 redis
-numpy==1.21.6
+numpy
 lightgbm==2.0.7
 minio

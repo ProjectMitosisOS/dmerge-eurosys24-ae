@@ -1,4 +1,4 @@
-FROM python:3.9
+FROM caribouf/cpython-base
 
 WORKDIR /app
 COPY . .
