@@ -11,12 +11,14 @@ main() {
     std::cout << std::dec << (uint64_t) (*(int *) base_addr) << "\n";
 
     int sd = sopen();
-    int heap_id = call_register(sd, (uint64_t) base_addr);
-    int res = *(int *) base_addr;
-//    std::cout << "heap id:" << heap_id << std::endl;
-    std::cout << std::dec << "res:" << res << std::endl;
+    char mac_id[49];
+    int res = call_get_mac_id(sd,0, mac_id);
 
-    for(int i = 0 ;i < 3; ++i) {
+    printf("mac id: %s\n", mac_id);
+    int heap_id = call_register(sd, (uint64_t) base_addr);
+    res = *(int *) base_addr;
+
+    for(int i = 0 ;i < 10; ++i) {
         sleep(1);
     }
     return 0;

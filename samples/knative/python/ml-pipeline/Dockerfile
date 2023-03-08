@@ -1,9 +1,9 @@
-FROM python:3.9
+FROM caribouf/cpython-base
 
 WORKDIR /app
 COPY . .
-
-RUN pip install -r requirements.txt
+RUN pip install -r requirements.txt && \
+       mkdir tmp
 
 EXPOSE 8080
 

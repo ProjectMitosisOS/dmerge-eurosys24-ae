@@ -3,8 +3,17 @@ import json
 import subprocess
 import time
 
+from minio import Minio
+
 # FIXME: Change it into your ffmpeg path, and Don't put under $HOME path!
-FFMPEG_STATIC = "/usr/local/bin/ffmpeg"
+FFMPEG_STATIC = "ffmpeg"
+s3_client = Minio(
+    endpoint='127.0.0.1:9000',
+    secure=False,
+    access_key='wSgN80XAPlP5tLgD', secret_key='z9YsQtR2QENolHcM4mrqWLPSYiJBoa7W')
+bucketName = 'video-analysis'
+if not s3_client.bucket_exists(bucketName):
+    s3_client.make_bucket(bucketName)
 
 
 def lambda_handler(event):
@@ -18,26 +27,25 @@ def lambda_handler(event):
 
     for record in list_of_chunks:
         filename = "/tmp/chunk_" + str(record) + ".mp4"
-        f = open(filename, "wb")
-        key = "../dataset/min_" + str(src_video)
+        key = "Video_Chunks_Step/min_" + str(src_video)
         key = key + "_" + str(record) + "_"
         key = key + str(millis_list[count]) + ".mp4"
 
         count = count + 1
 
-        # s3_client.download_fileobj(bucket_name, key, f, Config=config)
-        f.close()
+        s3_client.fget_object(bucketName, key, filename)
+
         millis = int(round(time.time() * 1000))
         extract_millis.append(millis)
 
-        frame_name = key.replace("../dataset/", "").replace("min", "frame").replace(".mp4",
+        frame_name = key.replace("Video_Chunks_Step/", "").replace("min", "frame").replace(".mp4",
                                                                                            "_" + str(millis) + ".jpg")
         subprocess.call([FFMPEG_STATIC, '-i', filename, '-frames:v', "1", "-q:v", "1", '/tmp/' + frame_name])
-        # try:
-        #     s3_client.upload_file("/tmp/" + frame_name, bucket_name, "Video_Frames_Step/" + frame_name, Config=config)
-        # except:
-        #     s3_client.upload_file("var/Frame_1.jpg", bucket_name, "Video_Frames_Step/" + frame_name, Config=config)
-    print("Done!")
+        try:
+            s3_client.fput_object(bucketName, "Video_Frames_Step/" + frame_name, "/tmp/" + frame_name)
+        except:
+            s3_client.fput_object(bucketName, "Video_Frames_Step/" + frame_name, "var/Frame_1.jpg")
+    print("Extract Done!")
 
     obj = {
         'statusCode': 200,

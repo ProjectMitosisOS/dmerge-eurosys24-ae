@@ -12,6 +12,7 @@ use mitosis::os_network::block_on;
 use mitosis::os_network::timeout::TimeoutWRef;
 use mitosis::rpc_service::HandlerConnectInfo;
 use mitosis::startup::probe_remote_rpc_end;
+use crate::KRdmaKit::net_util::gid_to_str;
 use crate::KRdmaKit::rust_kernel_rdma_base::linux_kernel_module::file_operations::{ReadFn, SeekFn, WriteFn};
 use crate::remote_descriptor_fetch;
 use crate::rpc_service::rpc_handlers::HeapDescriptorQueryReply;
@@ -74,6 +75,7 @@ impl mitosis::syscalls::FileOperations for DmergeSyscallHandler {
     fn ioctrl(&mut self, cmd: c_uint, arg: c_ulong) -> c_long {
         match cmd {
             0 => {
+                /* register heap */
                 use crate::bindings::register_req_t;
                 use crate::mitosis::linux_kernel_module::bindings::_copy_from_user;
                 let mut req: register_req_t = Default::default();
@@ -89,6 +91,7 @@ impl mitosis::syscalls::FileOperations for DmergeSyscallHandler {
                 heap_hint as _
             }
             1 => {
+                /* pull */
                 use crate::bindings::pull_req_t;
                 use crate::mitosis::linux_kernel_module::bindings::_copy_from_user;
                 let mut req: pull_req_t = Default::default();
@@ -103,6 +106,7 @@ impl mitosis::syscalls::FileOperations for DmergeSyscallHandler {
                                   req.machine_id as _)
             }
             3 => {
+                /* connect */
                 use crate::bindings::connect_req_t;
                 use crate::mitosis::linux_kernel_module::bindings::_copy_from_user;
                 let mut req: connect_req_t = Default::default();
@@ -130,6 +134,38 @@ impl mitosis::syscalls::FileOperations for DmergeSyscallHandler {
                 self.syscall_connect_session(machine_id as _,
                                              &gid,
                                              nic_id as _)
+            }
+            4 => {
+                use crate::bindings::get_mac_id_req_t;
+                use crate::mitosis::linux_kernel_module::bindings::{_copy_from_user, _copy_to_user};
+                let mut req: get_mac_id_req_t = Default::default();
+                unsafe {
+                    _copy_from_user(
+                        (&mut req as *mut get_mac_id_req_t).cast::<c_void>(),
+                        arg as *mut c_void,
+                        core::mem::size_of_val(&req) as u64,
+                    )
+                };
+                let nic_idx = req.nic_idx;
+                let ctx = unsafe { mitosis::get_rdma_context_ref(nic_idx as _) };
+                if ctx.is_some() {
+                    let gid_str = gid_to_str(ctx.unwrap().get_gid());
+                    // format_mac_address(gid_str.as_str());
+                    crate::log::info!("get gid {} with len {}", gid_str.as_str(), gid_str.len());
+
+                    unsafe {
+                        _copy_to_user(
+                            req.mac_id as _,
+                            gid_str.as_ptr().cast::<c_void>(),
+                            gid_str.len() as _,
+                        )
+                    };
+
+                    gid_str.len() as _
+                } else {
+                    crate::log::error!("[get_mac_id] not found at nic idx: {}", nic_idx);
+                    0
+                }
             }
             _ => {
                 -1
@@ -166,7 +202,6 @@ impl DmergeSyscallHandler {
 
 impl DmergeSyscallHandler {
     // ioctrl-0
-    // TODO: hint修改为kernel自动生成
     fn syscall_register_heap(&self, start_virt_addr: u64, hint: usize) -> c_long {
         let heap_service = unsafe { crate::get_shs_mut() };
         let _ = heap_service.register_heap(hint as _, start_virt_addr as _);

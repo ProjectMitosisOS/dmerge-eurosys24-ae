@@ -1,0 +1,23 @@
+FROM ubuntu:16.04 as Build
+
+ARG ACCESS_TOKEN=token
+
+WORKDIR /usr/src
+RUN apt-get update && \
+    apt-get install -y git build-essential wget curl tar libffi-dev zlib1g-dev libbz2-dev libssl-dev libncurses-dev libsqlite3-dev libreadline-dev tk-dev gcc make cron locales
+
+
+RUN git clone https://docker:${ACCESS_TOKEN}@ipads.se.sjtu.edu.cn:1312/distributed-rdma-serverless/distributed-merge/cpython.git my_python_repo && \
+    cd my_python_repo && \
+    git checkout 3.7 && \
+    ./configure && \
+    make -j && \
+    make install && \
+    make clean && \
+    cd .. && \
+    rm -rf my_python_repo && \
+    ln -s /usr/local/bin/python3.7 /usr/local/bin/python && \
+    ln -s /usr/local/bin/pip3 /usr/local/bin/pip && \
+    pip install --upgrade pip
+
+# RUN python -m pip install Flask==2.0.3 requests cloudevents redis numpy==1.21.6 yfinance lightgbm==2.0.7

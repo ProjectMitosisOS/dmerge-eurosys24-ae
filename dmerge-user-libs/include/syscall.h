@@ -12,8 +12,8 @@ sopen() {
 }
 
 static inline int
-call_register(int sd, unsigned long long peak_addr, unsigned int hint = 0) {
-    register_req_t req = {.heap_base = peak_addr, .heap_hint = hint};
+call_register(int sd, unsigned long long peak_addr) {
+    register_req_t req = {.heap_base = peak_addr};
 
     int ret = ioctl(sd, Register, &req);
     if (ret == -1) {
@@ -44,5 +44,14 @@ call_connect_session(int sd, const char *addr, unsigned int mac_id, unsigned int
         return -1;
     }
 
+    return 0;
+}
+
+static inline int
+call_get_mac_id(int sd, unsigned int nic_idx, const char* mac_id) {
+    get_mac_id_req_t req;
+    req.mac_id = mac_id;
+    req.nic_idx = nic_idx;
+    if (ioctl(sd, GetMacID, &req) == -1) return -1;
     return 0;
 }

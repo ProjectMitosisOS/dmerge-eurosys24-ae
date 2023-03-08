@@ -1,0 +1,28 @@
+FROM caribouf/cpython-build as build
+
+WORKDIR /app
+
+# Install dependencies
+RUN apt-get update && \
+    apt-get install cmake autoconf automake libtool -y && \
+    rm -f requirements.txt && \
+    echo "cython" >> requirements.txt && \
+    echo "numpy==1.19.3" >> requirements.txt && \
+    echo "Flask==2.0.3" >> requirements.txt && \
+    echo "requests" >> requirements.txt && \
+    echo "yfinance" >> requirements.txt && \
+    echo "cloudevents==1.9.0" >> requirements.txt && \
+    echo "redis" >> requirements.txt && \
+    echo "lightgbm==2.0.7" >> requirements.txt && \
+    echo "minio" >> requirements.txt && \
+    pip install -r requirements.txt
+
+# LD_PRELOAD related
+COPY . .
+RUN ls && \
+    cd dynlib-wrappers/jemalloc-wrapper && \
+    mkdir -p build && cd build && \
+    cmake .. && \
+    make -j && \
+    cp libmalloc_wrapper.so /usr/local/share/libmalloc_wrapper.so && \
+    cd ../../ && rm -rf jemalloc-wrapper

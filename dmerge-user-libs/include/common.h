@@ -4,6 +4,7 @@ enum LibMITOSISCmd {
     Register = 0,
     Pull = 1,
     ConnectSession = 3,
+    GetMacID = 4,
 };
 
 typedef struct {
@@ -14,10 +15,14 @@ typedef struct {
 
 typedef struct {
     unsigned long long heap_base;
-    unsigned int heap_hint;
 } register_req_t;
 
 typedef struct {
     unsigned int heap_hint;
     unsigned int machine_id;
 } pull_req_t;
+
+typedef struct {
+    unsigned int nic_idx;
+    const char *mac_id;
+} get_mac_id_req_t;

@@ -1,0 +1,16 @@
+# The image for distributed-merge. All of our applications are derived from it.
+# Note: we do not compile the kernel module inside of this docker file.
+# And we just insmod the kernel module outside of the container (at host level)
+FROM caribouf/cpython-base as base
+
+WORKDIR /app
+
+RUN apt-get install vim -y
+COPY . .
+RUN python setup.py build_ext --inplace
+
+# replace into jemalloc when running the container
+# Please do not add ENV into dockerfile, otherwise the jemalloc would
+# also make effect in CI process.
+# Add env-variables as below:
+# docker run -e LD_PRELOAD=/usr/local/share/libmalloc_wrapper.so

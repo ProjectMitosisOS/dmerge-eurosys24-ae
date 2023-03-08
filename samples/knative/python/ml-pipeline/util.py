@@ -1,3 +1,6 @@
+import time
+
+
 def fill_ce_header(id, ce_specversion, ce_type, ce_source):
     """
     Fill for the Cloud Event header
@@ -15,3 +18,5 @@ def fill_ce_header(id, ce_specversion, ce_type, ce_source):
     }
 
 
+def cur_tick_ms():
+    return int(round(time.time() * 1000))
