@@ -15,7 +15,7 @@ main() {
     size_t machine_id[1];
     int res = call_get_mac_id(sd,0, gid, machine_id);
 
-    printf("mac id: %s\n", gid);
+    printf("gid: %s\n", gid);
     int heap_id = call_register(sd, (uint64_t) base_addr);
     res = *(int *) base_addr;
 

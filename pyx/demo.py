@@ -5,7 +5,7 @@ from bindings import *
 import os
 
 obj = range(3)
-addr = int(os.environ.get('BASE_HEX'), 16)
+addr = int(os.environ.get('BASE_HEX', '300000'), 16)
 
 
 def fill_gid(mac_id):
@@ -26,7 +26,6 @@ obj = {
 print('obj id:', id(obj), type(obj), 'hex id', hex(id(obj)))
 print(id_deref(id(obj), type(obj)))
 sd = sopen()
-mac_id = fill_gid(syscall_get_gid(sd=sd, nic_idx=0))
-
-hint = call_register(sd=sd, peak_addr=addr)
-print(f'gid is {mac_id} , addr is {id(obj)} ,hint is {hint}')
+gid, mac_id = syscall_get_gid(sd=sd, nic_idx=0)
+# hint = call_register(sd=sd, peak_addr=addr)
+print(f'gid is {gid} , addr is {id(obj)} ,hint is {3}, mac id {mac_id}')

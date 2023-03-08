@@ -7,7 +7,7 @@ cdef extern from "native/wrapper.h":
     cpdef int call_register(int sd, unsigned long long peak_addr)
     cpdef int call_pull(int sd, unsigned int hint, unsigned int machine_id)
     int call_connect_session(int sd, const char *addr, unsigned int mac_id, unsigned int nic_id)
-    int call_get_mac_id(int sd, unsigned int nic_idx, const char *mac_id)
+    int call_get_mac_id(int sd, unsigned int nic_idx, const char *gid, size_t *machine_id)
 
 
 cpdef unsigned long long ccreate_heap(unsigned long long start_addr, unsigned long long mem_sz):
@@ -20,10 +20,11 @@ cpdef int syscall_connect_session(int sd, str addr, unsigned int machine_id, uns
     return call_connect_session(sd, caddr.c_str(), machine_id, nic_id)
 
 
-cpdef str syscall_get_gid(int sd, unsigned int nic_idx):
-    cdef char[39] mac_id
-    cdef size_t len_mac_id = call_get_mac_id(sd, nic_idx, mac_id)
-    return (<char*>mac_id)[:len_mac_id].decode('utf-8')
+cpdef syscall_get_gid(int sd, unsigned int nic_idx):
+    cdef char[39] gid
+    cdef size_t[1] machine_id
+    cdef size_t len_gid = call_get_mac_id(sd, nic_idx, gid, machine_id)
+    return (<char*>gid)[:len_gid].decode('utf-8'), machine_id[0]
 
 cpdef void my_write_ptr(addr, val):
     cdef unsigned long long caddr = addr
