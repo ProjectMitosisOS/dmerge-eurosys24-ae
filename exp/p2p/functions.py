@@ -35,23 +35,35 @@ networkTimeStr = 'network_time'
 
 
 def splitter(meta):
-    current_app.logger.debug(f'splitter, {meta}')
+    current_app.logger.info(f'splitter, {meta}')
     return {
-        'status': 200
+        'status': 200,
+        'wf_id': str(uuid.uuid4())
     }
 
 
 def producer(meta):
-    current_app.logger.debug(f'producer, {meta}')
+    current_app.logger.info(f'producer, {meta}')
     out_meta = meta
 
     return out_meta
 
 
 def consumer(metas):
-    stage = 'consumer'
-    current_app.logger.debug(f'hello world, {metas}')
+    current_app.logger.info(f'consumer, {metas}')
     return metas[-1] if len(metas) > 0 else 0
+
+
+def sink(metas):
+    current_app.logger.info(f'sink, {metas}. The len is {len(metas)}')
+    return {
+        'data': metas
+    }
+
+
+def default_handler(meta):
+    current_app.logger.info(f'not a default path for type')
+    return {}
 
 
 if __name__ == '__main__':
