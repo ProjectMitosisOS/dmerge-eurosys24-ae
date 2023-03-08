@@ -24,5 +24,6 @@ typedef struct {
 
 typedef struct {
     unsigned int nic_idx;
-    const char *mac_id;
+    const char *gid;
+    size_t *machine_id;
 } get_mac_id_req_t;

@@ -30,7 +30,8 @@ typedef struct {
 
 typedef struct {
     unsigned int nic_idx;
-    const char *mac_id;
+    const char *gid;
+    size_t *machine_id;
 } get_mac_id_req_t;
 
 void* create_heap(unsigned long long start_addr, unsigned long long mem_sz) {
@@ -83,11 +84,13 @@ call_connect_session(int sd, const char *addr, unsigned int mac_id, unsigned int
     return 0;
 }
 static inline int
-call_get_mac_id(int sd, unsigned int nic_idx, const char* mac_id) {
+call_get_mac_id(int sd, unsigned int nic_idx, const char *gid, size_t *machine_id) {
     get_mac_id_req_t req;
-    req.mac_id = mac_id;
     req.nic_idx = nic_idx;
-    return ioctl(sd, GetMacID, &req);
+    req.gid = gid;
+    req.machine_id = machine_id;
+    int res = ioctl(sd, GetMacID, &req);
+    return res;
 }
 
 void write_ptr(int* ptr, int val) {

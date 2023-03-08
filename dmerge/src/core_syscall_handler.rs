@@ -1,4 +1,6 @@
 use alloc::string::String;
+use core::intrinsics::size_of;
+use core::mem::size_of_val;
 use crate::descriptors::heap::HeapDescriptor;
 use crate::KRdmaKit::rust_kernel_rdma_base::linux_kernel_module::c_types::*;
 use crate::KRdmaKit::rust_kernel_rdma_base::linux_kernel_module::KernelResult;
@@ -135,6 +137,7 @@ impl mitosis::syscalls::FileOperations for DmergeSyscallHandler {
                                              &gid,
                                              nic_id as _)
             }
+
             4 => {
                 use crate::bindings::get_mac_id_req_t;
                 use crate::mitosis::linux_kernel_module::bindings::{_copy_from_user, _copy_to_user};
@@ -150,17 +153,21 @@ impl mitosis::syscalls::FileOperations for DmergeSyscallHandler {
                 let ctx = unsafe { mitosis::get_rdma_context_ref(nic_idx as _) };
                 if ctx.is_some() {
                     let gid_str = gid_to_str(ctx.unwrap().get_gid());
+                    let machine_id = unsafe { mitosis::get_mac_id() as usize };
                     // format_mac_address(gid_str.as_str());
-                    crate::log::info!("get gid {} with len {}", gid_str.as_str(), gid_str.len());
-
                     unsafe {
                         _copy_to_user(
-                            req.mac_id as _,
+                            req.gid as _,
                             gid_str.as_ptr().cast::<c_void>(),
                             gid_str.len() as _,
-                        )
-                    };
+                        );
 
+                        _copy_to_user(
+                            (req.machine_id as *mut _) as _,
+                            (&machine_id as *const usize).cast::<c_void>(),
+                            size_of_val(&machine_id) as _,
+                        );
+                    };
                     gid_str.len() as _
                 } else {
                     crate::log::error!("[get_mac_id] not found at nic idx: {}", nic_idx);

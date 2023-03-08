@@ -1,5 +1,7 @@
 IMG_NAME=caribouf/dmerge-p2p
 
+local-test:
+	docker run --rm -it ${IMG_NAME} /bin/bash
 
 build-img:
 	docker build -t $(IMG_NAME) .
@@ -18,10 +20,19 @@ deploy-app:
 	kubectl apply -f service.yaml
 
 undeploy-app:
-	kubectl delete -f service.yaml
+	kubectl delete -f service.yaml --force
 
+curl:
+	kubectl exec -it curl -- curl -v http://broker-ingress.knative-eventing.svc.cluster.local/default/default-broker \
+    -X POST \
+    -H "Ce-Id: 536808d3-88be-4077-9d7a-a3f162705f79" \
+    -H "Ce-Specversion: 1.0" \
+    -H "Ce-Type: dev.knative.sources.ping" \
+    -H "Ce-Source: ping-pong" \
+    -H "Content-Type: application/json" \
+    -d '{"mapper_num":"16"}'
 
-run:
+template:
 	curl -v http://broker-ingress.knative-eventing.svc.cluster.local/default/default-broker  \
     	-X POST \
         -H "Ce-Id: 536808d3-88be-4077-9d7a-a3f162705f79" \
