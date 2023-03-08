@@ -2,3 +2,4 @@
 *.sh
 *.txt
 *.toml
+tmp/
