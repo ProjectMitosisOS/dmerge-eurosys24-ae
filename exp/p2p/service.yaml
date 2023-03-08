@@ -49,6 +49,12 @@ spec:
               value: "producer"
             - name: LOG_LEVEL
               value: "INFO"
+            - name: BASE_HEX
+              value: "10000000"
+            - name: TOTAL_SZ_HEX
+              value: "30000000"
+            - name: LD_PRELOAD
+              value: "/usr/local/share/libmalloc_wrapper.so"
 ---
 apiVersion: serving.knative.dev/v1
 kind: Service
