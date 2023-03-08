@@ -9,7 +9,6 @@ app.logger.setLevel(os.environ.get("LOG_LEVEL", "INFO"))
 
 # Env list
 ce_specversion = os.environ.get('CE_SPECVERSION', '0.3')
-ce_type = os.environ.get("CE_TYPE", "default")
 WORKFLOW_ID_KEY = 'wf_id'
 
 PING_TP = 'dev.knative.sources.ping'
@@ -29,9 +28,8 @@ handler_dispatch = {
 @app.route('/', methods=['POST'])
 def faas_entry():
     event = from_http(request.headers, request.get_data())
-    data = handle_ce(event)
+    data, ceType = handle_ce(event)
     response = make_response(data)
-    ceType = ce_type
     response.headers = util.fill_ce_header(id=str(uuid.uuid4()),
                                            ce_specversion=ce_specversion,
                                            ce_type=ceType,
@@ -93,20 +91,28 @@ def handle_reduce(meta, stage_name):
 
 
 def handle_ce(event: CloudEvent):
+    """
+    - The `none` ce type will be ignored at last stage.
+    :param event:
+    :return:
+    """
     meta = event.data
     source_tp = event['type']
     (handler, if_wait) = handler_dispatch.get(source_tp, (default_handler, False))
+    ce_type = os.environ.get("CE_TYPE", "none")
 
     if if_wait:
         if type(meta) == dict and len(meta) > 0:
             pre_handle_res = handle_reduce(meta, stage_name=handler.__name__)
             if pre_handle_res is not None:
-                return handler(pre_handle_res)
+                return handler(pre_handle_res), ce_type
         else:
-            return {}
+            current_app.logger.error(f"not supposed to be here. source tp: {source_tp}, "
+                                     f"handler name: {handler.__name__}")
+            return {}, 'none'
     else:
-        return handler(meta)
-    return {}
+        return handler(meta), ce_type
+    return {}, 'none'
 
 
 if __name__ == '__main__':
