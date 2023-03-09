@@ -41,7 +41,7 @@ spec:
           image: caribouf/dmerge-p2p
           resources:
             limits:
-              hostdev.k8s.io/dev_mitosis-syscalls: 1
+              hostdev.k8s.io/dev_mitosis-syscalls: 0
           imagePullPolicy: Always
           env:
             - name: CE_SPECVERSION
@@ -75,7 +75,7 @@ spec:
           image: caribouf/dmerge-p2p
           resources:
             limits:
-              hostdev.k8s.io/dev_mitosis-syscalls: 1
+              hostdev.k8s.io/dev_mitosis-syscalls: 0
           imagePullPolicy: Always
           env:
             - name: CE_SPECVERSION

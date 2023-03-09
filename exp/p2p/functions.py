@@ -50,7 +50,10 @@ def splitter(meta):
     return {
         'status': 200,
         's3_obj_key': 'digits',
-        'wf_id': str(uuid.uuid4())
+        'wf_id': str(uuid.uuid4()),
+        'features': {
+            'protocol': os.environ.get('PROTOCOL', 'S3')  # value of DMERGE / S3 / P2P --- Default as S3
+        }
     }
 
 
@@ -61,65 +64,101 @@ global_obj = {}
 
 
 def producer(meta):
+    def producer_s3(_meta):
+        data = [1, 3, 4]
+        filename = "/tmp/data.txt"
+        np.savetxt("/tmp/data.txt", data, delimiter='\t')
+        out_meta = dict(_meta)
+        s3_obj_key = 'Data.txt'
+        s3_client.fput_object(bucket_name, s3_obj_key, filename)
+        out_meta['s3_obj_key'] = s3_obj_key
+        return out_meta
+
+    def producer_dmerge(_meta):
+        addr = int(os.environ.get('BASE_HEX', '100000000'), 16)
+
+        global_obj['data'] = [1, 3, 4]
+        out_meta = dict(_meta)
+
+        sd = sopen()
+        gid, mac_id = syscall_get_gid(sd=sd, nic_idx=0)
+        gid = fill_gid(gid)
+        hint = call_register(sd=sd, peak_addr=addr)
+
+        obj_id = id(global_obj["data"])
+        current_app.logger.info(f'gid is {gid} ,'
+                                f'ObjectID is {id(global_obj["data"])} ,'
+                                f'hint is {hint} ,'
+                                f'mac id {mac_id} ,'
+                                f'addr in {hex(addr)}')
+
+        out_meta.pop('s3_obj_key')
+        out_meta['obj_hash'] = {
+            'data': obj_id
+        }
+        out_meta['route'] = {
+            'gid': gid,
+            'machine_id': mac_id,
+            'nic_id': 1,
+            'hint': hint
+        }
+
     s3_obj = meta['s3_obj_key']
     local_data_path = '/tmp/digits.txt'
-    worker_id = int(os.environ.get('ID', 0))
-
     current_app.logger.info(f'Get from s3 with key: {s3_obj}')
     s3_client.fget_object(bucket_name, s3_obj, local_data_path)  # download all
     # data = np.genfromtxt(local_data_path, delimiter='\t')
-    addr = int(os.environ.get('BASE_HEX', '100000000'), 16)
-
-    global_obj['data'] = [1, 3, 4]
-    out_meta = dict(meta)
-
-    sd = sopen()
-    gid, mac_id = syscall_get_gid(sd=sd, nic_idx=0)
-    gid = fill_gid(gid)
-    hint = call_register(sd=sd, peak_addr=addr)
-    # hint = 1
-    obj_id = id(global_obj["data"])
-    current_app.logger.info(f'gid is {gid} ,'
-                            f'ObjectID is {id(global_obj["data"])} ,'
-                            f'hint is {hint} ,'
-                            f'mac id {mac_id} ,'
-                            f'addr in {hex(addr)}')
-
-    out_meta.pop('s3_obj_key')
-    out_meta['obj_hash'] = {
-        'data': obj_id
+    producer_dispatcher = {
+        'S3': producer_s3,
+        'DMERGE': producer_dmerge,
+        'P2P': producer_s3
     }
-    out_meta['route'] = {
-        'gid': gid,
-        'machine_id': mac_id,
-        'nic_id': 1,
-        'hint': hint
-    }
-    return out_meta
+    dispatch_key = meta['features']['protocol']
+    return producer_dispatcher[dispatch_key](meta)
 
 
 def consumer(metas):
+    def consumer_s3(_metas):
+        for event in _metas:
+            s3_obj_key = event['s3_obj_key']
+            local_data_path = '/tmp/digits.txt'
+            current_app.logger.info(f'Get from s3 with key: {s3_obj_key}')
+            s3_client.fget_object(bucket_name, s3_obj_key, local_data_path)
+            data = np.genfromtxt(local_data_path, delimiter='\t')
+            current_app.logger.info(f'Get from s3 with data: {data}')
+        return _metas[-1]
+
+    def consumer_dmerge(_metas):
+        for event in _metas:
+            target_id = event['obj_hash']['data']
+            current_app.logger.info(f'consumer with meta: {metas}. Target id {hex(target_id)}')
+
+            route = event['route']
+            gid, mac_id, hint, nic_id = route['gid'], route['machine_id'], \
+                route['hint'], route['nic_id']
+
+            sd = sopen()
+
+            res = syscall_connect_session(
+                sd, gid, machine_id=mac_id, nic_id=nic_id)
+            current_app.logger.info(f"connect res {res}. gid: {gid} ,"
+                                    f"machine id {mac_id} ,"
+                                    f"hint {hint} ,"
+                                    f"nic id {nic_id}")
+
+            res = call_pull(sd=sd, hint=hint, machine_id=mac_id)
+            obj = id_deref(target_id, None)
+            current_app.logger.info(f'get result as {obj}')
+            return event
+
     event = metas[-1]
-    target_id = event['obj_hash']['data']
-    current_app.logger.info(f'consumer with meta: {metas}. Target id {hex(target_id)}')
-
-    route = event['route']
-    gid, mac_id, hint, nic_id = route['gid'], route['machine_id'], \
-        route['hint'], route['nic_id']
-
-    sd = sopen()
-
-    res = syscall_connect_session(
-        sd, gid, machine_id=mac_id, nic_id=nic_id)
-    current_app.logger.info(f"connect res {res}. gid: {gid} ,"
-                            f"machine id {mac_id} ,"
-                            f"hint {hint} ,"
-                            f"nic id {nic_id}")
-
-    res = call_pull(sd=sd, hint=hint, machine_id=mac_id)
-    obj = id_deref(target_id, None)
-    current_app.logger.info(f'get result as {obj}')
-    return event
+    consumer_dispatcher = {
+        'S3': consumer_s3,
+        'DMERGE': consumer_dmerge,
+        'P2P': consumer_s3
+    }
+    dispatch_key = event['features']['protocol']
+    return consumer_dispatcher[dispatch_key](metas)
 
 
 def sink(metas):
