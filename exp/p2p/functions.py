@@ -74,7 +74,7 @@ def producer(meta):
         k = 3  # TODO: replace k
         arr = np.genfromtxt(local_data_path, delimiter='\t')
         sub_arrays = np.array_split(arr, k)
-        return sub_arrays[0].tolist()
+        return sub_arrays[0]
 
     def producer_s3(_meta, data):
         filename = "/tmp/data.txt"
@@ -105,9 +105,10 @@ def producer(meta):
     def producer_dmerge(_meta, data):
         execute_start_time = cur_tick_ms()
         out_data = execute_body(data)
+        li = list(out_data.tolist())
         execute_end_time = cur_tick_ms()
 
-        global_obj['data'] = out_data
+        global_obj['data'] = li  # write to global variable to avoid GC
 
         addr = int(os.environ.get('BASE_HEX', '100000000'), 16)
         out_meta = dict(_meta)
@@ -211,12 +212,11 @@ def consumer(metas):
         start_tick = cur_tick_ms()
         for event in _metas:
             target_id = event['obj_hash']['data']
-
             route = event['route']
             gid, mac_id, hint, nic_id = route['gid'], route['machine_id'], \
                 route['hint'], route['nic_id']
-            pull_start_time = cur_tick_ms()
 
+            pull_start_time = cur_tick_ms()
             sd = sopen()
             res = syscall_connect_session(
                 sd, gid, machine_id=mac_id, nic_id=nic_id)
@@ -226,11 +226,12 @@ def consumer(metas):
                                     f"nic id {nic_id}")
             res = call_pull(sd=sd, hint=hint, machine_id=mac_id)
             obj = id_deref(target_id, None)
-            current_app.logger.info(f'get result. Its len {len(obj)}')
+            current_app.logger.info(f'get result. arr len {len(obj)}')
+            data = np.array(obj)
             pull_end_time = cur_tick_ms()
 
             execute_start_time = cur_tick_ms()
-            execute_body(obj)
+            execute_body(data)
             execute_end_time = cur_tick_ms()
 
             execute_time += execute_end_time - execute_start_time

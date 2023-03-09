@@ -24,6 +24,7 @@ spec:
             - name: LOG_LEVEL
               value: "INFO"
             - name: PROTOCOL
+#              value: "DMERGE"
               value: "S3"
 ---
 apiVersion: serving.knative.dev/v1
