@@ -70,8 +70,11 @@ global_obj = {}
 
 
 def producer(meta):
-    def execute_body(data):
-        return data
+    def execute_body(_data):
+        k = 3  # TODO: replace k
+        arr = np.genfromtxt(local_data_path, delimiter='\t')
+        sub_arrays = np.array_split(arr, k)
+        return sub_arrays[0].tolist()
 
     def producer_s3(_meta, data):
         filename = "/tmp/data.txt"
@@ -100,18 +103,21 @@ def producer(meta):
         return out_meta
 
     def producer_dmerge(_meta, data):
+        execute_start_time = cur_tick_ms()
         out_data = execute_body(data)
+        execute_end_time = cur_tick_ms()
 
         global_obj['data'] = out_data
 
         addr = int(os.environ.get('BASE_HEX', '100000000'), 16)
         out_meta = dict(_meta)
 
+        push_start_time = cur_tick_ms()
         sd = sopen()
         gid, mac_id = syscall_get_gid(sd=sd, nic_idx=0)
         gid = fill_gid(gid)
         hint = call_register(sd=sd, peak_addr=addr)
-
+        push_end_time = cur_tick_ms()
         obj_id = id(global_obj["data"])
         current_app.logger.info(f'gid is {gid} ,'
                                 f'ObjectID is {id(global_obj["data"])} ,'
@@ -120,6 +126,13 @@ def producer(meta):
                                 f'addr in {hex(addr)}')
 
         out_meta.pop('s3_obj_key')
+        out_meta['profile'].update({
+            'producer': {
+                'execute_time': execute_end_time - execute_start_time,
+                'push_time': push_end_time - push_start_time,
+            },
+            'leave_tick': cur_tick_ms()
+        })
         out_meta['obj_hash'] = {
             'data': obj_id
         }
@@ -129,18 +142,19 @@ def producer(meta):
             'nic_id': 1,
             'hint': hint
         }
+        current_app.logger.info(f'DMERGE profile: {out_meta["profile"]}')
+        return out_meta
 
     s3_obj = meta['s3_obj_key']
     local_data_path = '/tmp/digits.txt'
     s3_client.fget_object(bucket_name, s3_obj, local_data_path)  # download all
-    data = np.genfromtxt(local_data_path, delimiter='\t')
     producer_dispatcher = {
         'S3': producer_s3,
         'DMERGE': producer_dmerge,
         'P2P': producer_s3
     }
     dispatch_key = meta['features']['protocol']
-    return producer_dispatcher[dispatch_key](meta, data)
+    return producer_dispatcher[dispatch_key](meta, None)
 
 
 def consumer(metas):
@@ -190,27 +204,49 @@ def consumer(metas):
         return out_meta
 
     def consumer_dmerge(_metas):
+        out_meta = _metas[-1]
+        pull_time = 0
+        execute_time = 0
+        nt_time = 0
+        start_tick = cur_tick_ms()
         for event in _metas:
             target_id = event['obj_hash']['data']
-            current_app.logger.info(f'consumer with meta: {metas}. Target id {hex(target_id)}')
 
             route = event['route']
             gid, mac_id, hint, nic_id = route['gid'], route['machine_id'], \
                 route['hint'], route['nic_id']
+            pull_start_time = cur_tick_ms()
 
             sd = sopen()
-
             res = syscall_connect_session(
                 sd, gid, machine_id=mac_id, nic_id=nic_id)
             current_app.logger.info(f"connect res {res}. gid: {gid} ,"
                                     f"machine id {mac_id} ,"
                                     f"hint {hint} ,"
                                     f"nic id {nic_id}")
-
             res = call_pull(sd=sd, hint=hint, machine_id=mac_id)
             obj = id_deref(target_id, None)
-            current_app.logger.info(f'get result as {obj}')
-            return event
+            current_app.logger.info(f'get result. Its len {len(obj)}')
+            pull_end_time = cur_tick_ms()
+
+            execute_start_time = cur_tick_ms()
+            execute_body(obj)
+            execute_end_time = cur_tick_ms()
+
+            execute_time += execute_end_time - execute_start_time
+            pull_time += pull_end_time - pull_start_time
+            nt_time += start_tick - event['profile']['leave_tick']
+
+        out_meta['profile'].update({
+            'consumer': {
+                'execute_time': execute_time,
+                'pull_time': pull_time,
+                'network_time': nt_time
+            },
+            'leave_tick': cur_tick_ms()
+        })
+        current_app.logger.info(f'DMERGE profile: {out_meta["profile"]}')
+        return out_meta
 
     event = metas[-1]
     consumer_dispatcher = {

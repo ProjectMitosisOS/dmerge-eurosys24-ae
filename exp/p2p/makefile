@@ -9,17 +9,19 @@ build-img:
 
 clean-img:
 	docker rmi -f  `docker images | grep '<none>' | awk '{print $3}'`
-# kubectl -n default get broker default-broker
 
+# kubectl -n default get broker default-broker
+clean-terminating-pods:
+	kubectl get pods | grep Terminating | awk '{print $1}' | xargs kubectl delete pod
 
 deploy-meta:
 	kubectl apply -f meta.yaml
 	kubectl apply -f redis.yaml
 
-deploy-app:
+dpapp:
 	kubectl apply -f service.yaml
 
-undeploy-app:
+upapp:
 	kubectl delete -f service.yaml
 
 curl:
