@@ -12,7 +12,7 @@ spec:
     spec:
       containers:
         - name: dmerge-p2p
-          image: caribouf/dmerge-p2p
+          image: val01:5000/dmerge-p2p
           imagePullPolicy: Always
           env:
             - name: CE_SPECVERSION
@@ -38,7 +38,7 @@ spec:
     spec:
       containers:
         - name: dmerge-p2p
-          image: caribouf/dmerge-p2p
+          image: val01:5000/dmerge-p2p
           resources:
             limits:
               hostdev.k8s.io/dev_mitosis-syscalls: 0
@@ -56,8 +56,8 @@ spec:
               value: "100000000"
             - name: TOTAL_SZ_HEX
               value: "40000000"
-            - name: LD_PRELOAD
-              value: "/usr/local/share/libmalloc_wrapper.so"
+#            - name: LD_PRELOAD
+#              value: "/usr/local/share/libmalloc_wrapper.so"
 ---
 apiVersion: serving.knative.dev/v1
 kind: Service
@@ -72,7 +72,7 @@ spec:
     spec:
       containers:
         - name: dmerge-p2p
-          image: caribouf/dmerge-p2p
+          image: val01:5000/dmerge-p2p
           resources:
             limits:
               hostdev.k8s.io/dev_mitosis-syscalls: 0
@@ -92,8 +92,8 @@ spec:
               value: "150000000"
             - name: TOTAL_SZ_HEX
               value: "40000000"
-            - name: LD_PRELOAD
-              value: "/usr/local/share/libmalloc_wrapper.so"
+#            - name: LD_PRELOAD
+#              value: "/usr/local/share/libmalloc_wrapper.so"
 ---
 apiVersion: serving.knative.dev/v1
 kind: Service
@@ -108,7 +108,7 @@ spec:
     spec:
       containers:
         - name: dmerge-p2p
-          image: caribouf/dmerge-p2p
+          image: val01:5000/dmerge-p2p
           imagePullPolicy: Always
           env:
             - name: CE_SPECVERSION

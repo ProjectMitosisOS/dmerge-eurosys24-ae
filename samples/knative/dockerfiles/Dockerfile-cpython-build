@@ -4,15 +4,17 @@ ARG ACCESS_TOKEN=token
 
 WORKDIR /usr/src
 RUN apt-get update && \
-    apt-get install -y git build-essential wget curl tar libffi-dev zlib1g-dev libbz2-dev libssl-dev libncurses-dev libsqlite3-dev libreadline-dev tk-dev gcc make cron locales
+    apt-get install -y git build-essential wget curl tar libffi-dev zlib1g-dev libbz2-dev \
+    libssl-dev libncurses-dev libsqlite3-dev libreadline-dev tk-dev gcc make cron locales \
+    cmake autoconf automake libtool
 
 
 RUN git clone https://docker:${ACCESS_TOKEN}@ipads.se.sjtu.edu.cn:1312/distributed-rdma-serverless/distributed-merge/cpython.git my_python_repo && \
     cd my_python_repo && \
     git checkout 3.7 && \
-    ./configure && \
-    make -j && \
-    make install && \
+    ./configure --enable-optimizations && \
+    make -j build_all && \
+    make -j install && \
     make clean && \
     cd .. && \
     rm -rf my_python_repo && \

@@ -12,7 +12,7 @@ spec:
     spec:
       containers:
         - name: ml-pipeline
-          image: caribouf/ml-pipeline
+          image: val01:5000/ml-pipeline
           imagePullPolicy: Always
           env:
             - name: CE_SPECVERSION
@@ -35,7 +35,7 @@ spec:
     spec:
       containers:
         - name: ml-pipeline
-          image: caribouf/ml-pipeline
+          image: val01:5000/ml-pipeline
           imagePullPolicy: Always
           env:
             - name: CE_SPECVERSION
@@ -59,7 +59,7 @@ spec:
     spec:
       containers:
         - name: ml-pipeline
-          image: caribouf/ml-pipeline
+          image: val01:5000/ml-pipeline
           imagePullPolicy: Always
           env:
             - name: CE_SPECVERSION
@@ -82,7 +82,7 @@ spec:
     spec:
       containers:
         - name: ml-pipeline
-          image: caribouf/ml-pipeline
+          image: val01:5000/ml-pipeline
           imagePullPolicy: Always
           env:
             - name: CE_SPECVERSION
@@ -105,7 +105,7 @@ spec:
     spec:
       containers:
         - name: ml-pipeline
-          image: caribouf/ml-pipeline
+          image: val01:5000/ml-pipeline
           imagePullPolicy: Always
           env:
             - name: CE_SPECVERSION
@@ -128,7 +128,7 @@ spec:
     spec:
       containers:
         - name: ml-pipeline
-          image: caribouf/ml-pipeline
+          image: val01:5000/ml-pipeline
           imagePullPolicy: Always
           env:
             - name: CE_SPECVERSION

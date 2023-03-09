@@ -4,6 +4,8 @@ from minio import Minio
 import uuid
 import os
 from flask import current_app
+from util import cur_tick_ms
+
 from bindings import *
 
 s3_client = Minio(
@@ -53,7 +55,11 @@ def splitter(meta):
         'wf_id': str(uuid.uuid4()),
         'features': {
             'protocol': os.environ.get('PROTOCOL', 'S3')  # value of DMERGE / S3 / P2P --- Default as S3
-        }
+        },
+        'profile': {
+            'leave_tick': cur_tick_ms()
+        },
+
     }
 
 
@@ -64,20 +70,41 @@ global_obj = {}
 
 
 def producer(meta):
-    def producer_s3(_meta):
-        data = [1, 3, 4]
+    def execute_body(data):
+        return data
+
+    def producer_s3(_meta, data):
         filename = "/tmp/data.txt"
-        np.savetxt("/tmp/data.txt", data, delimiter='\t')
+        execute_start_time = cur_tick_ms()
+        out_data = execute_body(data)
+        execute_end_time = cur_tick_ms()
+
+        sd_start_time = cur_tick_ms()
+        np.savetxt(filename, out_data, delimiter='\t')
         out_meta = dict(_meta)
         s3_obj_key = 'Data.txt'
         s3_client.fput_object(bucket_name, s3_obj_key, filename)
+        sd_end_time = cur_tick_ms()
+
         out_meta['s3_obj_key'] = s3_obj_key
+
+        out_meta['profile'].update({
+            'producer': {
+                'execute_time': execute_end_time - execute_start_time,
+                'sd_time': sd_end_time - sd_start_time,
+            },
+            'leave_tick': cur_tick_ms()
+        })
+        current_app.logger.info(f'S3 profile: {out_meta["profile"]}')
+
         return out_meta
 
-    def producer_dmerge(_meta):
-        addr = int(os.environ.get('BASE_HEX', '100000000'), 16)
+    def producer_dmerge(_meta, data):
+        out_data = execute_body(data)
 
-        global_obj['data'] = [1, 3, 4]
+        global_obj['data'] = out_data
+
+        addr = int(os.environ.get('BASE_HEX', '100000000'), 16)
         out_meta = dict(_meta)
 
         sd = sopen()
@@ -105,28 +132,62 @@ def producer(meta):
 
     s3_obj = meta['s3_obj_key']
     local_data_path = '/tmp/digits.txt'
-    current_app.logger.info(f'Get from s3 with key: {s3_obj}')
     s3_client.fget_object(bucket_name, s3_obj, local_data_path)  # download all
-    # data = np.genfromtxt(local_data_path, delimiter='\t')
+    data = np.genfromtxt(local_data_path, delimiter='\t')
     producer_dispatcher = {
         'S3': producer_s3,
         'DMERGE': producer_dmerge,
         'P2P': producer_s3
     }
     dispatch_key = meta['features']['protocol']
-    return producer_dispatcher[dispatch_key](meta)
+    return producer_dispatcher[dispatch_key](meta, data)
 
 
 def consumer(metas):
+    def execute_body(data):
+        train_labels = data[:, 0]
+        A = data[:, 1:data.shape[1]]
+        MA = np.mean(A.T, axis=1)
+        CA = A - MA
+        VA = np.cov(CA.T)
+        values, vectors = eig(VA)
+        PA = vectors.T.dot(CA.T)
+
+        return vectors
+
     def consumer_s3(_metas):
+        out_meta = _metas[-1]
+        sd_time = 0
+        execute_time = 0
+        nt_time = 0
+        start_tick = cur_tick_ms()
         for event in _metas:
             s3_obj_key = event['s3_obj_key']
+
+            sd_start_time = cur_tick_ms()
             local_data_path = '/tmp/digits.txt'
-            current_app.logger.info(f'Get from s3 with key: {s3_obj_key}')
             s3_client.fget_object(bucket_name, s3_obj_key, local_data_path)
             data = np.genfromtxt(local_data_path, delimiter='\t')
-            current_app.logger.info(f'Get from s3 with data: {data}')
-        return _metas[-1]
+            sd_end_time = cur_tick_ms()
+
+            execute_start_time = cur_tick_ms()
+            execute_body(data)
+            execute_end_time = cur_tick_ms()
+
+            sd_time += sd_end_time - sd_start_time
+            execute_time += execute_end_time - execute_start_time
+            nt_time += start_tick - event['profile']['leave_tick']
+
+        out_meta['profile'].update({
+            'consumer': {
+                'execute_time': execute_time,
+                'sd_time': sd_time,
+                'network_time': nt_time
+            },
+            'leave_tick': cur_tick_ms()
+        })
+        current_app.logger.info(f'S3 profile: {out_meta["profile"]}')
+        return out_meta
 
     def consumer_dmerge(_metas):
         for event in _metas:
@@ -162,7 +223,7 @@ def consumer(metas):
 
 
 def sink(metas):
-    current_app.logger.info(f'sink, {metas}. The len is {len(metas)}')
+    current_app.logger.info(f'sink, {metas}.')
     return {
         'data': metas
     }

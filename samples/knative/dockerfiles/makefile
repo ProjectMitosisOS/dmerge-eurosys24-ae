@@ -1,4 +1,4 @@
-NAME=caribouf
+NAME=val01:5000
 BUILD_IMG=cpython-build
 BASE_IMG=cpython-base
 DMERGE_IMG=dmerge-base

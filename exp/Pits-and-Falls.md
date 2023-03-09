@@ -6,7 +6,7 @@ When conducting the experiments, there are a bunch of small details need to be *
 
 #### 1.1 Configuration
 
-Now we use the image `caribouf/k8s-hostdev-plugin:0.1` for mounting the `dmerge` kernel module device into the k8s container and take it as a **resource**. So that in the `yaml ` files, we have to add the resource limitation for device mounting. 
+Now we use the image `val01:5000/k8s-hostdev-plugin:0.1` for mounting the `dmerge` kernel module device into the k8s container and take it as a **resource**. So that in the `yaml ` files, we have to add the resource limitation for device mounting. 
 
 Example is shown as below:
 
@@ -24,7 +24,7 @@ spec:
     spec:
       containers:
         - name: dmerge-p2p
-          image: caribouf/dmerge-p2p
+          image: val01:5000/dmerge-p2p
           resources:
             limits:
               hostdev.k8s.io/dev_mitosis-syscalls: 1 # dedicate the device allocation amount

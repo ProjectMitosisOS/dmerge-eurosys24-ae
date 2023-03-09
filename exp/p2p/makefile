@@ -1,4 +1,4 @@
-IMG_NAME=caribouf/dmerge-p2p
+IMG_NAME=val01:5000/dmerge-p2p
 
 local-test:
 	docker run --rm -it ${IMG_NAME} /bin/bash

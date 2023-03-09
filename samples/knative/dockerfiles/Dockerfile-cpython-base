@@ -1,11 +1,9 @@
-FROM caribouf/cpython-build as build
+FROM val01:5000/cpython-build as build
 
 WORKDIR /app
 
 # Install dependencies
-RUN apt-get update && \
-    apt-get install cmake autoconf automake libtool -y && \
-    rm -f requirements.txt && \
+RUN rm -f requirements.txt && \
     echo "cython" >> requirements.txt && \
     echo "numpy==1.19.3" >> requirements.txt && \
     echo "Flask==2.0.3" >> requirements.txt && \
