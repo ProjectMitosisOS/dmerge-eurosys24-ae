@@ -41,9 +41,9 @@ spec:
       containers:
         - name: dmerge-p2p
           image: val01:5000/dmerge-p2p
-#          resources:
-#            limits:
-#              hostdev.k8s.io/dev_mitosis-syscalls: 1
+          resources:
+            limits:
+              hostdev.k8s.io/dev_mitosis-syscalls: 0
           imagePullPolicy: Always
           env:
             - name: CE_SPECVERSION
@@ -75,9 +75,9 @@ spec:
       containers:
         - name: dmerge-p2p
           image: val01:5000/dmerge-p2p
-#          resources:
-#            limits:
-#              hostdev.k8s.io/dev_mitosis-syscalls: 0
+          resources:
+            limits:
+              hostdev.k8s.io/dev_mitosis-syscalls: 0
           imagePullPolicy: Always
           env:
             - name: CE_SPECVERSION
@@ -152,18 +152,18 @@ spec:
       kind: Service
       name: sink
 ---
-apiVersion: eventing.knative.dev/v1
-kind: Trigger
-metadata:
-  name: ping-trigger
-  namespace: default
-spec:
-  broker: default-broker
-  filter:
-    attributes:
-      type: dev.knative.sources.ping # Default ping type from Ping-Source
-  subscriber:
-    ref:
-      apiVersion: flows.knative.dev/v1
-      kind: Sequence
-      name: sequence
+#apiVersion: eventing.knative.dev/v1
+#kind: Trigger
+#metadata:
+#  name: ping-trigger
+#  namespace: default
+#spec:
+#  broker: default-broker
+#  filter:
+#    attributes:
+#      type: dev.knative.sources.ping # Default ping type from Ping-Source
+#  subscriber:
+#    ref:
+#      apiVersion: flows.knative.dev/v1
+#      kind: Sequence
+#      name: sequence

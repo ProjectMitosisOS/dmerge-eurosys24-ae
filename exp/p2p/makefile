@@ -18,10 +18,10 @@ deploy-meta:
 	kubectl apply -f meta.yaml
 	kubectl apply -f redis.yaml
 
-dpapp:
+upapp:
 	kubectl apply -f service.yaml
 
-upapp:
+downapp:
 	kubectl delete -f service.yaml
 
 curl:
