@@ -20,7 +20,7 @@ deploy-app:
 	kubectl apply -f service.yaml
 
 undeploy-app:
-	kubectl delete -f service.yaml --force
+	kubectl delete -f service.yaml
 
 curl:
 	kubectl exec -it curl -- curl -v http://broker-ingress.knative-eventing.svc.cluster.local/default/default-broker \
