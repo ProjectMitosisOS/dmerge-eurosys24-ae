@@ -23,7 +23,7 @@ handler_dispatch = {
     source.__name__: (pca, False),
     pca.__name__: (trainer, False),
     trainer.__name__: (combinemodels, True),
-    combinemodels.__name__: (sink, True)
+    combinemodels.__name__: (sink, False)
 }
 
 

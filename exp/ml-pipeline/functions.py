@@ -1,15 +1,15 @@
-import copy
 import json
+import os
+import uuid
 from multiprocessing import Process, Manager
 
-from minio import Minio
-import uuid
-import os
-from flask import current_app
-from util import cur_tick_ms
-import numpy as np
-from numpy.linalg import eig
 import lightgbm as lgb
+import numpy as np
+from flask import current_app
+from minio import Minio
+from numpy.linalg import eig
+
+from util import cur_tick_ms
 
 global_obj = {}
 
@@ -312,10 +312,10 @@ def combinemodels(metas):
         out_meta = _metas[-1]
         prev_leave_tick = out_meta['profile']['leave_tick']
 
-        wf_end_tick = cur_tick_ms()
         for event in _metas:
+            # TODO: Finish reduce
             pass
-        wf_start_tick = out_meta['profile']['wf_start_tick']
+
         out_meta['profile'].update({
             'combinemodels': {
                 'nt_time': start_time - prev_leave_tick
@@ -330,27 +330,32 @@ def combinemodels(metas):
     }
     dispatch_key = event['features']['protocol']
     out_dict = combine_models_dispatcher[dispatch_key](metas, None)
-    end_time = cur_tick_ms()
-    out_dict['profile']['combinemodels']['stage_time'] = end_time - start_time
+    out_dict['profile']['combinemodels']['stage_time'] = \
+        sum(out_dict['profile']['combinemodels'].values())
     return out_dict
 
 
-def sink(metas):
+def sink(meta):
     def calculate_time(profile):
         total_time = 0
+        remove_keys = set()
         for stage in profile:
             value = profile[stage]
             if type(value) == dict:
                 total_time += value.get('stage_time', 0)
+            else:
+                remove_keys.add(stage)
+        for st in remove_keys:
+            profile.pop(st)
         return total_time
 
-    total_time = calculate_time(metas[-1]['profile'])
-    metas[-1]['profile'].update({
+    total_time = calculate_time(meta['profile'])
+    meta['profile'].update({
         'wf_e2e_time': total_time,
     })
-    current_app.logger.info(f"Profile result: {metas[-1]['profile']}")
+    current_app.logger.info(f"Profile result: {meta['profile']}")
     return {
-        'data': metas
+        'data': meta
     }
 
 
