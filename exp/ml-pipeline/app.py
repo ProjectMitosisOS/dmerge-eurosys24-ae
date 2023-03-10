@@ -13,12 +13,17 @@ WORKFLOW_ID_KEY = 'wf_id'
 
 PING_TP = 'dev.knative.sources.ping'
 CE_SOURCE = 'ml-pipeline'
+
 # Mapping from source ce type into (ce handlers, if_waiting)
+# Note: Please do not add `-` into the function name, since the name would be used in `yaml` file
+# and the k8s does not allow symbol `-` for names.
+# In the `service.yaml` file, keep the `metadata.name`, `CE_TYPE` env-variable same as `function.__name__`
 handler_dispatch = {
     PING_TP: (source, False),
-    'source': (pca, False),
-    'pca': (trainer, True),
-    'trainer': (sink, True)
+    source.__name__: (pca, False),
+    pca.__name__: (trainer, True),
+    trainer.__name__: (combinemodels, True),
+    combinemodels.__name__: (sink, True)
 }
 
 

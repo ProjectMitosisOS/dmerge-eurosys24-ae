@@ -81,6 +81,21 @@ def trainer(metas):
     dispatch_key = event['features']['protocol']
     return trainer_dispatcher[dispatch_key](metas, None)
 
+
+def combinemodels(metas):
+    def combine_models_s3(_metas, data):
+        out_meta = _metas[-1]
+        current_app.logger.info(f"Inner combine_models s3 with meta: {out_meta}")
+        return out_meta
+
+    event = metas[-1]
+    combine_models_dispatcher = {
+        'S3': combine_models_s3
+    }
+    dispatch_key = event['features']['protocol']
+    return combine_models_dispatcher[dispatch_key](metas, None)
+
+
 def sink(metas):
     current_app.logger.info(f'sink, {metas}.')
     return {

@@ -110,6 +110,60 @@ spec:
 apiVersion: serving.knative.dev/v1
 kind: Service
 metadata:
+  name: trainer-2
+  namespace: default
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/min-scale: "1"
+    spec:
+      containers:
+        - name: dmerge-ml-pipeline
+          image: val01:5000/dmerge-ml-pipeline
+          imagePullPolicy: Always
+          env:
+            - name: CE_SPECVERSION
+              value: "0.3"
+            - name: CE_TYPE
+              value: "trainer"
+            - name: ID
+              value: "2"
+            - name: UPSTREAM_NUM
+              value: "1"
+            - name: LOG_LEVEL
+              value: "INFO"
+---
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: combinemodels
+  namespace: default
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/min-scale: "1"
+    spec:
+      containers:
+        - name: dmerge-ml-pipeline
+          image: val01:5000/dmerge-ml-pipeline
+          imagePullPolicy: Always
+          env:
+            - name: CE_SPECVERSION
+              value: "0.3"
+            - name: CE_TYPE
+              value: "combinemodels"
+            - name: ID
+              value: "0"
+            - name: UPSTREAM_NUM
+              value: "3"
+            - name: LOG_LEVEL
+              value: "INFO"
+---
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
   name: sink
   namespace: default
 spec:
@@ -130,7 +184,7 @@ spec:
             - name: ID
               value: "0"
             - name: UPSTREAM_NUM
-              value: "2"
+              value: "1"
             - name: LOG_LEVEL
               value: "INFO"
 ---
@@ -193,6 +247,30 @@ spec:
           apiVersion: serving.knative.dev/v1
           kind: Service
           name: trainer-1
+    - subscriber:
+        ref:
+          apiVersion: serving.knative.dev/v1
+          kind: Service
+          name: trainer-2
+  reply:
+    ref:
+      apiVersion: flows.knative.dev/v1
+      kind: Sequence
+      name: combine-sequence
+---
+apiVersion: flows.knative.dev/v1
+kind: Sequence
+metadata:
+  name: combine-sequence
+spec:
+  channelTemplate:
+    apiVersion: messaging.knative.dev/v1
+    kind: InMemoryChannel
+  steps:
+    - ref:
+        apiVersion: serving.knative.dev/v1
+        kind: Service
+        name: combinemodels
   reply:
     ref:
       apiVersion: eventing.knative.dev/v1
@@ -240,7 +318,7 @@ spec:
   broker: default-broker
   filter:
     attributes:
-      type: trainer
+      type: combinemodels
   subscriber:
     ref:
       apiVersion: serving.knative.dev/v1
