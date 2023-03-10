@@ -37,14 +37,6 @@ def fill_gid(gid):
     return new_mac_id
 
 
-stageTimeStr = 'stage_time'
-executeTimeStr = 'execute_time'
-interactTimeStr = 'interact_time'
-serializeTimeStr = 'serialize_time'
-deserializeTimeStr = 'deserialize_time'
-networkTimeStr = 'network_time'
-
-
 def splitter(meta):
     data_path = 'data/digits.txt'
     s3_client.fput_object(bucket_name, 'digits', data_path)
@@ -115,7 +107,8 @@ def producer(meta):
 
         push_start_time = cur_tick_ms()
         sd = sopen()
-        gid, mac_id = syscall_get_gid(sd=sd, nic_idx=0)
+        nic_idx = 0
+        gid, mac_id = syscall_get_gid(sd=sd, nic_idx=nic_idx)
         gid = fill_gid(gid)
         hint = call_register(sd=sd, peak_addr=addr)
         push_end_time = cur_tick_ms()
@@ -140,7 +133,7 @@ def producer(meta):
         out_meta['route'] = {
             'gid': gid,
             'machine_id': mac_id,
-            'nic_id': 1,
+            'nic_id': nic_idx,
             'hint': hint
         }
         current_app.logger.info(f'DMERGE profile: {out_meta["profile"]}')

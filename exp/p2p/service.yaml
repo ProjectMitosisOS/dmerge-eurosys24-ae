@@ -14,6 +14,9 @@ spec:
         - name: dmerge-p2p
           image: val01:5000/dmerge-p2p
           imagePullPolicy: Always
+          resources:
+            limits:
+              cpu: "4"
           env:
             - name: CE_SPECVERSION
               value: "0.3"
@@ -44,6 +47,7 @@ spec:
           image: val01:5000/dmerge-p2p
           resources:
             limits:
+              cpu: "4"
               hostdev.k8s.io/dev_mitosis-syscalls: 0
           imagePullPolicy: Always
           env:
@@ -78,6 +82,7 @@ spec:
           image: val01:5000/dmerge-p2p
           resources:
             limits:
+              cpu: "4"
               hostdev.k8s.io/dev_mitosis-syscalls: 0
           imagePullPolicy: Always
           env:

@@ -1,4 +1,5 @@
 IMG_NAME=val01:5000/dmerge-p2p
+COMMON_PATH=../common
 
 local-test:
 	docker run --rm -it ${IMG_NAME} /bin/bash
@@ -15,8 +16,12 @@ clean-terminating-pods:
 	kubectl get pods | grep Terminating | awk '{print $1}' | xargs kubectl delete pod
 
 deploy-meta:
-	kubectl apply -f meta.yaml
-	kubectl apply -f redis.yaml
+	kubectl apply -f ${COMMON_PATH}/meta.yaml
+	kubectl apply -f ${COMMON_PATH}/redis.yaml
+	kubectl apply -f ${COMMON_PATH}/minio.yaml
+
+device-plugins:
+	kubectl apply -f ${COMMON_PATH}/device-plugin.yaml
 
 upapp:
 	kubectl apply -f service.yaml
