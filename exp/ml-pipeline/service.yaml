@@ -1,0 +1,175 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: source
+  namespace: default
+spec:
+  template:
+    metadata:
+      annotations:
+        # Credit to https://knative.dev/docs/serving/autoscaling/scale-bounds/#lower-bound
+        autoscaling.knative.dev/min-scale: "1"
+    spec:
+      containers:
+        - name: dmerge-source
+          image: val01:5000/dmerge-ml-pipeline
+          imagePullPolicy: Always
+          resources:
+            limits:
+              cpu: "4"
+          env:
+            - name: CE_SPECVERSION
+              value: "0.3"
+            - name: ID
+              value: "0"
+            - name: CE_TYPE
+              value: "source"
+            - name: LOG_LEVEL
+              value: "INFO"
+            - name: PROTOCOL
+#              value: "DMERGE"
+              value: "S3"
+---
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: pca-0
+  namespace: default
+spec:
+  template:
+    metadata:
+      annotations:
+        # Credit to https://knative.dev/docs/serving/autoscaling/scale-bounds/#lower-bound
+        autoscaling.knative.dev/min-scale: "1"
+    spec:
+      containers:
+        - name: dmerge-ml-pipeline
+          image: val01:5000/dmerge-ml-pipeline
+          resources:
+            limits:
+              cpu: "4"
+              hostdev.k8s.io/dev_mitosis-syscalls: 0
+          imagePullPolicy: Always
+          env:
+            - name: CE_SPECVERSION
+              value: "0.3"
+            - name: ID
+              value: "0"
+            - name: CE_TYPE
+              value: "pca"
+            - name: LOG_LEVEL
+              value: "INFO"
+            - name: BASE_HEX
+              value: "100000000"
+            - name: TOTAL_SZ_HEX
+              value: "40000000"
+            - name: LD_PRELOAD
+              value: "/usr/local/share/libmalloc_wrapper.so"
+---
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: trainer-0
+  namespace: default
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/min-scale: "1"
+    spec:
+      containers:
+        - name: dmerge-ml-pipeline
+          image: val01:5000/dmerge-ml-pipeline
+          resources:
+            limits:
+              cpu: "4"
+              hostdev.k8s.io/dev_mitosis-syscalls: 0
+          imagePullPolicy: Always
+          env:
+            - name: CE_SPECVERSION
+              value: "0.3"
+            - name: CE_TYPE
+              value: "trainer"
+            - name: ID
+              value: "0"
+            - name: UPSTREAM_NUM
+              value: "1"
+            - name: LOG_LEVEL
+              value: "INFO"
+            - name: BASE_HEX
+              value: "150000000"
+            - name: TOTAL_SZ_HEX
+              value: "40000000"
+            - name: LD_PRELOAD
+              value: "/usr/local/share/libmalloc_wrapper.so"
+---
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: sink
+  namespace: default
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/min-scale: "1"
+    spec:
+      containers:
+        - name: dmerge-ml-pipeline
+          image: val01:5000/dmerge-ml-pipeline
+          imagePullPolicy: Always
+          env:
+            - name: CE_SPECVERSION
+              value: "0.3"
+            - name: CE_TYPE
+              value: "sink"
+            - name: ID
+              value: "0"
+            - name: UPSTREAM_NUM
+              value: "1"
+            - name: LOG_LEVEL
+              value: "INFO"
+---
+# Main body of MapReduce-alike framework
+apiVersion: flows.knative.dev/v1
+kind: Sequence
+metadata:
+  name: sequence
+spec:
+  channelTemplate:
+    apiVersion: messaging.knative.dev/v1
+    kind: InMemoryChannel
+  steps:
+    - ref: # Spliter
+        apiVersion: serving.knative.dev/v1
+        kind: Service
+        name: source
+    - ref:
+        apiVersion: serving.knative.dev/v1
+        kind: Service
+        name: pca-0
+    - ref:
+        apiVersion: serving.knative.dev/v1
+        kind: Service
+        name: trainer-0
+  reply:
+    ref:
+      apiVersion: serving.knative.dev/v1
+      kind: Service
+      name: sink
+---
+#apiVersion: eventing.knative.dev/v1
+#kind: Trigger
+#metadata:
+#  name: ping-trigger
+#  namespace: default
+#spec:
+#  broker: default-broker
+#  filter:
+#    attributes:
+#      type: dev.knative.sources.ping # Default ping type from Ping-Source
+#  subscriber:
+#    ref:
+#      apiVersion: flows.knative.dev/v1
+#      kind: Sequence
+#      name: sequence
