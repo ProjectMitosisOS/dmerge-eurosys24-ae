@@ -26,9 +26,6 @@ spec:
               value: "source"
             - name: LOG_LEVEL
               value: "INFO"
-            - name: PROTOCOL
-#              value: "DMERGE"
-              value: "S3"
 ---
 apiVersion: serving.knative.dev/v1
 kind: Service
@@ -45,10 +42,6 @@ spec:
       containers:
         - name: dmerge-ml-pipeline
           image: val01:5000/dmerge-ml-pipeline
-          resources:
-            limits:
-              cpu: "4"
-              hostdev.k8s.io/dev_mitosis-syscalls: 0
           imagePullPolicy: Always
           env:
             - name: CE_SPECVERSION
@@ -59,12 +52,6 @@ spec:
               value: "pca"
             - name: LOG_LEVEL
               value: "INFO"
-            - name: BASE_HEX
-              value: "100000000"
-            - name: TOTAL_SZ_HEX
-              value: "40000000"
-            - name: LD_PRELOAD
-              value: "/usr/local/share/libmalloc_wrapper.so"
 ---
 apiVersion: serving.knative.dev/v1
 kind: Service
@@ -80,10 +67,6 @@ spec:
       containers:
         - name: dmerge-ml-pipeline
           image: val01:5000/dmerge-ml-pipeline
-          resources:
-            limits:
-              cpu: "4"
-              hostdev.k8s.io/dev_mitosis-syscalls: 0
           imagePullPolicy: Always
           env:
             - name: CE_SPECVERSION
@@ -96,12 +79,33 @@ spec:
               value: "1"
             - name: LOG_LEVEL
               value: "INFO"
-            - name: BASE_HEX
-              value: "150000000"
-            - name: TOTAL_SZ_HEX
-              value: "40000000"
-            - name: LD_PRELOAD
-              value: "/usr/local/share/libmalloc_wrapper.so"
+---
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: trainer-1
+  namespace: default
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/min-scale: "1"
+    spec:
+      containers:
+        - name: dmerge-ml-pipeline
+          image: val01:5000/dmerge-ml-pipeline
+          imagePullPolicy: Always
+          env:
+            - name: CE_SPECVERSION
+              value: "0.3"
+            - name: CE_TYPE
+              value: "trainer"
+            - name: ID
+              value: "1"
+            - name: UPSTREAM_NUM
+              value: "1"
+            - name: LOG_LEVEL
+              value: "INFO"
 ---
 apiVersion: serving.knative.dev/v1
 kind: Service
@@ -126,7 +130,7 @@ spec:
             - name: ID
               value: "0"
             - name: UPSTREAM_NUM
-              value: "1"
+              value: "2"
             - name: LOG_LEVEL
               value: "INFO"
 ---
@@ -140,36 +144,105 @@ spec:
     apiVersion: messaging.knative.dev/v1
     kind: InMemoryChannel
   steps:
-    - ref: # Spliter
+    - ref:
         apiVersion: serving.knative.dev/v1
         kind: Service
         name: source
-    - ref:
-        apiVersion: serving.knative.dev/v1
-        kind: Service
-        name: pca-0
-    - ref:
-        apiVersion: serving.knative.dev/v1
-        kind: Service
-        name: trainer-0
+    - ref: # Parallel for mapper. Note!!!: Parallel shall not be followed by other seq services
+        apiVersion: flows.knative.dev/v1
+        kind: Parallel
+        name: pca-parallel
+---
+# Workflow related
+apiVersion: flows.knative.dev/v1
+kind: Parallel
+metadata:
+  name: pca-parallel
+spec:
+  channelTemplate:
+    apiVersion: messaging.knative.dev/v1
+    kind: InMemoryChannel
+  branches:
+    - subscriber:
+        ref:
+          apiVersion: serving.knative.dev/v1
+          kind: Service
+          name: pca-0
   reply:
+    ref:
+      apiVersion: flows.knative.dev/v1
+      kind: Parallel
+      name: trainer-parallel
+---
+apiVersion: flows.knative.dev/v1
+kind: Parallel
+metadata:
+  name: trainer-parallel
+spec:
+  channelTemplate:
+    apiVersion: messaging.knative.dev/v1
+    kind: InMemoryChannel
+  branches:
+    - subscriber:
+        ref:
+          apiVersion: serving.knative.dev/v1
+          kind: Service
+          name: trainer-0
+    - subscriber:
+        ref:
+          apiVersion: serving.knative.dev/v1
+          kind: Service
+          name: trainer-1
+  reply:
+    ref:
+      apiVersion: eventing.knative.dev/v1
+      kind: Broker
+      name: default-broker
+---
+apiVersion: eventing.knative.dev/v1
+kind: Trigger
+metadata:
+  name: ping-trigger
+  namespace: default
+spec:
+  broker: default-broker
+  filter:
+    attributes:
+      type: dev.knative.sources.ping # Default ping type from Ping-Source
+  subscriber:
+    ref:
+      apiVersion: flows.knative.dev/v1
+      kind: Sequence
+      name: sequence
+---
+apiVersion: eventing.knative.dev/v1
+kind: Trigger
+metadata:
+  name: event-display-trigger
+  namespace: default
+spec:
+  broker: default-broker
+  filter:
+    attributes:
+      type: none
+  subscriber:
+    ref:
+      apiVersion: serving.knative.dev/v1
+      kind: Service
+      name: event-display
+---
+apiVersion: eventing.knative.dev/v1
+kind: Trigger
+metadata:
+  name: sink-trigger
+  namespace: default
+spec:
+  broker: default-broker
+  filter:
+    attributes:
+      type: trainer
+  subscriber:
     ref:
       apiVersion: serving.knative.dev/v1
       kind: Service
       name: sink
----
-#apiVersion: eventing.knative.dev/v1
-#kind: Trigger
-#metadata:
-#  name: ping-trigger
-#  namespace: default
-#spec:
-#  broker: default-broker
-#  filter:
-#    attributes:
-#      type: dev.knative.sources.ping # Default ping type from Ping-Source
-#  subscriber:
-#    ref:
-#      apiVersion: flows.knative.dev/v1
-#      kind: Sequence
-#      name: sequence
