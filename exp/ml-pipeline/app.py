@@ -21,7 +21,7 @@ CE_SOURCE = 'ml-pipeline'
 handler_dispatch = {
     PING_TP: (source, False),
     source.__name__: (pca, False),
-    pca.__name__: (trainer, True),
+    pca.__name__: (trainer, False),
     trainer.__name__: (combinemodels, True),
     combinemodels.__name__: (sink, True)
 }
