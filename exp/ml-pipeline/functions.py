@@ -112,7 +112,7 @@ def pca(meta):
             },
             'leave_tick': cur_tick_ms()
         })
-        current_app.logger.info(f"Inner pca s3 with meta: {out_meta}")
+        current_app.logger.debug(f"Inner pca s3 with meta: {out_meta}")
         return out_meta
 
     def post_handle(returnedDic):
@@ -121,7 +121,7 @@ def pca(meta):
 
         for feature_fraction in [0.25, 0.5, 0.75, 0.95]:
             max_depth = 10
-            for num_of_trees in [5, 10, 15, 20]:
+            for num_of_trees in [5, 5, 5, 5]:
                 list_hyper_params.append((num_of_trees, max_depth, feature_fraction))
 
         returnedDic["detail"] = {
@@ -151,7 +151,7 @@ def pca(meta):
                 feature_fraction = []
                 returnedDic["detail"]["indeces"].append(j)
 
-        current_app.logger.info(f"PCA post_handle meta: {returnedDic}")
+        current_app.logger.debug(f"PCA post_handle meta: {returnedDic}")
         return returnedDic
 
     start_time = cur_tick_ms()
@@ -186,7 +186,7 @@ def trainer(meta):
             'verbose': -1,
             'num_threads': 2
         }
-        print('Starting training...')
+
         start_process = cur_tick_ms()
         gbm = lgb.train(params,
                         lgb_train,
@@ -206,12 +206,10 @@ def trainer(meta):
         model_name = "lightGBM_model_" + str(_id) + ".txt"
         save_path = "tmp/" + model_name
 
-        print("Ready to uploaded " + model_name)
         start_upload = cur_tick_ms()
-        gbm.save_model(save_path)
-        s3_client.fput_object(bucket_name, "ML_Pipeline/" + model_name, save_path)
+        # gbm.save_model(save_path)
+        # s3_client.fput_object(bucket_name, "ML_Pipeline/" + model_name, save_path)
         end_upload = cur_tick_ms()
-        print("model uploaded " + model_name)
 
         return_dict[str(runs) + "_" + str(max_depth) + "_" + str(feature_fraction)] = acc
         process_dict[str(runs) + "_" + str(max_depth) + "_" + str(feature_fraction)] = (end_process - start_process)
@@ -224,20 +222,9 @@ def trainer(meta):
             'key1': event['key1']
         }
 
-    def trainer_s3(meta, data):
-        out_meta = dict(meta)
-        id = int(os.environ.get("ID"))
-        event = meta['detail']['indeces'][int(id)]
-
-        filename = "/tmp/Digits_Train_Transform.txt"
-        s3_obj_key = meta['s3_obj_key']
-        s3_client.fget_object(bucket_name, s3_obj_key, filename)
-
-        train_data = np.genfromtxt(filename, delimiter='\t')
-
+    def execute_body(event, train_data):
         y_train = train_data[0:5000, 0]
         X_train = train_data[0:5000, 1:train_data.shape[1]]
-
         manager = Manager()
         return_dict = manager.dict()
         process_dict = manager.dict()
@@ -257,6 +244,30 @@ def trainer(meta):
                 ths[t].start()
             for t in range(threads):
                 ths[t].join()
+        return return_dict, process_dict, upload_dict
+
+    def trainer_s3(meta, data):
+        out_meta = dict(meta)
+        id = int(os.environ.get("ID"))
+        event = meta['detail']['indeces'][int(id)]
+
+        s3_time = 0
+        sd_time = 0
+        exe_time = 0
+
+        tick = cur_tick_ms()
+        filename = "/tmp/Digits_Train_Transform.txt"
+        s3_obj_key = meta['s3_obj_key']
+        s3_client.fget_object(bucket_name, s3_obj_key, filename)
+        s3_time += cur_tick_ms() - tick
+
+        tick = cur_tick_ms()
+        train_data = np.genfromtxt(filename, delimiter='\t')
+        sd_time += cur_tick_ms() - tick
+
+        return_dict, process_dict, upload_dict = execute_body(event, train_data)
+        exe_time += sum(process_dict.values())
+        s3_time += sum(upload_dict.values())
 
         end_time = cur_tick_ms()
         out_meta.update({
@@ -267,11 +278,13 @@ def trainer(meta):
         })
         out_meta['profile'].update({
             'train': {
-                'upload_model_time': upload_dict.values(),
-                'train_process_time': process_dict.values()
+                'execute_time': exe_time,
+                's3_time': s3_time,
+                'sd_time': sd_time
             },
         })
-        current_app.logger.info(f"Inner Trainer s3 with meta: {out_meta}")
+        out_meta.pop('detail')
+        current_app.logger.debug(f"Inner Trainer s3 with meta: {out_meta}")
         return out_meta
 
     trainer_dispatcher = {
@@ -311,5 +324,5 @@ def sink(metas):
 
 
 def default_handler(meta):
-    current_app.logger.info(f'not a default path for type')
+    current_app.logger.warn(f'not a default path for type')
     return meta
