@@ -14,9 +14,6 @@ spec:
         - name: dmerge-source
           image: val01:5000/dmerge-ml-pipeline
           imagePullPolicy: Always
-          resources:
-            limits:
-              cpu: "4"
           env:
             - name: CE_SPECVERSION
               value: "0.3"
@@ -43,9 +40,6 @@ spec:
         - name: dmerge-ml-pipeline
           image: val01:5000/dmerge-ml-pipeline
           imagePullPolicy: Always
-          resources:
-            limits:
-              cpu: "4"
           env:
             - name: CE_SPECVERSION
               value: "0.3"
@@ -77,9 +71,6 @@ spec:
         - name: dmerge-ml-pipeline
           image: val01:5000/dmerge-ml-pipeline
           imagePullPolicy: Always
-          resources:
-            limits:
-              cpu: "12"
           env:
             - name: CE_SPECVERSION
               value: "0.3"
@@ -113,9 +104,6 @@ spec:
         - name: dmerge-ml-pipeline
           image: val01:5000/dmerge-ml-pipeline
           imagePullPolicy: Always
-          resources:
-            limits:
-              cpu: "12"
           env:
             - name: CE_SPECVERSION
               value: "0.3"
