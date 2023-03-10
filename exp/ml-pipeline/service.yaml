@@ -55,6 +55,12 @@ spec:
               value: "pca"
             - name: LOG_LEVEL
               value: "INFO"
+#            - name: BASE_HEX
+#              value: "150000000"
+#            - name: TOTAL_SZ_HEX
+#              value: "40000000"
+#            - name: LD_PRELOAD
+#              value: "/usr/local/share/libmalloc_wrapper.so"
 ---
 apiVersion: serving.knative.dev/v1
 kind: Service
@@ -85,6 +91,12 @@ spec:
               value: "1"
             - name: LOG_LEVEL
               value: "INFO"
+#            - name: BASE_HEX
+#              value: "150000000"
+#            - name: TOTAL_SZ_HEX
+#              value: "40000000"
+#            - name: LD_PRELOAD
+#              value: "/usr/local/share/libmalloc_wrapper.so"
 ---
 apiVersion: serving.knative.dev/v1
 kind: Service
@@ -115,6 +127,12 @@ spec:
               value: "1"
             - name: LOG_LEVEL
               value: "INFO"
+#            - name: BASE_HEX
+#              value: "150000000"
+#            - name: TOTAL_SZ_HEX
+#              value: "40000000"
+#            - name: LD_PRELOAD
+#              value: "/usr/local/share/libmalloc_wrapper.so"
 ---
 apiVersion: serving.knative.dev/v1
 kind: Service
@@ -142,6 +160,12 @@ spec:
               value: "2"
             - name: LOG_LEVEL
               value: "INFO"
+#            - name: BASE_HEX
+#              value: "150000000"
+#            - name: TOTAL_SZ_HEX
+#              value: "40000000"
+#            - name: LD_PRELOAD
+#              value: "/usr/local/share/libmalloc_wrapper.so"
 ---
 apiVersion: serving.knative.dev/v1
 kind: Service

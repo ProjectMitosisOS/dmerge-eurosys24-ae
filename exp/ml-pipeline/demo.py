@@ -3,6 +3,7 @@ from numpy.linalg import eig
 
 from util import cur_tick_ms
 
+global_obj = {}
 
 def execute_body(train_data):
     train_labels = train_data[:, 0]
@@ -25,7 +26,9 @@ def execute_body(train_data):
 
 if __name__ == '__main__':
     train_data = np.genfromtxt('dataset/Digits_Train.txt', delimiter='\t')
+
     execute_start_time = cur_tick_ms()
     vectors, first_n_A_label = execute_body(train_data)
     execute_end_time = cur_tick_ms()
+
     print(f'exe time {execute_end_time - execute_start_time}')
