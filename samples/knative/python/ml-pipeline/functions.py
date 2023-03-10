@@ -79,13 +79,14 @@ def splitter(meta):
     values, vectors = eig(VA)
     # project data
     PA = vectors.T.dot(CA.T)
+    first_n_A = PA.T[:, 0:100].real
+    train_labels = train_labels.reshape(train_labels.shape[0], 1)
+    first_n_A_label = np.concatenate((train_labels, first_n_A), axis=1)
+
     exe_time += cur_tick_ms() - tick
 
     tick = cur_tick_ms()
     np.save("tmp/vectors_pca.txt", vectors)
-    first_n_A = PA.T[:, 0:100].real
-    train_labels = train_labels.reshape(train_labels.shape[0], 1)
-    first_n_A_label = np.concatenate((train_labels, first_n_A), axis=1)
     np.savetxt("tmp/Digits_Train_Transform.txt", first_n_A_label, delimiter="\t")
     seri_time += cur_tick_ms() - tick
 

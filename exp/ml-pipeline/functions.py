@@ -84,29 +84,42 @@ def pca(meta):
         return vectors, first_n_A_label
 
     def pca_s3(_meta, data):
+        execute_time = 0
+        sd_time = 0
+        s3_time = 0
+
         out_meta = dict(_meta)
-        # 1. Execute
-        execute_start_time = cur_tick_ms()
-        vectors, first_n_A_label = execute_body(data)
-        execute_end_time = cur_tick_ms()
-        # 2. Deserialize
-        sd_start_time = cur_tick_ms()
+        s3_obj = meta['s3_obj_key']
+        tick = cur_tick_ms()
+        s3_client.fget_object(bucket_name, s3_obj, local_data_path)  # download all
+        s3_time += cur_tick_ms() - tick
+
+        tick = cur_tick_ms()
+        train_data = np.genfromtxt(local_data_path, delimiter='\t')
+        sd_time += cur_tick_ms() - tick
+
+        # Execute
+        tick = cur_tick_ms()
+        vectors, first_n_A_label = execute_body(train_data)
+        execute_time += cur_tick_ms() - tick
+        # Deserialize
+        tick = cur_tick_ms()
         np.save("/tmp/vectors_pca.txt", vectors)
         np.savetxt("/tmp/Digits_Train_Transform.txt", first_n_A_label, delimiter="\t")
-        sd_end_time = cur_tick_ms()
+        sd_time += cur_tick_ms() - tick
 
-        # 3. dump to s3
-        external_resource_start_time = cur_tick_ms()
+        # dump to s3
+        tick = cur_tick_ms()
         s3_client.fput_object(bucket_name, 'ML_Pipeline/vectors_pca.txt', '/tmp/vectors_pca.txt.npy')
         s3_client.fput_object(bucket_name, 'ML_Pipeline/train_pca_transform_2.txt',
                               '/tmp/Digits_Train_Transform.txt')
-        external_resource_end_time = cur_tick_ms()
+        s3_time += cur_tick_ms() - tick
 
         out_meta['s3_obj_key'] = 'ML_Pipeline/train_pca_transform_2.txt'
         out_meta['profile']['pca'] = {
-            'execute_time': execute_end_time - execute_start_time,
-            'sd_time': sd_end_time - sd_start_time,
-            's3_time': external_resource_end_time - external_resource_start_time
+            'execute_time': execute_time,
+            'sd_time': sd_time,
+            's3_time': s3_time
         }
         return out_meta
 
@@ -150,16 +163,12 @@ def pca(meta):
         current_app.logger.debug(f"PCA post_handle meta: {returnedDic}")
         return returnedDic
 
-    s3_obj = meta['s3_obj_key']
-    s3_client.fget_object(bucket_name, s3_obj, local_data_path)  # download all
-    train_data = np.genfromtxt(local_data_path, delimiter='\t')
-
     start_time = cur_tick_ms()
     pca_dispatcher = {
         'S3': pca_s3
     }
     dispatch_key = meta['features']['protocol']
-    returnedDic = pca_dispatcher[dispatch_key](meta, train_data)
+    returnedDic = pca_dispatcher[dispatch_key](meta, None)
     out_dict = post_handle(returnedDic)
     end_time = cur_tick_ms()
     out_dict['profile'].update({
