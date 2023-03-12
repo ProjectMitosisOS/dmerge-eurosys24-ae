@@ -47,11 +47,11 @@ def source(meta):
         s3_object_key = 'digits'
         tick = cur_tick_ms()
         s3_client.fput_object(bucket_name, s3_object_key, data_path)
-        sd_time = cur_tick_ms() - tick
+        s3_time = cur_tick_ms() - tick
         meta['s3_obj_key'] = s3_object_key
         meta['profile'] = {
             'source': {
-                'sd_time': sd_time,
+                's3_time': s3_time,
             },
             'leave_tick': cur_tick_ms(),
         }
@@ -60,14 +60,13 @@ def source(meta):
     def source_dmerge(meta):
         tick = cur_tick_ms()
         train_data = np.genfromtxt(data_path, delimiter='\t')
+        train_data_li = train_data.tolist()
         execute_time = cur_tick_ms() - tick
         addr = int(os.environ.get('BASE_HEX', '100000000'), 16)
         out_meta = dict(meta)
 
         push_start_time = cur_tick_ms()
-        train_data_li = train_data.tolist()
         global_obj['train_data'] = train_data_li
-
         nic_idx = 0
         gid, mac_id, hint = util.push(nic_id=nic_idx, peak_addr=addr)
         push_time = cur_tick_ms() - push_start_time
@@ -178,11 +177,11 @@ def pca(meta):
 
         util.pull(mac_id, hint)
         obj = util.fetch(target_id)
-        data = np.array(obj)
 
         pull_time = cur_tick_ms() - pull_start_time
 
         execute_start_time = cur_tick_ms()
+        data = np.array(obj)
         vectors, first_n_A_label = execute_body(data)
         execute_time = cur_tick_ms() - execute_start_time
 
@@ -417,11 +416,13 @@ def trainer(meta):
         pull_start_time = cur_tick_ms()
         util.pull(mac_id, hint)
         data = util.fetch(meta['obj_hash']['first_n_A_label'])
-        train_data = np.array(data)
         pull_time = cur_tick_ms() - pull_start_time
         # Execute
+        tick = cur_tick_ms()
+        train_data = np.array(data)
+        exe_time = 0
         return_dict, execute_body_time, upload_time = execute_body(event, train_data)
-        exe_time = execute_body_time
+        exe_time += execute_body_time
         s3_time = upload_time
 
         out_meta.update({
