@@ -37,14 +37,10 @@ def read_lines(path):
 
 def source(meta):
     data_path = 'dataset/Digits_Train.txt'
-    protocol = os.environ.get('PROTOCOL', 'S3')
     out_meta = {
         'statusCode': 200,
         'wf_id': str(uuid.uuid4()),
         'trainer_num': int(os.environ.get('TRAINER_NUM', 4)),
-        'features': {
-            'protocol': protocol  # value of DMERGE / S3 / P2P --- Default as S3
-        },
     }
 
     def source_s3(meta):
@@ -73,8 +69,7 @@ def source(meta):
         global_obj['train_data'] = train_data_li
 
         nic_idx = 0
-        sd = sopen()
-        gid, mac_id, hint = util.push(sd=sd, nic_id=nic_idx, peak_addr=addr)
+        gid, mac_id, hint = util.push(nic_id=nic_idx, peak_addr=addr)
         push_time = cur_tick_ms() - push_start_time
 
         obj_id = id(global_obj["train_data"])
@@ -106,7 +101,7 @@ def source(meta):
         'DMERGE': source_dmerge,
         'P2P': source_s3
     }
-    out_dict = source_dispatch[protocol](out_meta)
+    out_dict = source_dispatch[util.PROTOCOL](out_meta)
     out_dict['profile']['source']['stage_time'] = sum(out_dict['profile']['source'].values())
     return out_dict
 
@@ -181,8 +176,7 @@ def pca(meta):
             route['hint'], route['nic_id']
         pull_start_time = cur_tick_ms()
 
-        sd = sopen()
-        util.pull(sd, gid, mac_id, hint, nic_id)
+        util.pull(mac_id, hint)
         obj = util.fetch(target_id)
         data = np.array(obj)
 
@@ -199,20 +193,19 @@ def pca(meta):
         global_obj['first_n_A_label'] = first_n_A_label_li
 
         nic_idx = 0
-
-        gid, mac_id, hint = util.push(sd=sd, nic_id=nic_idx, peak_addr=addr)
+        gid, mac_id, hint = util.push(nic_id=nic_idx, peak_addr=addr)
         push_time = cur_tick_ms() - push_start_time
 
         first_n_A_label_obj_id = id(global_obj["first_n_A_label"])
         current_app.logger.info(f'gid is {gid} ,'
-                                 f'first_n_A_label_obj_id is {first_n_A_label_obj_id} ,'
-                                 f'hint is {hint} ,'
-                                 f'mac id {mac_id} ,'
-                                 f'base addr in {hex(addr)}')
+                                f'first_n_A_label_obj_id is {first_n_A_label_obj_id} ,'
+                                f'hint is {hint} ,'
+                                f'mac id {mac_id} ,'
+                                f'base addr in {hex(addr)}')
 
         nt_time = start_time - _meta['profile']['leave_tick']
         out_meta['obj_hash'] = {
-            'first_n_A_label': first_n_A_label_obj_id
+            'first_n_A_label': first_n_A_label_obj_id,
         }
         out_meta['route'] = {
             'gid': gid,
@@ -276,7 +269,7 @@ def pca(meta):
         'S3': pca_s3,
         'DMERGE': pca_dmerge
     }
-    dispatch_key = meta['features']['protocol']
+    dispatch_key = util.PROTOCOL
     returnedDic = pca_dispatcher[dispatch_key](meta, None)
     out_dict = post_handle(returnedDic)
     end_time = cur_tick_ms()
@@ -347,8 +340,8 @@ def trainer(meta):
         }
 
     def execute_body(event, train_data):
-        y_train = train_data[0:5000, 0]
-        X_train = train_data[0:5000, 1:train_data.shape[1]]
+        y_train = train_data[:, 0]
+        X_train = train_data[:, 1:train_data.shape[1]]
         manager = Manager()
         return_dict = manager.dict()
         process_dict = manager.dict()
@@ -420,14 +413,11 @@ def trainer(meta):
         current_app.logger.info(f"trainer dmerge meta is {meta}")
         # # Pull
         pull_start_time = cur_tick_ms()
-        sd = sopen()
-        util.pull(sd, gid, mac_id, hint, nic_id)
+        util.pull(mac_id, hint)
         train_data = util.fetch(meta['obj_hash']['first_n_A_label'])
 
         current_app.logger.info(f"data len is {len(train_data)}. ")
         # current_app.logger.info(f"shape is {np.shape(train_data)} ")
-        current_app.logger.info(f"sum is {sum(train_data[0])} ")
-        # train_data = np.array(train_data)
         pull_time = cur_tick_ms() - pull_start_time
         # Execute
         # return_dict, execute_body_time, upload_time = execute_body(event, train_data)
@@ -454,8 +444,7 @@ def trainer(meta):
         'DMERGE': trainer_dmerge
     }
 
-    dispatch_key = meta['features']['protocol']
-    out_dict = trainer_dispatcher[dispatch_key](meta, None)
+    out_dict = trainer_dispatcher[util.PROTOCOL](meta, None)
     end_time = cur_tick_ms()
     out_dict['profile']['leave_tick'] = end_time
     out_dict['profile']['train']['stage_time'] = sum(out_dict['profile']['train'].values())
@@ -488,8 +477,7 @@ def combinemodels(metas):
         'S3': combine_models_s3,
         'DMERGE': combine_models_s3
     }
-    dispatch_key = event['features']['protocol']
-    out_dict = combine_models_dispatcher[dispatch_key](metas, None)
+    out_dict = combine_models_dispatcher[util.PROTOCOL](metas, None)
     out_dict['profile']['combinemodels']['stage_time'] = \
         sum(out_dict['profile']['combinemodels'].values())
     return out_dict

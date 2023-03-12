@@ -1,5 +1,10 @@
+import os
 import time
 from bindings import *
+
+
+PROTOCOL = os.environ.get('PROTOCOL', 'S3')
+SD = sopen() if PROTOCOL == 'DMERGE' else 0
 
 
 def fill_gid(gid):
@@ -32,12 +37,8 @@ def cur_tick_ms():
     return int(round(time.time() * 1000))
 
 
-def pull(sd, gid, mac_id, hint, nic_id):
-    # if need_connect:
-    #     res = syscall_connect_session(
-    #         sd, gid, machine_id=mac_id, nic_id=nic_id)
-    #     assert res == 0
-    call_pull(sd=sd, hint=hint, machine_id=mac_id)
+def pull(mac_id, hint):
+    call_pull(sd=SD, hint=hint, machine_id=mac_id)
 
 
 def fetch(target):
@@ -47,8 +48,8 @@ def fetch(target):
         return id_deref(target, None)
 
 
-def push(sd, nic_id, peak_addr):
-    gid, mac_id = syscall_get_gid(sd=sd, nic_idx=nic_id)
+def push(nic_id, peak_addr):
+    gid, mac_id = syscall_get_gid(sd=SD, nic_idx=nic_id)
     gid = fill_gid(gid)
-    hint = call_register(sd=sd, peak_addr=peak_addr)
+    hint = call_register(sd=SD, peak_addr=peak_addr)
     return gid, mac_id, hint
