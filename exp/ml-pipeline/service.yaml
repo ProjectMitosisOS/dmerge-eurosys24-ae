@@ -13,6 +13,9 @@ spec:
       containers:
         - name: dmerge-source
           image: val01:5000/dmerge-ml-pipeline
+          resources:
+            limits:
+              hostdev.k8s.io/dev_mitosis-syscalls: 0
           imagePullPolicy: Always
           env:
             - name: CE_SPECVERSION
@@ -25,6 +28,12 @@ spec:
               value: "INFO"
             - name: TRAINER_NUM
               value: "8"
+            - name: BASE_HEX
+              value: "100000000"
+            - name: TOTAL_SZ_HEX
+              value: "40000000"
+            - name: LD_PRELOAD
+              value: "/usr/local/share/libmalloc_wrapper.so"
 ---
 apiVersion: serving.knative.dev/v1
 kind: Service
@@ -41,6 +50,9 @@ spec:
       containers:
         - name: dmerge-ml-pipeline
           image: val01:5000/dmerge-ml-pipeline
+          resources:
+            limits:
+              hostdev.k8s.io/dev_mitosis-syscalls: 0
           imagePullPolicy: Always
           env:
             - name: CE_SPECVERSION
@@ -51,12 +63,12 @@ spec:
               value: "pca"
             - name: LOG_LEVEL
               value: "INFO"
-#            - name: BASE_HEX
-#              value: "150000000"
-#            - name: TOTAL_SZ_HEX
-#              value: "40000000"
-#            - name: LD_PRELOAD
-#              value: "/usr/local/share/libmalloc_wrapper.so"
+            - name: BASE_HEX
+              value: "150000000"
+            - name: TOTAL_SZ_HEX
+              value: "40000000"
+            - name: LD_PRELOAD
+              value: "/usr/local/share/libmalloc_wrapper.so"
 ---
 apiVersion: serving.knative.dev/v1
 kind: Service

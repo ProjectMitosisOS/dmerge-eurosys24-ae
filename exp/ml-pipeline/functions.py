@@ -46,22 +46,40 @@ def fill_gid(gid):
 
 def source(meta):
     data_path = 'dataset/Digits_Train.txt'
-    s3_object_key = 'digits'
-    s3_client.fput_object(bucket_name, s3_object_key, data_path)
-    return {
+    protocol = os.environ.get('PROTOCOL', 'S3')
+
+    def source_s3(meta):
+        s3_object_key = 'digits'
+        tick = cur_tick_ms()
+        s3_client.fput_object(bucket_name, s3_object_key, data_path)
+        sd_time = cur_tick_ms() - tick
+        meta['s3_obj_key'] = s3_object_key
+        meta['profile'] = {
+            'source': {
+                'sd_time': sd_time,
+            },
+            'leave_tick': cur_tick_ms(),
+        }
+        return meta
+
+    def source_dmerge(meta):
+        pass
+
+    out_meta = {
         'statusCode': 200,
-        's3_obj_key': s3_object_key,
         'wf_id': str(uuid.uuid4()),
-        # Total 16 partitions are split into `trainer_num` functions. The larger `trainer_num` would
-        # introduce less training time for each trainer
         'trainer_num': int(os.environ.get('TRAINER_NUM', 4)),
         'features': {
-            'protocol': os.environ.get('PROTOCOL', 'S3')  # value of DMERGE / S3 / P2P --- Default as S3
-        },
-        'profile': {
-            'leave_tick': cur_tick_ms(),
+            'protocol': protocol  # value of DMERGE / S3 / P2P --- Default as S3
         },
     }
+    source_dispatch = {
+        'S3': source_s3,
+        'DMERGE': source_dmerge,
+        'P2P': source_s3
+    }
+
+    return source_dispatch[protocol](out_meta)
 
 
 def pca(meta):
