@@ -1,7 +1,7 @@
 # The image for distributed-merge. All of our applications are derived from it.
 # Note: we do not compile the kernel module inside of this docker file.
 # And we just insmod the kernel module outside of the container (at host level)
-FROM caribouf/cpython-base as base
+FROM val01:5000/cpython-base as base
 
 WORKDIR /app
 

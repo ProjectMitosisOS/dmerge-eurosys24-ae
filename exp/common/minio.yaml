@@ -1,0 +1,52 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: minio-deployment
+  namespace: default
+  labels:
+    app: minio
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: minio
+  template:
+    metadata:
+      labels:
+        app: minio
+    spec:
+      containers:
+        - name: minio
+          image: val01:5000/minio
+          args:
+            - server
+            - /minio-data
+          env:
+            - name: MINIO_ACCESS_KEY
+              value: "ACCESS_KEY"
+            - name: MINIO_SECRET_KEY
+              value: "SECRET_KEY"
+          ports:
+            - containerPort: 9000
+          volumeMounts:
+            - name: minio-data
+              mountPath: /minio-data
+      volumes:
+        - name: minio-data
+          emptyDir: {}
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: minio
+  namespace: default
+spec:
+  selector:
+    app: minio
+#  type: ClusterIP
+  ports:
+    - name: http
+      port: 9000
+      targetPort: 9000

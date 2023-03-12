@@ -1,4 +1,4 @@
-FROM caribouf/cpython-base
+FROM val01:5000/cpython-base
 
 WORKDIR /app
 COPY . .

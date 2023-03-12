@@ -1,4 +1,4 @@
-FROM caribouf/dmerge-base
+FROM val01:5000/dmerge-base
 
 WORKDIR /app
 COPY . .

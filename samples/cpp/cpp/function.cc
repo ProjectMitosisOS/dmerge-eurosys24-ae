@@ -1,5 +1,5 @@
 #include "common.hh"
-
+static int num = 3;
 
 // producer
 int
