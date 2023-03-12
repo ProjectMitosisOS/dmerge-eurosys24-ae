@@ -52,7 +52,9 @@ def source(meta):
         'statusCode': 200,
         's3_obj_key': s3_object_key,
         'wf_id': str(uuid.uuid4()),
-        'trainer_num': 2,
+        # Total 16 partitions are split into `trainer_num` functions. The larger `trainer_num` would
+        # introduce less training time for each trainer
+        'trainer_num': int(os.environ.get('TRAINER_NUM', 4)),
         'features': {
             'protocol': os.environ.get('PROTOCOL', 'S3')  # value of DMERGE / S3 / P2P --- Default as S3
         },
@@ -129,8 +131,7 @@ def pca(meta):
 
         for feature_fraction in [0.25, 0.5, 0.75, 0.95]:
             max_depth = 10
-            # for num_of_trees in [1, 1, 1, 1]:
-            for num_of_trees in [5, 5, 5, 5]:
+            for num_of_trees in [5, 10, 15, 20]:
                 list_hyper_params.append((num_of_trees, max_depth, feature_fraction))
 
         returnedDic["detail"] = {
@@ -261,6 +262,7 @@ def trainer(meta):
                 ths[t].join()
         upload_time = sum(upload_dict.values())
         exe_time = sum(process_dict.values())
+        current_app.logger.debug(f"process dict: {process_dict}")
         return return_dict, exe_time, upload_time
 
     def trainer_s3(meta, data):
@@ -330,7 +332,9 @@ def combinemodels(metas):
                 'nt_time': start_time - prev_leave_tick
             },
         })
-        current_app.logger.info(f"Inner combine_models s3 with meta: {out_meta}")
+        for i, meta in enumerate(_metas):
+            current_app.logger.info(f"@{i} Inner combine_models s3 with meta: {meta}")
+        # TODO: aggregate the result
         return out_meta
 
     event = metas[-1]
