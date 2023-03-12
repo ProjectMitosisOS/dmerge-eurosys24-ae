@@ -30,7 +30,7 @@ impl ShadowHeap {
         // local process task
         let task = crate::mitosis::kern_wrappers::task::Task::new();
         let mut mm = task.get_memory_descriptor();
-        let heap_start = heap_meta.start_virt_addr;
+        let mut heap_start = heap_meta.start_virt_addr;
 
         // Iter to every vma in the virt-addr space
         for vma in mm.get_vma_iter() {
@@ -40,6 +40,7 @@ impl ShadowHeap {
                 vma_descriptors.push(vma_des);
                 shadow_vmas.push(ShadowVMA::new(vma, true));
                 vma_page_table.push(Default::default());
+                heap_start = vma_des.get_end(); // Trick: Move to next possible VM. FIXME: Why it would be splitted?
             }
         }
 

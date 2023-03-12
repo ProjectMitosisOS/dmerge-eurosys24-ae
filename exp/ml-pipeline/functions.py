@@ -340,8 +340,8 @@ def trainer(meta):
         }
 
     def execute_body(event, train_data):
-        y_train = train_data[:, 0]
-        X_train = train_data[:, 1:train_data.shape[1]]
+        y_train = train_data[:5000, 0]
+        X_train = train_data[:5000, 1:train_data.shape[1]]
         manager = Manager()
         return_dict = manager.dict()
         process_dict = manager.dict()
@@ -417,7 +417,6 @@ def trainer(meta):
         train_data = util.fetch(meta['obj_hash']['first_n_A_label'])
 
         current_app.logger.info(f"data len is {len(train_data)}. ")
-        # current_app.logger.info(f"shape is {np.shape(train_data)} ")
         pull_time = cur_tick_ms() - pull_start_time
         # Execute
         # return_dict, execute_body_time, upload_time = execute_body(event, train_data)
