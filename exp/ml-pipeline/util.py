@@ -32,11 +32,11 @@ def cur_tick_ms():
     return int(round(time.time() * 1000))
 
 
-def pull(sd, gid, mac_id, hint, nic_id, need_connect=True):
-    if need_connect:
-        res = syscall_connect_session(
-            sd, gid, machine_id=mac_id, nic_id=nic_id)
-        assert res == 0
+def pull(sd, gid, mac_id, hint, nic_id):
+    # if need_connect:
+    #     res = syscall_connect_session(
+    #         sd, gid, machine_id=mac_id, nic_id=nic_id)
+    #     assert res == 0
     call_pull(sd=sd, hint=hint, machine_id=mac_id)
 
 

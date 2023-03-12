@@ -35,8 +35,8 @@ spec:
             - name: LD_PRELOAD
               value: "/usr/local/share/libmalloc_wrapper.so"
             - name: PROTOCOL
-              value: "S3"
-#              value: "DMERGE"
+#              value: "S3"
+              value: "DMERGE"
 ---
 apiVersion: serving.knative.dev/v1
 kind: Service
@@ -67,7 +67,7 @@ spec:
             - name: LOG_LEVEL
               value: "INFO"
             - name: BASE_HEX
-              value: "150000000"
+              value: "140000000"
             - name: TOTAL_SZ_HEX
               value: "40000000"
             - name: LD_PRELOAD
@@ -103,7 +103,7 @@ spec:
             - name: LOG_LEVEL
               value: "INFO"
             - name: BASE_HEX
-              value: "200000000"
+              value: "180000000"
             - name: TOTAL_SZ_HEX
               value: "40000000"
             - name: LD_PRELOAD
@@ -139,7 +139,7 @@ spec:
             - name: LOG_LEVEL
               value: "INFO"
             - name: BASE_HEX
-              value: "240000000"
+              value: "1c0000000"
             - name: TOTAL_SZ_HEX
               value: "40000000"
             - name: LD_PRELOAD
@@ -175,7 +175,7 @@ spec:
             - name: LOG_LEVEL
               value: "INFO"
             - name: BASE_HEX
-              value: "280000000"
+              value: "200000000"
             - name: TOTAL_SZ_HEX
               value: "40000000"
             - name: LD_PRELOAD
@@ -211,7 +211,7 @@ spec:
             - name: LOG_LEVEL
               value: "INFO"
             - name: BASE_HEX
-              value: "320000000"
+              value: "240000000"
             - name: TOTAL_SZ_HEX
               value: "40000000"
             - name: LD_PRELOAD
@@ -247,7 +247,7 @@ spec:
             - name: LOG_LEVEL
               value: "INFO"
             - name: BASE_HEX
-              value: "360000000"
+              value: "280000000"
             - name: TOTAL_SZ_HEX
               value: "40000000"
             - name: LD_PRELOAD
@@ -283,7 +283,7 @@ spec:
             - name: LOG_LEVEL
               value: "INFO"
             - name: BASE_HEX
-              value: "400000000"
+              value: "2c0000000"
             - name: TOTAL_SZ_HEX
               value: "40000000"
             - name: LD_PRELOAD
@@ -319,7 +319,7 @@ spec:
             - name: LOG_LEVEL
               value: "INFO"
             - name: BASE_HEX
-              value: "440000000"
+              value: "300000000"
             - name: TOTAL_SZ_HEX
               value: "40000000"
             - name: LD_PRELOAD
@@ -355,7 +355,7 @@ spec:
             - name: LOG_LEVEL
               value: "INFO"
             - name: BASE_HEX
-              value: "480000000"
+              value: "340000000"
             - name: TOTAL_SZ_HEX
               value: "40000000"
             - name: LD_PRELOAD

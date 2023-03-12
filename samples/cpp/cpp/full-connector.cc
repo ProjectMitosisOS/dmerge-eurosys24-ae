@@ -43,6 +43,7 @@ void connect_all(const std::set<size_t> &target_set, const int nic_id) {
             const char *remote_gid = p.second.c_str();
             int res = call_connect_session(sd, remote_gid, machine_id, nic_id);
             std::cout << std::dec << "@" << machine_id << " connect res:" << res << std::endl;
+            assert(res == 0);
         }
 
     }
