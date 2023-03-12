@@ -8,8 +8,8 @@ import numpy as np
 from flask import current_app
 from minio import Minio
 from numpy.linalg import eig
-
-from util import cur_tick_ms
+import util
+from util import cur_tick_ms, fill_gid
 
 global_obj = {}
 
@@ -35,18 +35,17 @@ def read_lines(path):
         return f.readlines()
 
 
-def fill_gid(gid):
-    new_mac_id_parts = []
-    for part in gid.split(":"):
-        new_part = ":".join([str(hex(int(i, 16)))[2:].zfill(4) for i in part.split(".")])
-        new_mac_id_parts.append(new_part)
-    new_mac_id = ":".join(new_mac_id_parts)
-    return new_mac_id
-
-
 def source(meta):
     data_path = 'dataset/Digits_Train.txt'
     protocol = os.environ.get('PROTOCOL', 'S3')
+    out_meta = {
+        'statusCode': 200,
+        'wf_id': str(uuid.uuid4()),
+        'trainer_num': int(os.environ.get('TRAINER_NUM', 4)),
+        'features': {
+            'protocol': protocol  # value of DMERGE / S3 / P2P --- Default as S3
+        },
+    }
 
     def source_s3(meta):
         s3_object_key = 'digits'
@@ -63,27 +62,58 @@ def source(meta):
         return meta
 
     def source_dmerge(meta):
-        pass
+        tick = cur_tick_ms()
+        train_data = np.genfromtxt(data_path, delimiter='\t')
+        execute_time = cur_tick_ms() - tick
+        addr = int(os.environ.get('BASE_HEX', '100000000'), 16)
+        out_meta = dict(meta)
 
-    out_meta = {
-        'statusCode': 200,
-        'wf_id': str(uuid.uuid4()),
-        'trainer_num': int(os.environ.get('TRAINER_NUM', 4)),
-        'features': {
-            'protocol': protocol  # value of DMERGE / S3 / P2P --- Default as S3
-        },
-    }
+        push_start_time = cur_tick_ms()
+        train_data_li = train_data.tolist()
+        global_obj['train_data'] = train_data_li
+
+        nic_idx = 0
+        sd = sopen()
+        gid, mac_id, hint = util.push(sd=sd, nic_id=nic_idx, peak_addr=addr)
+        push_time = cur_tick_ms() - push_start_time
+
+        obj_id = id(global_obj["train_data"])
+        current_app.logger.debug(f'gid is {gid} ,'
+                                 f'ObjectID is {obj_id} ,'
+                                 f'hint is {hint} ,'
+                                 f'mac id {mac_id} ,'
+                                 f'base addr in {hex(addr)}')
+        out_meta['profile'] = {
+            'source': {
+                'execute_time': execute_time,
+                'push_time': push_time,
+            },
+            'leave_tick': cur_tick_ms()
+        }
+        out_meta['obj_hash'] = {
+            'train_data': obj_id
+        }
+        out_meta['route'] = {
+            'gid': gid,
+            'machine_id': mac_id,
+            'nic_id': nic_idx,
+            'hint': hint
+        }
+        return out_meta
+
     source_dispatch = {
         'S3': source_s3,
         'DMERGE': source_dmerge,
         'P2P': source_s3
     }
-
-    return source_dispatch[protocol](out_meta)
+    out_dict = source_dispatch[protocol](out_meta)
+    out_dict['profile']['source']['stage_time'] = sum(out_dict['profile']['source'].values())
+    return out_dict
 
 
 def pca(meta):
     local_data_path = '/tmp/digits.txt'
+    start_time = cur_tick_ms()
 
     def execute_body(train_data):
         train_labels = train_data[:, 0]
@@ -143,6 +173,76 @@ def pca(meta):
         }
         return out_meta
 
+    def pca_dmerge(_meta, data):
+        out_meta = dict(_meta)
+        target_id = _meta['obj_hash']['train_data']
+        route = _meta['route']
+        gid, mac_id, hint, nic_id = route['gid'], route['machine_id'], \
+            route['hint'], route['nic_id']
+        pull_start_time = cur_tick_ms()
+
+        sd = sopen()
+        util.pull(sd, gid, mac_id, hint, nic_id, need_connect=True)
+        obj = util.fetch(target_id)
+        data = np.array(obj)
+
+        pull_time = cur_tick_ms() - pull_start_time
+
+        execute_start_time = cur_tick_ms()
+        vectors, first_n_A_label = execute_body(data)
+        execute_time = cur_tick_ms() - execute_start_time
+
+        push_start_time = cur_tick_ms()
+        addr = int(os.environ.get('BASE_HEX', '100000000'), 16)
+        vectors_li, first_n_A_label_li = vectors.tolist(), first_n_A_label.tolist()
+        global_obj['vectors'] = vectors_li
+        global_obj['first_n_A_label'] = first_n_A_label_li
+
+        nic_idx = 0
+
+        gid, mac_id, hint = util.push(sd=sd, nic_id=nic_idx, peak_addr=addr)
+        push_time = cur_tick_ms() - push_start_time
+
+        vectors_obj_id = id(global_obj["vectors"])
+        first_n_A_label_obj_id = id(global_obj["first_n_A_label"])
+        current_app.logger.debug(f'gid is {gid} ,'
+                                f'vectors_obj_id is {vectors_obj_id} ,'
+                                f'first_n_A_label_obj_id is {first_n_A_label_obj_id} ,'
+                                f'hint is {hint} ,'
+                                f'mac id {mac_id} ,'
+                                f'base addr in {hex(addr)}')
+
+        np.save("/tmp/vectors_pca.txt", vectors)
+        np.savetxt("/tmp/Digits_Train_Transform.txt", first_n_A_label, delimiter="\t")
+        s3_client.fput_object(bucket_name, 'ML_Pipeline/vectors_pca.txt', '/tmp/vectors_pca.txt.npy')
+        s3_client.fput_object(bucket_name, 'ML_Pipeline/train_pca_transform_2.txt',
+                              '/tmp/Digits_Train_Transform.txt')
+        out_meta['s3_obj_key'] = 'ML_Pipeline/train_pca_transform_2.txt'
+
+        nt_time = start_time - _meta['profile']['leave_tick']
+        out_meta['obj_hash'] = {
+            'vectors': vectors_obj_id,
+            'first_n_A_label': first_n_A_label_obj_id
+        }
+        out_meta['route'] = {
+            'gid': gid,
+            'machine_id': mac_id,
+            'nic_id': nic_idx,
+            'hint': hint
+        }
+        # out_meta['s3_obj_key'] = 'ML_Pipeline/train_pca_transform_2.txt'
+        out_meta['profile'].update({
+            'pca': {
+                'execute_time': execute_time,
+                'pull_time': pull_time,
+                'push_time': push_time,
+                'nt_time': nt_time
+            },
+            'leave_tick': cur_tick_ms()
+        })
+        current_app.logger.debug(f'DMERGE profile: {out_meta}')
+        return out_meta
+
     def post_handle(returnedDic):
         mapper_num = int(returnedDic['trainer_num'])
         list_hyper_params = []
@@ -182,9 +282,9 @@ def pca(meta):
         current_app.logger.debug(f"PCA post_handle meta: {returnedDic}")
         return returnedDic
 
-    start_time = cur_tick_ms()
     pca_dispatcher = {
-        'S3': pca_s3
+        'S3': pca_s3,
+        'DMERGE': pca_dmerge
     }
     dispatch_key = meta['features']['protocol']
     returnedDic = pca_dispatcher[dispatch_key](meta, None)
@@ -200,6 +300,7 @@ def pca(meta):
 
 def trainer(meta):
     start_time = cur_tick_ms()
+    nt_time = start_time - meta['profile']['leave_tick']
 
     def train_tree(t_index, X_train, y_train, event, num_of_trees, max_depth, feature_fraction, return_dict, runs,
                    process_dict, upload_dict):
@@ -256,7 +357,6 @@ def trainer(meta):
         }
 
     def execute_body(event, train_data):
-        tick_start = cur_tick_ms()
         y_train = train_data[0:5000, 0]
         X_train = train_data[0:5000, 1:train_data.shape[1]]
         manager = Manager()
@@ -291,7 +391,6 @@ def trainer(meta):
         s3_time = 0
         sd_time = 0
         exe_time = 0
-        nt_time = start_time - out_meta['profile']['leave_tick']
 
         tick = cur_tick_ms()
         filename = "/tmp/Digits_Train_Transform.txt"
@@ -322,8 +421,45 @@ def trainer(meta):
         current_app.logger.debug(f"Inner Trainer s3 with meta: {out_meta}")
         return out_meta
 
+    def trainer_dmerge(meta, _data):
+        out_meta = dict(meta)
+        id = int(os.environ.get("ID"))
+        event = meta['detail']['indeces'][int(id)]
+
+        route = meta['route']
+        gid, mac_id, hint, nic_id = route['gid'], route['machine_id'], \
+            route['hint'], route['nic_id']
+        current_app.logger.info(f"trainer dmerge meta is {meta}")
+        # # Pull
+        # pull_start_time = cur_tick_ms()
+        # sd = sopen()
+        # util.pull(sd, gid, mac_id, hint, nic_id, need_connect=True)
+        # train_data = util.fetch(meta['obj_hash']['first_n_A_label'])
+        # current_app.logger.info(f"data len is {len(train_data)}")
+        # train_data = np.array(train_data)
+        # pull_time = cur_tick_ms() - pull_start_time
+        # Execute
+        return_dict, execute_body_time, upload_time = execute_body(event, train_data)
+        exe_time = execute_body_time
+        s3_time = upload_time
+
+        out_meta.update({
+            'statusCode': 200,
+            'trees_max_depthes': return_dict.keys(),
+            'accuracies': return_dict.values(),
+        })
+        out_meta['profile']['train'] = {
+            'execute_time': exe_time,
+            's3_time': s3_time,
+            # 'pull_time': pull_time,
+            'nt_time': nt_time,
+        }
+        out_meta.pop('detail')
+        current_app.logger.debug(f"Inner Trainer s3 with meta: {out_meta}")
+
     trainer_dispatcher = {
-        'S3': trainer_s3
+        'S3': trainer_s3,
+        'DMERGE': trainer_s3
     }
 
     dispatch_key = meta['features']['protocol']
@@ -357,7 +493,8 @@ def combinemodels(metas):
 
     event = metas[-1]
     combine_models_dispatcher = {
-        'S3': combine_models_s3
+        'S3': combine_models_s3,
+        'DMERGE': combine_models_s3
     }
     dispatch_key = event['features']['protocol']
     out_dict = combine_models_dispatcher[dispatch_key](metas, None)
