@@ -349,6 +349,8 @@ def trainer(meta):
         num_of_trees = event['num_of_trees']
         depthes = event['max_depth']
         feature_fractions = event['feature_fraction']
+        current_app.logger.debug(f"Ready to start {num_of_trees} processes. Meta is {event}")
+
         for runs in range(len(num_of_trees)):
             # Use multiple processes to train trees in parallel
             threads = event['threads']
@@ -414,23 +416,22 @@ def trainer(meta):
         # # Pull
         pull_start_time = cur_tick_ms()
         util.pull(mac_id, hint)
-        train_data = util.fetch(meta['obj_hash']['first_n_A_label'])
-
-        current_app.logger.info(f"data len is {len(train_data)}. ")
+        data = util.fetch(meta['obj_hash']['first_n_A_label'])
+        train_data = np.array(data)
         pull_time = cur_tick_ms() - pull_start_time
         # Execute
-        # return_dict, execute_body_time, upload_time = execute_body(event, train_data)
-        # exe_time = execute_body_time
-        # s3_time = upload_time
+        return_dict, execute_body_time, upload_time = execute_body(event, train_data)
+        exe_time = execute_body_time
+        s3_time = upload_time
 
         out_meta.update({
             'statusCode': 200,
-            # 'trees_max_depthes': return_dict.keys(),
-            # 'accuracies': return_dict.values(),
+            'trees_max_depthes': return_dict.keys(),
+            'accuracies': return_dict.values(),
         })
         out_meta['profile']['train'] = {
-            # 'execute_time': exe_time,
-            # 's3_time': s3_time,
+            'execute_time': exe_time,
+            's3_time': s3_time,
             'pull_time': pull_time,
             'nt_time': nt_time,
         }

@@ -3,9 +3,9 @@ kind: ConfigMap
 metadata:
   name: knative-configmap
 data:
-  protocol: "DMERGE"
-#  protocol: "S3"
-  trainerNum: "1"
+#  protocol: "DMERGE"
+  protocol: "S3"
+  trainerNum: "8"
   logLevel: "INFO"
   heapSizeHex: "40000000"
 ---
@@ -139,7 +139,7 @@ spec:
                   name: knative-configmap
                   key: logLevel
             - name: BASE_HEX
-              value: "250000000"
+              value: "180000000"
             - name: TOTAL_SZ_HEX
               valueFrom:
                 configMapKeyRef:
@@ -153,313 +153,313 @@ spec:
                   name: knative-configmap
                   key: protocol
 ---
-#apiVersion: serving.knative.dev/v1
-#kind: Service
-#metadata:
-#  name: trainer-1
-#  namespace: default
-#spec:
-#  template:
-#    metadata:
-#      annotations:
-#        autoscaling.knative.dev/min-scale: "1"
-#    spec:
-#      containers:
-#        - name: dmerge-ml-pipeline
-#          image: val01:5000/dmerge-ml-pipeline
-#          imagePullPolicy: Always
-#          resources:
-#            limits:
-#              hostdev.k8s.io/dev_mitosis-syscalls: 1
-#          env:
-#            - name: CE_SPECVERSION
-#              value: "0.3"
-#            - name: CE_TYPE
-#              value: "trainer"
-#            - name: ID
-#              value: "1"
-#            - name: UPSTREAM_NUM
-#              value: "1"
-#            - name: LOG_LEVEL
-#              value: "INFO"
-#            - name: BASE_HEX
-#              value: "2A0000000"
-#            - name: TOTAL_SZ_HEX
-#              valueFrom:
-#                configMapKeyRef:
-#                  name: knative-configmap
-#                  key: heapSizeHex
-#            - name: LD_PRELOAD
-#              value: "/usr/local/share/libmalloc_wrapper.so"
-#            - name: PROTOCOL
-#              valueFrom:
-#                configMapKeyRef:
-#                  name: knative-configmap
-#                  key: protocol
-#---
-#apiVersion: serving.knative.dev/v1
-#kind: Service
-#metadata:
-#  name: trainer-2
-#  namespace: default
-#spec:
-#  template:
-#    metadata:
-#      annotations:
-#        autoscaling.knative.dev/min-scale: "1"
-#    spec:
-#      containers:
-#        - name: dmerge-ml-pipeline
-#          image: val01:5000/dmerge-ml-pipeline
-#          imagePullPolicy: Always
-#          resources:
-#            limits:
-#              hostdev.k8s.io/dev_mitosis-syscalls: 1
-#          env:
-#            - name: CE_SPECVERSION
-#              value: "0.3"
-#            - name: CE_TYPE
-#              value: "trainer"
-#            - name: ID
-#              value: "2"
-#            - name: UPSTREAM_NUM
-#              value: "1"
-#            - name: LOG_LEVEL
-#              value: "INFO"
-#            - name: BASE_HEX
-#              value: "2F0000000"
-#            - name: TOTAL_SZ_HEX
-#              valueFrom:
-#                configMapKeyRef:
-#                  name: knative-configmap
-#                  key: heapSizeHex
-#            - name: LD_PRELOAD
-#              value: "/usr/local/share/libmalloc_wrapper.so"
-#            - name: PROTOCOL
-#              valueFrom:
-#                configMapKeyRef:
-#                  name: knative-configmap
-#                  key: protocol
-#---
-#apiVersion: serving.knative.dev/v1
-#kind: Service
-#metadata:
-#  name: trainer-3
-#  namespace: default
-#spec:
-#  template:
-#    metadata:
-#      annotations:
-#        autoscaling.knative.dev/min-scale: "1"
-#    spec:
-#      containers:
-#        - name: dmerge-ml-pipeline
-#          image: val01:5000/dmerge-ml-pipeline
-#          imagePullPolicy: Always
-#          resources:
-#            limits:
-#              hostdev.k8s.io/dev_mitosis-syscalls: 1
-#          env:
-#            - name: CE_SPECVERSION
-#              value: "0.3"
-#            - name: CE_TYPE
-#              value: "trainer"
-#            - name: ID
-#              value: "3"
-#            - name: UPSTREAM_NUM
-#              value: "1"
-#            - name: LOG_LEVEL
-#              value: "INFO"
-#            - name: BASE_HEX
-#              value: "340000000"
-#            - name: TOTAL_SZ_HEX
-#              valueFrom:
-#                configMapKeyRef:
-#                  name: knative-configmap
-#                  key: heapSizeHex
-#            - name: LD_PRELOAD
-#              value: "/usr/local/share/libmalloc_wrapper.so"
-#            - name: PROTOCOL
-#              valueFrom:
-#                configMapKeyRef:
-#                  name: knative-configmap
-#                  key: protocol
-#---
-#apiVersion: serving.knative.dev/v1
-#kind: Service
-#metadata:
-#  name: trainer-4
-#  namespace: default
-#spec:
-#  template:
-#    metadata:
-#      annotations:
-#        autoscaling.knative.dev/min-scale: "1"
-#    spec:
-#      containers:
-#        - name: dmerge-ml-pipeline
-#          image: val01:5000/dmerge-ml-pipeline
-#          imagePullPolicy: Always
-#          resources:
-#            limits:
-#              hostdev.k8s.io/dev_mitosis-syscalls: 1
-#          env:
-#            - name: CE_SPECVERSION
-#              value: "0.3"
-#            - name: CE_TYPE
-#              value: "trainer"
-#            - name: ID
-#              value: "4"
-#            - name: UPSTREAM_NUM
-#              value: "1"
-#            - name: LOG_LEVEL
-#              value: "INFO"
-#            - name: BASE_HEX
-#              value: "390000000"
-#            - name: TOTAL_SZ_HEX
-#              valueFrom:
-#                configMapKeyRef:
-#                  name: knative-configmap
-#                  key: heapSizeHex
-#            - name: LD_PRELOAD
-#              value: "/usr/local/share/libmalloc_wrapper.so"
-#            - name: PROTOCOL
-#              valueFrom:
-#                configMapKeyRef:
-#                  name: knative-configmap
-#                  key: protocol
-#---
-#apiVersion: serving.knative.dev/v1
-#kind: Service
-#metadata:
-#  name: trainer-5
-#  namespace: default
-#spec:
-#  template:
-#    metadata:
-#      annotations:
-#        autoscaling.knative.dev/min-scale: "1"
-#    spec:
-#      containers:
-#        - name: dmerge-ml-pipeline
-#          image: val01:5000/dmerge-ml-pipeline
-#          imagePullPolicy: Always
-#          resources:
-#            limits:
-#              hostdev.k8s.io/dev_mitosis-syscalls: 1
-#          env:
-#            - name: CE_SPECVERSION
-#              value: "0.3"
-#            - name: CE_TYPE
-#              value: "trainer"
-#            - name: ID
-#              value: "3"
-#            - name: UPSTREAM_NUM
-#              value: "5"
-#            - name: LOG_LEVEL
-#              value: "INFO"
-#            - name: BASE_HEX
-#              value: "3E0000000"
-#            - name: TOTAL_SZ_HEX
-#              valueFrom:
-#                configMapKeyRef:
-#                  name: knative-configmap
-#                  key: heapSizeHex
-#            - name: LD_PRELOAD
-#              value: "/usr/local/share/libmalloc_wrapper.so"
-#            - name: PROTOCOL
-#              valueFrom:
-#                configMapKeyRef:
-#                  name: knative-configmap
-#                  key: protocol
-#---
-#apiVersion: serving.knative.dev/v1
-#kind: Service
-#metadata:
-#  name: trainer-6
-#  namespace: default
-#spec:
-#  template:
-#    metadata:
-#      annotations:
-#        autoscaling.knative.dev/min-scale: "1"
-#    spec:
-#      containers:
-#        - name: dmerge-ml-pipeline
-#          image: val01:5000/dmerge-ml-pipeline
-#          imagePullPolicy: Always
-#          resources:
-#            limits:
-#              hostdev.k8s.io/dev_mitosis-syscalls: 1
-#          env:
-#            - name: CE_SPECVERSION
-#              value: "0.3"
-#            - name: CE_TYPE
-#              value: "trainer"
-#            - name: ID
-#              value: "6"
-#            - name: UPSTREAM_NUM
-#              value: "1"
-#            - name: LOG_LEVEL
-#              value: "INFO"
-#            - name: BASE_HEX
-#              value: "430000000"
-#            - name: TOTAL_SZ_HEX
-#              valueFrom:
-#                configMapKeyRef:
-#                  name: knative-configmap
-#                  key: heapSizeHex
-#            - name: LD_PRELOAD
-#              value: "/usr/local/share/libmalloc_wrapper.so"
-#            - name: PROTOCOL
-#              valueFrom:
-#                configMapKeyRef:
-#                  name: knative-configmap
-#                  key: protocol
-#---
-#apiVersion: serving.knative.dev/v1
-#kind: Service
-#metadata:
-#  name: trainer-7
-#  namespace: default
-#spec:
-#  template:
-#    metadata:
-#      annotations:
-#        autoscaling.knative.dev/min-scale: "1"
-#    spec:
-#      containers:
-#        - name: dmerge-ml-pipeline
-#          image: val01:5000/dmerge-ml-pipeline
-#          imagePullPolicy: Always
-#          resources:
-#            limits:
-#              hostdev.k8s.io/dev_mitosis-syscalls: 1
-#          env:
-#            - name: CE_SPECVERSION
-#              value: "0.3"
-#            - name: CE_TYPE
-#              value: "trainer"
-#            - name: ID
-#              value: "7"
-#            - name: UPSTREAM_NUM
-#              value: "1"
-#            - name: LOG_LEVEL
-#              value: "INFO"
-#            - name: BASE_HEX
-#              value: "340000000"
-#            - name: TOTAL_SZ_HEX
-#              valueFrom:
-#                configMapKeyRef:
-#                  name: knative-configmap
-#                  key: heapSizeHex
-#            - name: LD_PRELOAD
-#              value: "/usr/local/share/libmalloc_wrapper.so"
-#            - name: PROTOCOL
-#              valueFrom:
-#                configMapKeyRef:
-#                  name: knative-configmap
-#                  key: protocol
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: trainer-1
+  namespace: default
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/min-scale: "1"
+    spec:
+      containers:
+        - name: dmerge-ml-pipeline
+          image: val01:5000/dmerge-ml-pipeline
+          imagePullPolicy: Always
+          resources:
+            limits:
+              hostdev.k8s.io/dev_mitosis-syscalls: 1
+          env:
+            - name: CE_SPECVERSION
+              value: "0.3"
+            - name: CE_TYPE
+              value: "trainer"
+            - name: ID
+              value: "1"
+            - name: UPSTREAM_NUM
+              value: "1"
+            - name: LOG_LEVEL
+              value: "INFO"
+            - name: BASE_HEX
+              value: "2A0000000"
+            - name: TOTAL_SZ_HEX
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: heapSizeHex
+            - name: LD_PRELOAD
+              value: "/usr/local/share/libmalloc_wrapper.so"
+            - name: PROTOCOL
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: protocol
+---
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: trainer-2
+  namespace: default
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/min-scale: "1"
+    spec:
+      containers:
+        - name: dmerge-ml-pipeline
+          image: val01:5000/dmerge-ml-pipeline
+          imagePullPolicy: Always
+          resources:
+            limits:
+              hostdev.k8s.io/dev_mitosis-syscalls: 1
+          env:
+            - name: CE_SPECVERSION
+              value: "0.3"
+            - name: CE_TYPE
+              value: "trainer"
+            - name: ID
+              value: "2"
+            - name: UPSTREAM_NUM
+              value: "1"
+            - name: LOG_LEVEL
+              value: "INFO"
+            - name: BASE_HEX
+              value: "2F0000000"
+            - name: TOTAL_SZ_HEX
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: heapSizeHex
+            - name: LD_PRELOAD
+              value: "/usr/local/share/libmalloc_wrapper.so"
+            - name: PROTOCOL
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: protocol
+---
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: trainer-3
+  namespace: default
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/min-scale: "1"
+    spec:
+      containers:
+        - name: dmerge-ml-pipeline
+          image: val01:5000/dmerge-ml-pipeline
+          imagePullPolicy: Always
+          resources:
+            limits:
+              hostdev.k8s.io/dev_mitosis-syscalls: 1
+          env:
+            - name: CE_SPECVERSION
+              value: "0.3"
+            - name: CE_TYPE
+              value: "trainer"
+            - name: ID
+              value: "3"
+            - name: UPSTREAM_NUM
+              value: "1"
+            - name: LOG_LEVEL
+              value: "INFO"
+            - name: BASE_HEX
+              value: "340000000"
+            - name: TOTAL_SZ_HEX
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: heapSizeHex
+            - name: LD_PRELOAD
+              value: "/usr/local/share/libmalloc_wrapper.so"
+            - name: PROTOCOL
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: protocol
+---
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: trainer-4
+  namespace: default
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/min-scale: "1"
+    spec:
+      containers:
+        - name: dmerge-ml-pipeline
+          image: val01:5000/dmerge-ml-pipeline
+          imagePullPolicy: Always
+          resources:
+            limits:
+              hostdev.k8s.io/dev_mitosis-syscalls: 1
+          env:
+            - name: CE_SPECVERSION
+              value: "0.3"
+            - name: CE_TYPE
+              value: "trainer"
+            - name: ID
+              value: "4"
+            - name: UPSTREAM_NUM
+              value: "1"
+            - name: LOG_LEVEL
+              value: "INFO"
+            - name: BASE_HEX
+              value: "390000000"
+            - name: TOTAL_SZ_HEX
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: heapSizeHex
+            - name: LD_PRELOAD
+              value: "/usr/local/share/libmalloc_wrapper.so"
+            - name: PROTOCOL
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: protocol
+---
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: trainer-5
+  namespace: default
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/min-scale: "1"
+    spec:
+      containers:
+        - name: dmerge-ml-pipeline
+          image: val01:5000/dmerge-ml-pipeline
+          imagePullPolicy: Always
+          resources:
+            limits:
+              hostdev.k8s.io/dev_mitosis-syscalls: 1
+          env:
+            - name: CE_SPECVERSION
+              value: "0.3"
+            - name: CE_TYPE
+              value: "trainer"
+            - name: ID
+              value: "3"
+            - name: UPSTREAM_NUM
+              value: "5"
+            - name: LOG_LEVEL
+              value: "INFO"
+            - name: BASE_HEX
+              value: "3E0000000"
+            - name: TOTAL_SZ_HEX
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: heapSizeHex
+            - name: LD_PRELOAD
+              value: "/usr/local/share/libmalloc_wrapper.so"
+            - name: PROTOCOL
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: protocol
+---
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: trainer-6
+  namespace: default
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/min-scale: "1"
+    spec:
+      containers:
+        - name: dmerge-ml-pipeline
+          image: val01:5000/dmerge-ml-pipeline
+          imagePullPolicy: Always
+          resources:
+            limits:
+              hostdev.k8s.io/dev_mitosis-syscalls: 1
+          env:
+            - name: CE_SPECVERSION
+              value: "0.3"
+            - name: CE_TYPE
+              value: "trainer"
+            - name: ID
+              value: "6"
+            - name: UPSTREAM_NUM
+              value: "1"
+            - name: LOG_LEVEL
+              value: "INFO"
+            - name: BASE_HEX
+              value: "430000000"
+            - name: TOTAL_SZ_HEX
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: heapSizeHex
+            - name: LD_PRELOAD
+              value: "/usr/local/share/libmalloc_wrapper.so"
+            - name: PROTOCOL
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: protocol
+---
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: trainer-7
+  namespace: default
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/min-scale: "1"
+    spec:
+      containers:
+        - name: dmerge-ml-pipeline
+          image: val01:5000/dmerge-ml-pipeline
+          imagePullPolicy: Always
+          resources:
+            limits:
+              hostdev.k8s.io/dev_mitosis-syscalls: 1
+          env:
+            - name: CE_SPECVERSION
+              value: "0.3"
+            - name: CE_TYPE
+              value: "trainer"
+            - name: ID
+              value: "7"
+            - name: UPSTREAM_NUM
+              value: "1"
+            - name: LOG_LEVEL
+              value: "INFO"
+            - name: BASE_HEX
+              value: "540000000"
+            - name: TOTAL_SZ_HEX
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: heapSizeHex
+            - name: LD_PRELOAD
+              value: "/usr/local/share/libmalloc_wrapper.so"
+            - name: PROTOCOL
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: protocol
 
 ---
 apiVersion: serving.knative.dev/v1
@@ -579,42 +579,42 @@ spec:
           apiVersion: serving.knative.dev/v1
           kind: Service
           name: trainer-0
-#    - subscriber:
-#        ref:
-#          apiVersion: serving.knative.dev/v1
-#          kind: Service
-#          name: trainer-1
-#    - subscriber:
-#        ref:
-#          apiVersion: serving.knative.dev/v1
-#          kind: Service
-#          name: trainer-2
-#    - subscriber:
-#        ref:
-#          apiVersion: serving.knative.dev/v1
-#          kind: Service
-#          name: trainer-3
-#    - subscriber:
-#        ref:
-#          apiVersion: serving.knative.dev/v1
-#          kind: Service
-#          name: trainer-4
-#    - subscriber:
-#        ref:
-#          apiVersion: serving.knative.dev/v1
-#          kind: Service
-#          name: trainer-5
-#
-#    - subscriber:
-#        ref:
-#          apiVersion: serving.knative.dev/v1
-#          kind: Service
-#          name: trainer-6
-#    - subscriber:
-#        ref:
-#          apiVersion: serving.knative.dev/v1
-#          kind: Service
-#          name: trainer-7
+    - subscriber:
+        ref:
+          apiVersion: serving.knative.dev/v1
+          kind: Service
+          name: trainer-1
+    - subscriber:
+        ref:
+          apiVersion: serving.knative.dev/v1
+          kind: Service
+          name: trainer-2
+    - subscriber:
+        ref:
+          apiVersion: serving.knative.dev/v1
+          kind: Service
+          name: trainer-3
+    - subscriber:
+        ref:
+          apiVersion: serving.knative.dev/v1
+          kind: Service
+          name: trainer-4
+    - subscriber:
+        ref:
+          apiVersion: serving.knative.dev/v1
+          kind: Service
+          name: trainer-5
+
+    - subscriber:
+        ref:
+          apiVersion: serving.knative.dev/v1
+          kind: Service
+          name: trainer-6
+    - subscriber:
+        ref:
+          apiVersion: serving.knative.dev/v1
+          kind: Service
+          name: trainer-7
   reply:
     ref:
       apiVersion: flows.knative.dev/v1
