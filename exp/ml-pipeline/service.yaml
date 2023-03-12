@@ -46,7 +46,7 @@ spec:
                   name: knative-configmap
                   key: trainerNum
             - name: BASE_HEX
-              value: "200000000"
+              value: "100000000"
             - name: TOTAL_SZ_HEX
               valueFrom:
                 configMapKeyRef:
@@ -92,7 +92,7 @@ spec:
                   name: knative-configmap
                   key: logLevel
             - name: BASE_HEX
-              value: "240000000"
+              value: "140000000"
             - name: TOTAL_SZ_HEX
               valueFrom:
                 configMapKeyRef:
