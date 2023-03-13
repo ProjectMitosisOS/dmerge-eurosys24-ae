@@ -151,7 +151,7 @@ def pca(meta):
         np.save("/tmp/vectors_pca.txt", vectors)
         np.savetxt("/tmp/Digits_Train_Transform.txt", first_n_A_label, delimiter="\t")
         sd_time += cur_tick_ms() - tick
-
+        nt_time = start_time - _meta['profile']['leave_tick']
         # dump to s3
         tick = cur_tick_ms()
         s3_client.fput_object(bucket_name, 'ML_Pipeline/vectors_pca.txt', '/tmp/vectors_pca.txt.npy')
@@ -163,7 +163,8 @@ def pca(meta):
         out_meta['profile']['pca'] = {
             'execute_time': execute_time,
             'sd_time': sd_time,
-            's3_time': s3_time
+            's3_time': s3_time,
+            'nt_time': nt_time
         }
         return out_meta
 
