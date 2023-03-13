@@ -1,7 +1,0 @@
-version: '3.1'
-services:
-  tmp:
-    image: val01:5000/dmerge-ml-pipeline
-    container_name: tmp
-volumes:
-  minio-data:

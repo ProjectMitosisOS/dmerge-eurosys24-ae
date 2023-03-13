@@ -8,8 +8,9 @@ import numpy as np
 from flask import current_app
 from minio import Minio
 from numpy.linalg import eig
+
 import util
-from util import cur_tick_ms, fill_gid
+from util import cur_tick_ms
 
 global_obj = {}
 
@@ -37,77 +38,20 @@ def read_lines(path):
 
 def source(meta):
     data_path = 'dataset/Digits_Train.txt'
+    s3_object_key = 'digits'
     out_meta = {
         'statusCode': 200,
         'wf_id': str(uuid.uuid4()),
         'trainer_num': int(os.environ.get('TRAINER_NUM', 4)),
+        'profile': {},
+        's3_obj_key': s3_object_key
     }
-
-    def source_s3(meta):
-        s3_object_key = 'digits'
-        tick = cur_tick_ms()
-        s3_client.fput_object(bucket_name, s3_object_key, data_path)
-        s3_time = cur_tick_ms() - tick
-        meta['s3_obj_key'] = s3_object_key
-        meta['profile'] = {
-            'source': {
-                's3_time': s3_time,
-            },
-            'leave_tick': cur_tick_ms(),
-        }
-        return meta
-
-    def source_dmerge(meta):
-        tick = cur_tick_ms()
-        train_data = np.genfromtxt(data_path, delimiter='\t')
-        train_data_li = train_data.tolist()
-        execute_time = cur_tick_ms() - tick
-        addr = int(os.environ.get('BASE_HEX', '100000000'), 16)
-        out_meta = dict(meta)
-
-        push_start_time = cur_tick_ms()
-        global_obj['train_data'] = train_data_li
-        nic_idx = 0
-        gid, mac_id, hint = util.push(nic_id=nic_idx, peak_addr=addr)
-        push_time = cur_tick_ms() - push_start_time
-
-        obj_id = id(global_obj["train_data"])
-        current_app.logger.debug(f'gid is {gid} ,'
-                                 f'ObjectID is {obj_id} ,'
-                                 f'hint is {hint} ,'
-                                 f'mac id {mac_id} ,'
-                                 f'base addr in {hex(addr)}')
-        out_meta['profile'] = {
-            'source': {
-                'execute_time': execute_time,
-                'push_time': push_time,
-            },
-            'leave_tick': cur_tick_ms()
-        }
-        out_meta['obj_hash'] = {
-            'train_data': obj_id
-        }
-        out_meta['route'] = {
-            'gid': gid,
-            'machine_id': mac_id,
-            'nic_id': nic_idx,
-            'hint': hint
-        }
-        return out_meta
-
-    source_dispatch = {
-        'S3': source_s3,
-        'DMERGE': source_dmerge,
-        'P2P': source_s3
-    }
-    out_dict = source_dispatch[util.PROTOCOL](out_meta)
-    out_dict['profile']['source']['stage_time'] = sum(out_dict['profile']['source'].values())
-    return out_dict
+    s3_client.fput_object(bucket_name, s3_object_key, data_path)
+    return out_meta
 
 
 def pca(meta):
     local_data_path = '/tmp/digits.txt'
-    start_time = cur_tick_ms()
 
     def execute_body(train_data):
         train_labels = train_data[:, 0]
@@ -127,63 +71,38 @@ def pca(meta):
         first_n_A_label = np.concatenate((train_labels, first_n_A), axis=1)
         return vectors, first_n_A_label
 
-    def pca_s3(_meta, data):
-        execute_time = 0
-        sd_time = 0
-        s3_time = 0
-
+    def pca_s3(_meta, train_data):
         out_meta = dict(_meta)
-        s3_obj = meta['s3_obj_key']
-        tick = cur_tick_ms()
-        s3_client.fget_object(bucket_name, s3_obj, local_data_path)  # download all
-        s3_time += cur_tick_ms() - tick
-
-        tick = cur_tick_ms()
-        train_data = np.genfromtxt(local_data_path, delimiter='\t')
-        sd_time += cur_tick_ms() - tick
 
         # Execute
         tick = cur_tick_ms()
         vectors, first_n_A_label = execute_body(train_data)
-        execute_time += cur_tick_ms() - tick
+        execute_time = cur_tick_ms() - tick
         # Deserialize
         tick = cur_tick_ms()
         np.save("/tmp/vectors_pca.txt", vectors)
         np.savetxt("/tmp/Digits_Train_Transform.txt", first_n_A_label, delimiter="\t")
-        sd_time += cur_tick_ms() - tick
-        nt_time = start_time - _meta['profile']['leave_tick']
+        sd_time = cur_tick_ms() - tick
         # dump to s3
         tick = cur_tick_ms()
         s3_client.fput_object(bucket_name, 'ML_Pipeline/vectors_pca.txt', '/tmp/vectors_pca.txt.npy')
         s3_client.fput_object(bucket_name, 'ML_Pipeline/train_pca_transform_2.txt',
                               '/tmp/Digits_Train_Transform.txt')
-        s3_time += cur_tick_ms() - tick
+        s3_time = cur_tick_ms() - tick
 
         out_meta['s3_obj_key'] = 'ML_Pipeline/train_pca_transform_2.txt'
         out_meta['profile']['pca'] = {
             'execute_time': execute_time,
             'sd_time': sd_time,
             's3_time': s3_time,
-            'nt_time': nt_time
         }
         return out_meta
 
-    def pca_dmerge(_meta, data):
+    def pca_dmerge(_meta, train_data):
         out_meta = dict(_meta)
-        target_id = _meta['obj_hash']['train_data']
-        route = _meta['route']
-        gid, mac_id, hint, nic_id = route['gid'], route['machine_id'], \
-            route['hint'], route['nic_id']
-        pull_start_time = cur_tick_ms()
-
-        util.pull(mac_id, hint)
-        obj = util.fetch(target_id)
-
-        pull_time = cur_tick_ms() - pull_start_time
 
         execute_start_time = cur_tick_ms()
-        data = np.array(obj)
-        vectors, first_n_A_label = execute_body(data)
+        vectors, first_n_A_label = execute_body(train_data)
         execute_time = cur_tick_ms() - execute_start_time
 
         push_start_time = cur_tick_ms()
@@ -203,7 +122,6 @@ def pca(meta):
                                 f'mac id {mac_id} ,'
                                 f'base addr in {hex(addr)}')
 
-        nt_time = start_time - _meta['profile']['leave_tick']
         out_meta['obj_hash'] = {
             'first_n_A_label': first_n_A_label_obj_id,
         }
@@ -217,9 +135,7 @@ def pca(meta):
         out_meta['profile'].update({
             'pca': {
                 'execute_time': execute_time,
-                'pull_time': pull_time,
                 'push_time': push_time,
-                'nt_time': nt_time
             },
             'leave_tick': cur_tick_ms()
         })
@@ -232,7 +148,7 @@ def pca(meta):
 
         for feature_fraction in [0.25, 0.5, 0.75, 0.95]:
             max_depth = 10
-            for num_of_trees in [5, 10, 15, 20]:
+            for num_of_trees in [5, 6, 7, 8]:
                 list_hyper_params.append((num_of_trees, max_depth, feature_fraction))
 
         returnedDic["detail"] = {
@@ -255,7 +171,7 @@ def pca(meta):
                 num_bundles += 1
                 j = {"mod_index": num_bundles,
                      "key1": "inv_300", "num_of_trees": num_of_trees, "max_depth": max_depth,
-                     "feature_fraction": feature_fraction, "threads": 6, "start_tick": start_time,
+                     "feature_fraction": feature_fraction, "threads": 6,
                      "leave_tick": cur_tick_ms()}
                 num_of_trees = []
                 max_depth = []
@@ -265,17 +181,21 @@ def pca(meta):
         current_app.logger.debug(f"PCA post_handle meta: {returnedDic}")
         return returnedDic
 
+    s3_obj = meta['s3_obj_key']
+    s3_client.fget_object(bucket_name, s3_obj, local_data_path)  # download all
+    train_data = np.genfromtxt(local_data_path, delimiter='\t')
+
+    meta['profile']['wf_start_tick'] = cur_tick_ms()
+
     pca_dispatcher = {
         'S3': pca_s3,
         'DMERGE': pca_dmerge
     }
     dispatch_key = util.PROTOCOL
-    returnedDic = pca_dispatcher[dispatch_key](meta, None)
+    returnedDic = pca_dispatcher[dispatch_key](meta, train_data)
     out_dict = post_handle(returnedDic)
-    end_time = cur_tick_ms()
     out_dict['profile'].update({
-        'wf_start_tick': start_time,
-        'leave_tick': end_time,
+        'leave_tick': cur_tick_ms(),
     })
     out_dict['profile']['pca']['stage_time'] = sum(out_dict['profile']['pca'].values())
     return out_dict
@@ -419,7 +339,6 @@ def trainer(meta):
         data = util.fetch(meta['obj_hash']['first_n_A_label'])
         pull_time = cur_tick_ms() - pull_start_time
         # Execute
-        tick = cur_tick_ms()
         train_data = np.array(data)
         exe_time = 0
         return_dict, execute_body_time, upload_time = execute_body(event, train_data)
@@ -456,13 +375,13 @@ def trainer(meta):
 def combinemodels(metas):
     start_time = cur_tick_ms()
 
-    def combine_models_s3(_metas, data):
+    def combine_models_s3(_metas):
         out_meta = _metas[-1]
         prev_leave_tick = out_meta['profile']['leave_tick']
 
-        for event in _metas:
-            # TODO: Finish reduce
-            pass
+        # for event in _metas:
+        #     TODO: Finish reduce
+            # pass
 
         out_meta['profile'].update({
             'combinemodels': {
@@ -470,40 +389,33 @@ def combinemodels(metas):
             },
         })
         for i, meta in enumerate(_metas):
-            current_app.logger.info(f"@{i} Inner combine_models s3 with meta: {meta}")
-        # TODO: aggregate the result
+            current_app.logger.info(f"@{i} Inner combine_models s3 with Profile: {meta['profile']}")
         return out_meta
 
-    event = metas[-1]
     combine_models_dispatcher = {
         'S3': combine_models_s3,
         'DMERGE': combine_models_s3
     }
-    out_dict = combine_models_dispatcher[util.PROTOCOL](metas, None)
+    out_dict = combine_models_dispatcher[util.PROTOCOL](metas)
+    out_dict['profile']['wf_e2e_time'] = \
+        cur_tick_ms() - out_dict['profile']['wf_start_tick']
     out_dict['profile']['combinemodels']['stage_time'] = \
         sum(out_dict['profile']['combinemodels'].values())
     return out_dict
 
 
 def sink(meta):
-    def calculate_time(profile):
-        total_time = 0
-        remove_keys = set()
-        for stage in profile:
-            value = profile[stage]
-            if type(value) == dict:
-                total_time += value.get('stage_time', 0)
-            else:
-                remove_keys.add(stage)
-        for st in remove_keys:
-            profile.pop(st)
-        return total_time
+    profile = meta['profile']
+    e2e_time = meta['profile']['wf_e2e_time']
 
-    total_time = calculate_time(meta['profile'])
-    meta['profile'].update({
-        'wf_e2e_time': total_time,
-    })
+    remove_set = set()
+    for k in profile.keys():
+        if not isinstance(profile[k], dict):
+            remove_set.add(k)
+    for k in remove_set:
+        profile.pop(k)
     current_app.logger.info(f"Profile result: {meta['profile']}")
+    current_app.logger.info(f"E2E time: {e2e_time}")
     return {
         'data': meta
     }
