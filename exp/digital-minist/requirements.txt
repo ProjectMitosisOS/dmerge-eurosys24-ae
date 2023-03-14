@@ -1,0 +1,9 @@
+Flask==2.0.3
+requests
+cloudevents
+redis
+numpy
+lightgbm==2.0.7
+minio
+tensorflow==2.4.0
+keras==2.4.3
