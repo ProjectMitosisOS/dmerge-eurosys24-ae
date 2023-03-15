@@ -5,7 +5,7 @@ import numpy as np
 from bindings import *
 from flask import current_app
 from minio import Minio
-
+import lightgbm as lgb
 import util
 from util import cur_tick_ms
 
@@ -29,6 +29,15 @@ if not s3_client.bucket_exists(bucket_name):
 def read_lines(path):
     with open(path) as f:
         return f.readlines()
+
+
+def accuracy_score(y_true, y_pred):
+    correct = 0
+    for i in range(len(y_true)):
+        if y_true[i] == y_pred[i]:
+            correct += 1
+    accuracy = correct / len(y_true)
+    return accuracy
 
 
 def fill_gid(gid):
@@ -56,7 +65,7 @@ def splitter(meta):
         sd_time = 0
         store_path = '/tmp/test_data_'
         out_dict = dict(meta)
-        out_dict['s3_obj_key'] = {}
+        out_dict['s3_obj_key_data'] = {}
         for i, data in enumerate(split_arr):
             tick = cur_tick_ms()
             path = store_path + str(i)
@@ -66,7 +75,7 @@ def splitter(meta):
 
             tick = cur_tick_ms()
             s3_client.fput_object(bucket_name, obj_key, path)
-            out_dict['s3_obj_key'][str(i)] = obj_key
+            out_dict['s3_obj_key_data'][str(i)] = obj_key
             s3_time += cur_tick_ms() - tick
         out_dict['profile']['splitter'] = {
             's3_time': s3_time,
@@ -125,10 +134,12 @@ def predict(meta):
     start_tick = cur_tick_ms()
 
     def execute_body(data):
-        y_test = data[:, 0]
+        # y_test = data[:, 0]
         x_test = data[:, 1:data.shape[1]]
-        np.savetxt("/tmp/target.txt", data, delimiter='\t')
-        return []
+        model = lgb.Booster(model_file='mnist_model.txt')
+        y_pred = model.predict(x_test)
+        y_pred = [np.argmax(line) for line in y_pred]
+        return y_pred
 
     def predict_s3(_meta):
         current_app.logger.info(f"meta in predict s3: {_meta}")
@@ -136,7 +147,7 @@ def predict(meta):
         tick = cur_tick_ms()
         ID = os.environ.get('ID', 0)
         path = '/tmp/digits_' + str(ID) + '.txt'
-        s3_obj = _meta['s3_obj_key'][str(ID)]
+        s3_obj = _meta['s3_obj_key_data'][str(ID)]
         s3_client.fget_object(bucket_name, s3_obj, path)  # download all
         s3_time = cur_tick_ms() - tick
 
@@ -145,10 +156,22 @@ def predict(meta):
         sd_time = cur_tick_ms() - tick
 
         tick = cur_tick_ms()
-        score = execute_body(data)
+        y_pred = execute_body(data)
         execute_time = cur_tick_ms() - tick
 
-        out_dict['score'] = score
+        tick = cur_tick_ms()
+        pred_saved_path = "/tmp/pred.txt"
+        np.savetxt(pred_saved_path, y_pred, delimiter='\t')
+        sd_time += cur_tick_ms() - tick
+
+        tick = cur_tick_ms()
+        pred_obj_key = 'y_pred_' + str(ID)
+        s3_client.fput_object(bucket_name, pred_obj_key, pred_saved_path)
+        s3_time += cur_tick_ms() - tick
+        out_dict['s3_obj_key_pred'] = {
+            'ID': str(ID),
+            str(ID): pred_obj_key
+        }
         out_dict['profile'].update({
             'predict': {
                 'execute_time': execute_time,
@@ -199,10 +222,40 @@ def predict(meta):
 
 
 def combine(metas):
-    tick = cur_tick_ms()
+    def combine_s3(event):
+        tick = cur_tick_ms()
+        ID = event['s3_obj_key_pred']['ID']
+        path = '/tmp/digits_' + str(ID) + '.txt'
+        s3_obj = event['s3_obj_key_pred'][str(ID)]
+        s3_client.fget_object(bucket_name, s3_obj, path)  # download all
+        s3_time = cur_tick_ms() - tick
+
+        tick = cur_tick_ms()
+        pred_data = np.genfromtxt(path, delimiter='\t')
+        sd_time = cur_tick_ms() - tick
+
+        out_dict = dict(event)
+        out_dict['pred'] = pred_data
+        out_dict['profile']['combine'] = {
+            's3_time': s3_time,
+            'sd_time': sd_time
+        }
+        return out_dict
+
+    combine_dispatcher = {
+        'S3': combine_s3,
+        'DMERGE': combine_s3,
+        'P2P': combine_s3
+    }
+    wf_e2e_time = 0
     for i, event in enumerate(metas):
-        event['profile']['wf_e2e_time'] = tick - event['profile']['wf_start_tick']
-        current_app.logger.info(f"event@{i} profile: {event['profile']}")
+        dispatch_key = event['features']['protocol']
+        out_dict = combine_dispatcher[dispatch_key](event)
+        out_dict['profile']['combine']['stage_time'] = sum(out_dict['profile']['combine'].values())
+        wf_e2e_time = max(wf_e2e_time, cur_tick_ms() - event['profile']['wf_start_tick'])
+        current_app.logger.info(f"event@{i} profile: {out_dict['profile']}")
+    current_app.logger.info(f"workflow e2e time: {wf_e2e_time}")
+
     return {}
 
 
