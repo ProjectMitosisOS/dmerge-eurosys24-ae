@@ -87,7 +87,6 @@ def splitter(meta):
         global_obj['train_data'] = {}
         out_dict = dict(meta)
         out_dict['obj_hash'] = {}
-        push_time = 0
         addr = int(os.environ.get('BASE_HEX', '100000000'), 16)
         push_start_time = cur_tick_ms()
         nic_idx = 0
@@ -97,7 +96,7 @@ def splitter(meta):
             out_dict['obj_hash'][str(i)] = id(global_obj[str(i)])
 
         gid, mac_id, hint = util.push(nic_id=nic_idx, peak_addr=addr)
-        push_time += cur_tick_ms() - push_start_time
+        push_time = cur_tick_ms() - push_start_time
         out_dict['route'] = {
             'gid': gid,
             'machine_id': mac_id,
@@ -157,6 +156,7 @@ def predict(meta):
 
         tick = cur_tick_ms()
         y_pred = execute_body(data)
+        y_pred = [line.tolist() for line in y_pred]
         execute_time = cur_tick_ms() - tick
 
         tick = cur_tick_ms()
@@ -196,14 +196,31 @@ def predict(meta):
 
         tick = cur_tick_ms()
         test_data = np.array(data)
-        score = execute_body(test_data)
+        pred_y = execute_body(test_data)
         execute_time = cur_tick_ms() - tick
+        current_app.logger.info(f"pred y finish. len {len(pred_y)}")
+        push_start_time = 0
+        nic_idx = 0
+        addr = int(os.environ.get('BASE_HEX', '100000000'), 16)
+        global_obj[str(ID)] = pred_y
+        out_dict['obj_hash'] = {}
+        out_dict['obj_hash'][str(ID)] = id(global_obj[str(ID)])
+        gid, mac_id, hint = util.push(nic_id=nic_idx, peak_addr=addr)
+        push_time = cur_tick_ms() - push_start_time
 
-        out_dict['score'] = score
+        out_dict['route'] = {
+            'gid': gid,
+            'machine_id': mac_id,
+            'nic_id': nic_idx,
+            'hint': hint
+        }
+        current_app.logger.info(f"route@{ID}: {out_dict['route']}")
+        out_dict['ID'] = str(ID)
         out_dict['profile'].update({
             'predict': {
                 'execute_time': execute_time,
                 'pull_time': pull_time,
+                'push_time': push_time,
                 'nt_time': start_tick - _meta['profile']['leave_tick']
             }
         })
@@ -242,9 +259,30 @@ def combine(metas):
         }
         return out_dict
 
+    def combine_dmerge(event):
+        out_dict = dict(event)
+
+        tick = cur_tick_ms()
+        ID = event['ID']
+        route = event['route']
+        gid, mac_id, hint, nic_id = route['gid'], route['machine_id'], \
+            route['hint'], route['nic_id']
+        current_app.logger.info(f"Ready to pull: mac id: {mac_id} ,"
+                                f"hint: {hint} ,"
+                                f"ID: {ID}")
+        util.pull(mac_id, hint)
+        # data = util.fetch(event['obj_hash'][str(ID)])
+        pull_time = cur_tick_ms() - tick
+
+        # out_dict['pred'] = data  # TODO: merge result
+        out_dict['profile']['combine'] = {
+            'pull_time': pull_time,
+        }
+        return out_dict
+
     combine_dispatcher = {
         'S3': combine_s3,
-        'DMERGE': combine_s3,
+        'DMERGE': combine_dmerge,
         'P2P': combine_s3
     }
     wf_e2e_time = 0
@@ -254,6 +292,7 @@ def combine(metas):
         out_dict['profile']['combine']['stage_time'] = sum(out_dict['profile']['combine'].values())
         wf_e2e_time = max(wf_e2e_time, cur_tick_ms() - event['profile']['wf_start_tick'])
         current_app.logger.info(f"event@{i} profile: {out_dict['profile']}")
+        break
     current_app.logger.info(f"workflow e2e time: {wf_e2e_time}")
 
     return {}
