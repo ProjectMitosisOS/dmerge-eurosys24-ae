@@ -1,7 +1,6 @@
 from cloudevents.http import from_http, CloudEvent
 from flask import Flask, request, make_response
 
-import util
 from functions import *
 
 app = Flask(__name__)

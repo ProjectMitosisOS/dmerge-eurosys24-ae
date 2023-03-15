@@ -26,6 +26,11 @@ if connect:
 # obj = np.array([[1, 2, 3], [4, 5, 6]])
 # print(id_deref(id(obj), type(obj)))
 
-res = call_pull(sd=sd, hint=heap_hint, machine_id=0)
+res = call_pull(sd=sd, hint=1, machine_id=0)
+print(f'finish pull {1}')
+
 arr = id_deref(addr, None)
 print(arr)
+# #
+# arr = id_deref(4299386224, None)
+# print(arr)

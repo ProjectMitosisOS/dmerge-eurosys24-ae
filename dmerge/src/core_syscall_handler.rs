@@ -1,6 +1,8 @@
 use alloc::string::String;
+use alloc::vec::Vec;
 use core::intrinsics::size_of;
 use core::mem::size_of_val;
+use mitosis::kern_wrappers::mm::VirtAddrType;
 use crate::descriptors::heap::HeapDescriptor;
 use crate::KRdmaKit::rust_kernel_rdma_base::linux_kernel_module::c_types::*;
 use crate::KRdmaKit::rust_kernel_rdma_base::linux_kernel_module::KernelResult;
@@ -41,14 +43,14 @@ struct HeapDataStruct {
 struct CallerData {
     // whether pin itself after close the fd
     ping_data: bool,
-    heaps: Option<HeapDataStruct>,
+    heaps: Vec<HeapDataStruct>,
 }
 
 impl Default for CallerData {
     fn default() -> Self {
         Self {
             ping_data: false,
-            heaps: None,
+            heaps: Vec::new(),
         }
     }
 }
@@ -276,6 +278,7 @@ impl DmergeSyscallHandler {
                         crate::log::debug!("sanity check query descriptor result {:?}", d);
                         if !d.ready {
                             crate::log::error!("failed to lookup handler id: {:?}", handler_id);
+                            unsafe { crate::global_locks::get_ref()[cpu_id].unlock() };
                             return -1;
                         }
                         let desc_buf = remote_descriptor_fetch(d, caller, remote_session_id);
@@ -283,11 +286,13 @@ impl DmergeSyscallHandler {
                         crate::log::debug!("sanity check fetched desc_buf {:?}", desc_buf.is_ok());
                         if desc_buf.is_err() {
                             crate::log::error!("failed to fetch descriptor {:?}", desc_buf.err());
+                            unsafe { crate::global_locks::get_ref()[cpu_id].unlock() };
                             return -1;
                         }
                         let des = HeapDescriptor::deserialize(desc_buf.unwrap().get_bytes());
                         if des.is_none() {
                             crate::log::error!("failed to deserialize the heap descriptor");
+                            unsafe { crate::global_locks::get_ref()[cpu_id].unlock() };
                             return -1;
                         }
                         let mut des = des.unwrap();
@@ -295,19 +300,27 @@ impl DmergeSyscallHandler {
                         let access_info = AccessInfo::new(&des.machine_info);
                         if access_info.is_none() {
                             crate::log::error!("failed to create access info");
+                            unsafe { crate::global_locks::get_ref()[cpu_id].unlock() };
                             return -1;
                         }
                         des.apply_to(self.file);
-                        self.caller_status.heaps = Some(HeapDataStruct {
+                        self.caller_status.heaps.push(HeapDataStruct {
                             id: handler_id as _,
                             descriptor: des,
                             access_info: access_info.unwrap(),
                         });
+                        // self.caller_status.heaps = Some(HeapDataStruct {
+                        //     id: handler_id as _,
+                        //     descriptor: des,
+                        //     access_info: access_info.unwrap(),
+                        // });
+                        unsafe { crate::global_locks::get_ref()[cpu_id].unlock() };
                         return 0;
                     }
 
                     None => {
                         crate::log::error!("Deserialize error");
+                        unsafe { crate::global_locks::get_ref()[cpu_id].unlock() };
                         return -1;
                     }
                 }
@@ -363,22 +376,32 @@ impl DmergeSyscallHandler {
     #[inline(always)]
     unsafe fn handle_page_fault(&mut self, vmf: *mut mitosis::bindings::vm_fault) -> c_int {
         let fault_addr = (*vmf).address;
-        let heap = self.caller_status.heaps.as_mut().unwrap();
-
-        let new_page = if let Some(_pa) =
-            heap.descriptor.lookup_pg_table(fault_addr) {
-            let access_info = AccessInfo::new(&heap.descriptor.machine_info);
-            if access_info.is_none() {
-                crate::log::error!("failed to create access info");
-                None
+        let heaps = &mut self.caller_status.heaps;
+        crate::log::debug!("in page fault. heap len {}", heaps.len());
+        let mut new_page: Option<*mut mitosis::bindings::page> = None;
+        for heap in heaps {
+            let cur_page = if let Some(_pa) =
+                heap.descriptor.lookup_pg_table(fault_addr) {
+                let access_info = AccessInfo::new(&heap.descriptor.machine_info);
+                if access_info.is_none() {
+                    crate::log::error!("failed to create access info");
+                    None
+                } else {
+                    heap.descriptor.read_remote_page(fault_addr,
+                                                     access_info.as_ref().unwrap())
+                }
             } else {
-                heap.descriptor.read_remote_page(fault_addr,
-                                                 access_info.as_ref().unwrap())
+                None
+            };
+            if cur_page.is_some() {
+                new_page = cur_page;
+                break;
             }
-        } else {
-            crate::log::error!("Not find page for fault_addr 0x{:x}", fault_addr);
-            None
-        };
+        }
+        if new_page.is_none() {
+            crate::log::error!("Can not find page for fault_addr");
+        }
+
 
         match new_page {
             Some(new_page_p) => {

@@ -1,8 +1,0 @@
-apiVersion: v1
-kind: Pod
-metadata:
-  name: tmp
-spec:
-  containers:
-    - name: dmerge-ml-pipeline
-      image: val01:5000/dmerge-ml-pipeline
