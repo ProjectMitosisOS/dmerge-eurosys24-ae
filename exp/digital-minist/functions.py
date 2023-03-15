@@ -267,14 +267,14 @@ def combine(metas):
         route = event['route']
         gid, mac_id, hint, nic_id = route['gid'], route['machine_id'], \
             route['hint'], route['nic_id']
-        current_app.logger.info(f"Ready to pull: mac id: {mac_id} ,"
-                                f"hint: {hint} ,"
-                                f"ID: {ID}")
+        current_app.logger.debug(f"Ready to pull: mac id: {mac_id} ,"
+                                 f"hint: {hint} ,"
+                                 f"ID: {ID}")
         util.pull(mac_id, hint)
-        # data = util.fetch(event['obj_hash'][str(ID)])
+        data = util.fetch(event['obj_hash'][str(ID)])
         pull_time = cur_tick_ms() - tick
 
-        # out_dict['pred'] = data  # TODO: merge result
+        out_dict['pred'] = data  # TODO: merge result
         out_dict['profile']['combine'] = {
             'pull_time': pull_time,
         }
@@ -292,7 +292,6 @@ def combine(metas):
         out_dict['profile']['combine']['stage_time'] = sum(out_dict['profile']['combine'].values())
         wf_e2e_time = max(wf_e2e_time, cur_tick_ms() - event['profile']['wf_start_tick'])
         current_app.logger.info(f"event@{i} profile: {out_dict['profile']}")
-        break
     current_app.logger.info(f"workflow e2e time: {wf_e2e_time}")
 
     return {}
