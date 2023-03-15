@@ -1,40 +1,46 @@
-from keras.models import Sequential
-from keras.layers import Dense, Dropout, Flatten
-from keras.layers.convolutional import Conv2D, MaxPooling2D
-from keras.utils import np_utils
-from keras.datasets import mnist
+# 导入所需的库和数据集
+import lightgbm as lgb
+from sklearn.datasets import load_digits
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score
 
-# Load the MNIST dataset
-(X_train, y_train), (X_test, y_test) = mnist.load_data()
+digits = load_digits()
 
-# Normalize the input data
-X_train = X_train.astype('float32') / 255
-X_test = X_test.astype('float32') / 255
+# 将数据集分成训练集和测试集
+X_train, X_test, y_train, y_test = train_test_split(digits.data, digits.target, test_size=0.2)
 
-# Reshape the input data to 4D (batch_size, height, width, channels)
-X_train = X_train.reshape(X_train.shape[0], 28, 28, 1)
-X_test = X_test.reshape(X_test.shape[0], 28, 28, 1)
+# 将数据集转换为LightGBM所需的格式
+train_data = lgb.Dataset(X_train, label=y_train)
+test_data = lgb.Dataset(X_test, label=y_test)
 
-# One-hot encode the target variable
-y_train = np_utils.to_categorical(y_train)
-y_test = np_utils.to_categorical(y_test)
+# 设置LightGBM的参数
+params = {
+    'boosting_type': 'gbdt',
+    'objective': 'multiclass',
+    'num_class': 10,
+    'metric': 'multi_logloss',
+    'num_leaves': 31,
+    'learning_rate': 0.05,
+    'feature_fraction': 0.9
+}
 
-# Define the model architecture
-model = Sequential()
-model.add(Conv2D(32, (3, 3), input_shape=(28, 28, 1), activation='relu'))
-model.add(MaxPooling2D(pool_size=(2, 2)))
-model.add(Flatten())
-model.add(Dense(128, activation='relu'))
-model.add(Dropout(0.5))
-model.add(Dense(10, activation='softmax'))
+# 训练模型
+model = lgb.train(params, train_data, valid_sets=[train_data, test_data],
+                  num_boost_round=10, early_stopping_rounds=10)
 
-# Compile the model
-model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
+# 保存模型
+model.save_model('mnist_model.txt')
 
-# Fit the model to the training data
-model.fit(X_train, y_train, validation_data=(X_test, y_test), epochs=10, batch_size=200)
+# 加载模型
+model = lgb.Booster(model_file='mnist_model.txt')
 
-# Evaluate the model on the test data
-scores = model.evaluate(X_test, y_test, verbose=0)
-model.save('cnn.h5')
-print("Accuracy: %.2f%%" % (scores[1]*100))
+# 在测试集上进行预测
+y_pred = model.predict(X_test)
+y_pred = [list(x).index(max(x)) for x in y_pred]  # 将预测的概率转换为类别
+
+# 输出预测结果
+print(y_pred)
+
+# 计算预测的正确率
+accuracy = accuracy_score(y_test, y_pred)
+print('Accuracy:', accuracy)

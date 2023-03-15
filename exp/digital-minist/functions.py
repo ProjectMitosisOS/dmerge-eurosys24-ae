@@ -1,13 +1,10 @@
 import os
 import uuid
 
-import keras
 import numpy as np
 from bindings import *
 from flask import current_app
 from minio import Minio
-from keras.models import load_model
-from numpy.linalg import eig
 
 import util
 from util import cur_tick_ms
