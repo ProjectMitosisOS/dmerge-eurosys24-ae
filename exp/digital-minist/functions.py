@@ -199,7 +199,7 @@ def predict(meta):
         pred_y = execute_body(test_data)
         execute_time = cur_tick_ms() - tick
         current_app.logger.info(f"pred y finish. len {len(pred_y)}")
-        push_start_time = 0
+        push_start_time = cur_tick_ms()
         nic_idx = 0
         addr = int(os.environ.get('BASE_HEX', '100000000'), 16)
         global_obj[str(ID)] = pred_y
@@ -291,9 +291,28 @@ def combine(metas):
         out_dict = combine_dispatcher[dispatch_key](event)
         out_dict['profile']['combine']['stage_time'] = sum(out_dict['profile']['combine'].values())
         wf_e2e_time = max(wf_e2e_time, cur_tick_ms() - event['profile']['wf_start_tick'])
-        current_app.logger.info(f"event@{i} profile: {out_dict['profile']}")
+        current_app.logger.debug(f"event@{i} profile: {out_dict['profile']}")
     current_app.logger.info(f"workflow e2e time: {wf_e2e_time}")
+    # Compute mean of the times:
 
+    profile_len = len(metas)
+    profile = metas[0]['profile']
+    rm_keys = set()
+    for event in metas[1:]:
+        for stage, detail in event['profile'].items():
+            if isinstance(detail, dict):
+                for category, time_span in detail.items():
+                    profile[stage][category] += time_span
+            else:
+                rm_keys.add(stage)
+    for s in rm_keys:
+        profile.pop(s)
+    for stage, detail in profile.items():
+        if isinstance(detail, dict):
+            for category, time_span in detail.items():
+                profile[stage][category] /= profile_len
+
+    current_app.logger.info(f"Profile for each stage: {profile}")
     return {}
 
 
