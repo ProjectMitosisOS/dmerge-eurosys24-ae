@@ -20,6 +20,7 @@ bucket_name = 'finra'
 if not s3_client.bucket_exists(bucket_name):
     s3_client.make_bucket(bucket_name)
 
+touch_ratio = 0.02
 
 def read_lines(path):
     with open(path) as f:
@@ -48,14 +49,14 @@ def source(_meta):
     protocol = util.PROTOCOL
 
     out_dict = {}
-    # s3_obj_key = 'yfinance.csv'
-    # s3_client.fput_object(bucket_name, s3_obj_key, 'yfinance.csv')
+    s3_obj_key = 'yfinance.csv'
+    s3_client.fput_object(bucket_name, s3_obj_key, 'yfinance.csv')
 
     wf_start_tick = cur_tick_ms()
 
     out_dict.update({
         'wf_id': str(uuid.uuid4()),
-        # 's3_obj_key': s3_obj_key,
+        's3_obj_key': s3_obj_key,
         'features': {'protocol': protocol},
         'profile': {
             'leave_tick': cur_tick_ms(),
@@ -79,20 +80,19 @@ def fetchData(meta):
         :param meta:
         :return:
         """
-        # tick = cur_tick_ms()
-        local_file_path = './yfinance.csv'
+        # download
+        tick = cur_tick_ms()
+        local_file_path = '/tmp/yfinance.csv'
         protocol = meta['features']['protocol']
-        # s3_obj_key = meta['s3_obj_key']
-        # s3_client.fget_object(bucket_name, s3_obj_key, local_file_path)
+        s3_obj_key = meta['s3_obj_key']
+        s3_client.fget_object(bucket_name, s3_obj_key, local_file_path)
         # s3_time = cur_tick_ms() - tick
 
         portfolioType = meta['body']['portfolioType']
         tickers_for_portfolio_types = {'S&P': ['GOOG', 'AMZN', 'MSFT', 'SVFAU', 'AB', 'ABC', 'ABCB']}
         tickers = tickers_for_portfolio_types[portfolioType]
 
-        # Execute
         prices = {}
-        tick = cur_tick_ms()
         whole_set = pd.read_csv(local_file_path)
         for ticker in tickers:
             # Get last closing price
@@ -100,8 +100,7 @@ def fetchData(meta):
 
         out_meta = dict(meta)
 
-        local_file_name = 'whole_data.npy'
-        wholeset_matrix = np.array(whole_set)
+        local_file_name = 'whole_data.csv'
         execute_time = cur_tick_ms() - tick
 
         # Dump data
@@ -110,9 +109,10 @@ def fetchData(meta):
             'nt_time': nt_time
         }
 
-        def public_data_s3(meta, data):
+        def public_data_s3(meta, whole_set):
             tick = cur_tick_ms()
-            np.save(local_file_name, data)
+            first_n = int(len(whole_set) * touch_ratio)
+            whole_set.head(first_n).to_csv(local_file_name)
             sd_time = cur_tick_ms() - tick
 
             tick = cur_tick_ms()
@@ -126,7 +126,8 @@ def fetchData(meta):
 
         def public_data_dmerge(meta, data):
             tick = cur_tick_ms()
-            data_li = data.tolist()
+            np_arr = np.array(data)
+            data_li = np_arr[:int(len(np_arr) * touch_ratio)].tolist()
             exec_time = cur_tick_ms() - tick
             tick = cur_tick_ms()
             global_obj['wholeset_matrix'] = data_li
@@ -152,7 +153,7 @@ def fetchData(meta):
             'DMERGE': public_data_dmerge,
             'P2P': public_data_s3
         }
-        public_data_dispatcher[protocol](out_meta, wholeset_matrix)
+        public_data_dispatcher[protocol](out_meta, whole_set)
         out_meta.update({
             'statusCode': 200,
             'body': {'marketData': prices},
@@ -253,17 +254,13 @@ def runAuditRule(events):
                 })
             else:
                 s3_obj_key = event['s3_obj_key']
-                local_path = 'tmp.npy'
+                local_path = 'tmp.csv'
                 s3_client.fget_object(bucket_name, s3_obj_key, local_path)
                 s3_time = cur_tick_ms() - tick
 
                 tick = cur_tick_ms()
-                data = np.load(local_path, allow_pickle=True)
+                whole_set = pd.read_csv(local_path)
                 sd_time = cur_tick_ms() - tick
-
-                tick = cur_tick_ms()
-                whole_set = pd.DataFrame(data, columns=finance_columns)
-                execute_time += cur_tick_ms() - tick
 
                 event['profile'].update({
                     stage_name: {
@@ -275,9 +272,7 @@ def runAuditRule(events):
         elif 'valid' in body:
             portfolio = event['body']['portfolio']
             valid_format = valid_format and body['valid']
-            event['profile'].update({
-                stage_name: {'nt_time': start_tick - event['profile']['leave_tick']}
-            })
+            event['profile'].update({stage_name: {}})
 
     tick = cur_tick_ms()
     portfolioData = util.portfolios[portfolio]
