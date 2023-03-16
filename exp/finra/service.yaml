@@ -3,8 +3,8 @@ kind: ConfigMap
 metadata:
   name: knative-configmap
 data:
-#  protocol: "DMERGE"
-  protocol: "S3"
+  protocol: "DMERGE"
+#  protocol: "S3"
   logLevel: "INFO"
   heapSizeHex: "40000000"
 ---
@@ -57,9 +57,9 @@ spec:
       containers:
         - name: dmerge-finra
           image: val01:5000/dmerge-finra
-#          resources:
-#            limits:
-#              hostdev.k8s.io/dev_mitosis-syscalls: 1
+          resources:
+            limits:
+              hostdev.k8s.io/dev_mitosis-syscalls: 1
           imagePullPolicy: Always
           env:
             - name: CE_SPECVERSION
@@ -80,8 +80,8 @@ spec:
                 configMapKeyRef:
                   name: knative-configmap
                   key: heapSizeHex
-#            - name: LD_PRELOAD
-#              value: "/usr/local/share/libmalloc_wrapper.so"
+            - name: LD_PRELOAD
+              value: "/usr/local/share/libmalloc_wrapper.so"
             - name: PROTOCOL
               valueFrom:
                 configMapKeyRef:
@@ -103,9 +103,9 @@ spec:
       containers:
         - name: dmerge-finra
           image: val01:5000/dmerge-finra
-          #          resources:
-          #            limits:
-          #              hostdev.k8s.io/dev_mitosis-syscalls: 1
+          resources:
+            limits:
+              hostdev.k8s.io/dev_mitosis-syscalls: 1
           imagePullPolicy: Always
           env:
             - name: CE_SPECVERSION
@@ -126,8 +126,8 @@ spec:
                 configMapKeyRef:
                   name: knative-configmap
                   key: heapSizeHex
-#            - name: LD_PRELOAD
-#              value: "/usr/local/share/libmalloc_wrapper.so"
+            - name: LD_PRELOAD
+              value: "/usr/local/share/libmalloc_wrapper.so"
             - name: PROTOCOL
               valueFrom:
                 configMapKeyRef:
@@ -149,9 +149,9 @@ spec:
       containers:
         - name: dmerge-finra
           image: val01:5000/dmerge-finra
-          #          resources:
-          #            limits:
-          #              hostdev.k8s.io/dev_mitosis-syscalls: 1
+          resources:
+            limits:
+              hostdev.k8s.io/dev_mitosis-syscalls: 1
           imagePullPolicy: Always
           env:
             - name: CE_SPECVERSION
@@ -174,8 +174,8 @@ spec:
                 configMapKeyRef:
                   name: knative-configmap
                   key: heapSizeHex
-#            - name: LD_PRELOAD
-#              value: "/usr/local/share/libmalloc_wrapper.so"
+            - name: LD_PRELOAD
+              value: "/usr/local/share/libmalloc_wrapper.so"
             - name: PROTOCOL
               valueFrom:
                 configMapKeyRef:

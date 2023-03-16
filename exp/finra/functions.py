@@ -48,14 +48,14 @@ def source(_meta):
     protocol = util.PROTOCOL
 
     out_dict = {}
-    s3_obj_key = 'yfinance.csv'
-    s3_client.fput_object(bucket_name, s3_obj_key, 'yfinance.csv')
+    # s3_obj_key = 'yfinance.csv'
+    # s3_client.fput_object(bucket_name, s3_obj_key, 'yfinance.csv')
 
     wf_start_tick = cur_tick_ms()
 
     out_dict.update({
         'wf_id': str(uuid.uuid4()),
-        's3_obj_key': s3_obj_key,
+        # 's3_obj_key': s3_obj_key,
         'features': {'protocol': protocol},
         'profile': {
             'leave_tick': cur_tick_ms(),
@@ -79,23 +79,21 @@ def fetchData(meta):
         :param meta:
         :return:
         """
-        tick = cur_tick_ms()
-        local_file_path = '/tmp/yfinance.csv'
+        # tick = cur_tick_ms()
+        local_file_path = './yfinance.csv'
         protocol = meta['features']['protocol']
-        s3_obj_key = meta['s3_obj_key']
-        s3_client.fget_object(bucket_name, s3_obj_key, local_file_path)
-        s3_time = cur_tick_ms() - tick
+        # s3_obj_key = meta['s3_obj_key']
+        # s3_client.fget_object(bucket_name, s3_obj_key, local_file_path)
+        # s3_time = cur_tick_ms() - tick
 
         portfolioType = meta['body']['portfolioType']
         tickers_for_portfolio_types = {'S&P': ['GOOG', 'AMZN', 'MSFT', 'SVFAU', 'AB', 'ABC', 'ABCB']}
         tickers = tickers_for_portfolio_types[portfolioType]
 
+        # Execute
         prices = {}
         tick = cur_tick_ms()
         whole_set = pd.read_csv(local_file_path)
-        sd_time = cur_tick_ms() - tick
-        # Execute
-        tick = cur_tick_ms()
         for ticker in tickers:
             # Get last closing price
             prices[ticker] = whole_set['Close'].unique()[0]
@@ -109,8 +107,6 @@ def fetchData(meta):
         # Dump data
         out_meta['profile'][stage_name] = {
             'execute_time': execute_time,
-            'sd_time': sd_time,
-            's3_time': s3_time,
             'nt_time': nt_time
         }
 
@@ -123,13 +119,16 @@ def fetchData(meta):
             s3_obj_key = 'whole_data'
             s3_client.fput_object(bucket_name, s3_obj_key, local_file_name)
             s3_time = cur_tick_ms() - tick
-            meta['profile'][stage_name]['sd_time'] += sd_time
-            meta['profile'][stage_name]['s3_time'] += s3_time
+
+            meta['profile'][stage_name]['sd_time'] = sd_time
+            meta['profile'][stage_name]['s3_time'] = s3_time
             meta['s3_obj_key'] = s3_obj_key
 
         def public_data_dmerge(meta, data):
             tick = cur_tick_ms()
             data_li = data.tolist()
+            exec_time = cur_tick_ms() - tick
+            tick = cur_tick_ms()
             global_obj['wholeset_matrix'] = data_li
             meta['obj_hash'] = {
                 'wholeset_matrix': id(global_obj['wholeset_matrix'])
@@ -138,6 +137,7 @@ def fetchData(meta):
             addr = int(os.environ.get('BASE_HEX', '100000000'), 16)
             gid, mac_id, hint = util.push(nic_id=nic_idx, peak_addr=addr)
             push_time = cur_tick_ms() - tick
+
             meta['route'] = {
                 'gid': gid,
                 'machine_id': mac_id,
@@ -145,6 +145,7 @@ def fetchData(meta):
                 'hint': hint
             }
             meta['profile'][stage_name]['push_time'] = push_time
+            meta['profile'][stage_name]['execute_time'] += exec_time
 
         public_data_dispatcher = {
             'S3': public_data_s3,
@@ -191,6 +192,7 @@ def fetchData(meta):
     out_dict = fetch_datas[ID](meta)
     out_dict['profile']['leave_tick'] = cur_tick_ms()
     out_dict['profile'][stage_name]['stage_time'] = sum(out_dict['profile'][stage_name].values())
+    current_app.logger.info(f"FetchData out profile: {out_dict['profile']}")
     return out_dict
 
 
@@ -220,6 +222,7 @@ def runAuditRule(events):
     market_data = {}
     whole_set = {}
     valid_format = True
+    execute_time = 0
     finance_columns = ['Date', 'Open', 'High', 'Low', 'Close', 'Volume', 'Dividends',
                        'Stock Splits']
     for event in events:
@@ -229,22 +232,46 @@ def runAuditRule(events):
             tick = cur_tick_ms()
             market_data = body['marketData']
             # Get whole set
-            s3_obj_key = event['s3_obj_key']
-            local_path = 'tmp.npy'
-            s3_client.fget_object(bucket_name, s3_obj_key, local_path)
-            s3_time = cur_tick_ms() - tick
+            if protocol == 'DMERGE':
+                tick = cur_tick_ms()
+                route = event['route']
+                gid, mac_id, hint, nic_id = route['gid'], route['machine_id'], \
+                    route['hint'], route['nic_id']
+                util.pull(mac_id, hint)
+                data = util.fetch(event['obj_hash']['wholeset_matrix'])
+                pull_time = cur_tick_ms() - tick
 
-            tick = cur_tick_ms()
-            data = np.load(local_path, allow_pickle=True)
-            whole_set = pd.DataFrame(data, columns=finance_columns)
-            sd_time = cur_tick_ms() - tick
-            event['profile'].update({
-                stage_name: {
-                    's3_time': s3_time,
-                    'sd_time': sd_time,
-                    'nt_time': start_tick - event['profile']['leave_tick']
-                }
-            })
+                tick = cur_tick_ms()
+                data_np = np.array(data)
+                whole_set = pd.DataFrame(data_np, columns=finance_columns)
+                execute_time += cur_tick_ms() - tick
+                event['profile'].update({
+                    stage_name: {
+                        'pull_time': pull_time,
+                        'nt_time': start_tick - event['profile']['leave_tick']
+                    }
+                })
+            else:
+                s3_obj_key = event['s3_obj_key']
+                local_path = 'tmp.npy'
+                s3_client.fget_object(bucket_name, s3_obj_key, local_path)
+                s3_time = cur_tick_ms() - tick
+
+                tick = cur_tick_ms()
+                data = np.load(local_path, allow_pickle=True)
+                sd_time = cur_tick_ms() - tick
+
+                tick = cur_tick_ms()
+                whole_set = pd.DataFrame(data, columns=finance_columns)
+                execute_time += cur_tick_ms() - tick
+
+                event['profile'].update({
+                    stage_name: {
+                        's3_time': s3_time,
+                        'sd_time': sd_time,
+                        'nt_time': start_tick - event['profile']['leave_tick']
+                    }
+                })
         elif 'valid' in body:
             portfolio = event['body']['portfolio']
             valid_format = valid_format and body['valid']
@@ -259,7 +286,7 @@ def runAuditRule(events):
     sum_data = [whole_set[key] for key in finance_columns]
     std_data = [whole_set[key] for key in finance_columns]
     whole_data = [avg_data[0], sum_data[0], std_data[0]]
-    execute_time = cur_tick_ms() - tick
+    execute_time += cur_tick_ms() - tick
     for event in events:
         event['profile'][stage_name]['execute_time'] = execute_time
         event['profile'][stage_name]['stage_time'] = sum(event['profile'][stage_name].values())
