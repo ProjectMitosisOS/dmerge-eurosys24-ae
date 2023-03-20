@@ -107,7 +107,8 @@ impl mitosis::syscalls::FileOperations for DmergeSyscallHandler {
                     )
                 };
                 self.syscall_pull(req.heap_hint as _,
-                                  req.machine_id as _)
+                                  req.machine_id as _,
+                                  req.eager_fetch)
             }
             3 => {
                 /* connect */
@@ -240,7 +241,7 @@ impl DmergeSyscallHandler {
 
 
     // ioctrl-1
-    fn syscall_pull(&mut self, hander_id: usize, machine_id: usize) -> c_long {
+    fn syscall_pull(&mut self, hander_id: usize, machine_id: usize, eager_fetch: bool) -> c_long {
         let (handler_id, machine_id) = (hander_id, machine_id);
         let cpu_id = mitosis::get_calling_cpu_id();
 
@@ -328,7 +329,7 @@ impl DmergeSyscallHandler {
                             unsafe { crate::global_locks::get_ref()[cpu_id].unlock() };
                             return -1;
                         }
-                        des.apply_to(self.file);
+                        des.apply_to(self.file, eager_fetch);
                         self.caller_status.heaps.push(HeapDataStruct {
                             id: handler_id as _,
                             descriptor: des,

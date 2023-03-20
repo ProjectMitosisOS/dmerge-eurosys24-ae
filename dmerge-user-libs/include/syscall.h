@@ -23,9 +23,9 @@ call_register(int sd, unsigned long long peak_addr) {
 }
 
 
-static inline int
-call_pull(int sd, unsigned int hint, unsigned int machine_id) {
-    pull_req_t req = {.heap_hint = hint, .machine_id = machine_id};
+int
+call_pull(int sd, unsigned int hint, unsigned int machine_id, bool eager_fetch = false) {
+    pull_req_t req = {.heap_hint = hint, .machine_id = machine_id, .eager_fetch = eager_fetch};
     if (ioctl(sd, Pull, &req) == -1) {
         return -1;
     }

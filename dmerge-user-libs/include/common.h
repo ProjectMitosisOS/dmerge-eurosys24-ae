@@ -21,6 +21,7 @@ typedef struct {
 typedef struct {
     unsigned int heap_hint;
     unsigned int machine_id;
+    bool eager_fetch;
 } pull_req_t;
 
 typedef struct {
