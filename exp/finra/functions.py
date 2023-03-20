@@ -22,6 +22,7 @@ if not s3_client.bucket_exists(bucket_name):
 
 touch_ratio = 0.02
 
+
 def read_lines(path):
     with open(path) as f:
         return f.readlines()
@@ -86,7 +87,6 @@ def fetchData(meta):
         protocol = meta['features']['protocol']
         s3_obj_key = meta['s3_obj_key']
         s3_client.fget_object(bucket_name, s3_obj_key, local_file_path)
-        # s3_time = cur_tick_ms() - tick
 
         portfolioType = meta['body']['portfolioType']
         tickers_for_portfolio_types = {'S&P': ['GOOG', 'AMZN', 'MSFT', 'SVFAU', 'AB', 'ABC', 'ABCB']}
@@ -129,6 +129,7 @@ def fetchData(meta):
             np_arr = np.array(data)
             data_li = np_arr[:int(len(np_arr) * touch_ratio)].tolist()
             exec_time = cur_tick_ms() - tick
+
             tick = cur_tick_ms()
             global_obj['wholeset_matrix'] = data_li
             meta['obj_hash'] = {
