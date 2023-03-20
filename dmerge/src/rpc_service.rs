@@ -81,8 +81,11 @@ pub(crate) extern "C" fn worker(ctx: *mut c_void) -> c_int {
         .register(RPCId::Echo as _, handle_echo);
     rpc_server
         .get_mut_service()
-        .register(RPCId::Query as _, hanlde_query);
+        .register(RPCId::Query as _, handle_query);
 
+    rpc_server
+        .get_mut_service()
+        .register(RPCId::RemoteRegister as _, handle_remote_register);
     // register msg buffers
     // pre-most receive buffers
     for _ in 0..2048 {
@@ -142,6 +145,8 @@ pub mod rpc_handlers {
         Echo = 2,
         // Resume fork by fetching remote descriptor
         Query = 3,
+        // Call for remote register. Used for `Pull` based communication
+        RemoteRegister = 4,
     }
 
     #[derive(Debug, Default, Copy, Clone)]
@@ -163,7 +168,7 @@ pub mod rpc_handlers {
         64
     }
 
-    pub(crate) fn hanlde_query(input: &BytesMut, output: &mut BytesMut) -> usize {
+    pub(crate) fn handle_query(input: &BytesMut, output: &mut BytesMut) -> usize {
         let mut key: usize = 0;
 
         let heap_service = unsafe { crate::get_shs_mut() };
@@ -175,11 +180,11 @@ pub mod rpc_handlers {
             return 0;
         }
         let reply = match buf {
-            Some((addr,len)) => {
-                HeapDescriptorQueryReply{
+            Some((addr, len)) => {
+                HeapDescriptorQueryReply {
                     pa: addr.get_pa(),
                     sz: len,
-                    ready: true
+                    ready: true,
                 }
             }
             None => {
@@ -193,6 +198,90 @@ pub mod rpc_handlers {
         };
         reply.serialize(output);
         return reply.serialization_buf_len();
+    }
+
+    #[derive(Debug, Default, Copy, Clone)]
+    pub(crate) struct RegisterRemoteReq {
+        pub(crate) pa: u64,
+        pub(crate) sz: usize,
+        /* Original machine id of the actual heap */
+        pub(crate) source_machine_id: usize,
+        pub(crate) ready: bool,
+    }
+
+    #[derive(Debug, Default, Copy, Clone)]
+    pub(crate) struct RegisterRemoteReply {
+        pub(crate) heap_hint: isize,
+    }
+
+    impl mitosis::os_network::serialize::Serialize for RegisterRemoteReq {}
+
+    impl mitosis::os_network::serialize::Serialize for RegisterRemoteReply {}
+
+
+    pub(crate) fn handle_remote_register(input: &BytesMut, output: &mut BytesMut) -> usize {
+        let mut req: RegisterRemoteReq = Default::default();
+        unsafe { input.memcpy_deserialize(&mut req) };
+        // One-sided RDMA read to fetch heap descriptor and apply it.
+        let heap_hint = handle_remote_register_fetch_apply(&req);
+        if heap_hint < 0 {
+            return 0;
+        }
+        let reply = RegisterRemoteReply { heap_hint: heap_hint };
+        reply.serialize(output);
+        return reply.serialization_buf_len();
+    }
+
+    fn handle_remote_register_fetch_apply(register_remote_req: &RegisterRemoteReq) -> isize {
+        use crate::remote_descriptor_fetch;
+        use mitosis::os_network::bytes::ToBytes;
+        use mitosis::remote_paging::AccessInfo;
+        use crate::descriptors::heap::HeapDescriptor;
+        let cpu_id = mitosis::get_calling_cpu_id();
+        let source_machine_id = register_remote_req.source_machine_id;
+        unsafe { crate::global_locks::get_ref()[cpu_id].lock() };
+        let caller = unsafe {
+            mitosis::rpc_caller_pool::CallerPool::get_global_caller(cpu_id)
+                .expect("the caller should be properly initialized")
+        };
+        let remote_session_id = unsafe {
+            mitosis::startup::calculate_session_id(
+                source_machine_id as _,
+                cpu_id,
+                mitosis::get_max_caller_num(),
+            )
+        };
+        let (des_sz, des_pa) = (register_remote_req.sz, register_remote_req.pa);
+        let desc_buf = remote_descriptor_fetch(des_sz,
+                                               des_pa,
+                                               caller,
+                                               remote_session_id);
+
+        crate::log::debug!("sanity check fetched desc_buf {:?}", desc_buf.is_ok());
+        if desc_buf.is_err() {
+            crate::log::error!("failed to fetch descriptor {:?}", desc_buf.err());
+            unsafe { crate::global_locks::get_ref()[cpu_id].unlock() };
+
+            return -1;
+        }
+        let des = HeapDescriptor::deserialize(desc_buf.unwrap().get_bytes());
+        if des.is_none() {
+            crate::log::error!("failed to deserialize the heap descriptor");
+            unsafe { crate::global_locks::get_ref()[cpu_id].unlock() };
+            return -1;
+        }
+        let mut des = des.unwrap();
+
+        let access_info = AccessInfo::new(&des.machine_info);
+        if access_info.is_none() {
+            crate::log::error!("failed to create access info");
+            unsafe { crate::global_locks::get_ref()[cpu_id].unlock() };
+            return -1;
+        }
+        // TODO: apply to file. Where to store the `file` ?
+        // TODO: Walk all of the data for touch. Will it be so time consuming ?
+        unsafe { crate::global_locks::get_ref()[cpu_id].unlock() };
+        return 1048;
     }
 }
 

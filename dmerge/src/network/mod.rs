@@ -16,12 +16,13 @@ pub const TIMEOUT_USEC: i64 = 1000_000; // 1s
 
 #[inline]
 pub(crate) fn remote_descriptor_fetch(
-    d: HeapDescriptorQueryReply,
+    size: usize,
+    phy_start_addr:u64,
     caller: &mut UDCaller<'static>,
     session_id: usize,
 ) -> Result<RMemory, <os_network::rdma::dc::DCConn<'static> as Conn>::IOResult> {
 
-    let descriptor_buf = RMemory::new(d.sz, 0);
+    let descriptor_buf = RMemory::new(size, 0);
     let point = caller.get_ss(session_id).unwrap().0.get_ss_meta();
 
     let pool_idx = unsafe { mitosis::bindings::pmem_get_current_cpu() } as usize;
@@ -30,8 +31,8 @@ pub(crate) fn remote_descriptor_fetch(
 
     let mut payload = DCReqPayload::default()
         .set_laddr(descriptor_buf.get_pa())
-        .set_raddr(d.pa) // copy from src into dst
-        .set_sz(d.sz as _)
+        .set_raddr(phy_start_addr) // copy from src into dst
+        .set_sz(size as _)
         .set_lkey(*lkey)
         .set_rkey(point.mr.get_rkey())
         .set_send_flags(ib_send_flags::IB_SEND_SIGNALED)

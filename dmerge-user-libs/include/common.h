@@ -5,6 +5,7 @@ enum LibMITOSISCmd {
     Pull = 1,
     ConnectSession = 3,
     GetMacID = 4,
+    RegisterRemote = 5,
 };
 
 typedef struct {
@@ -27,3 +28,8 @@ typedef struct {
     const char *gid;
     size_t *machine_id;
 } get_mac_id_req_t;
+
+typedef struct {
+    unsigned long long heap_base;
+    unsigned int machine_id;    /* Remote machine id */
+} register_remote_req_t;

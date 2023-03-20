@@ -72,6 +72,12 @@ impl Default for ShadowHeapService {
     }
 }
 
+impl Drop for ShadowHeapService {
+    fn drop(&mut self) {
+        self.registered_heap.clear();
+    }
+}
+
 impl ShadowHeapService {
     pub fn query_descriptor_buf(&self, key: usize) -> core::option::Option<(&RMemory, usize)> {
         self.registered_heap

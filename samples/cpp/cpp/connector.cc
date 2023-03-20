@@ -4,7 +4,7 @@
 #include <iostream>
 
 
-DEFINE_string(gid, "fe80:0000:0000:0000:248a:0703:009c:7ca0", "connect gid");
+DEFINE_string(gid, "fe80:0000:0000:0000:ec0d:9a03:00c8:491c", "connect gid");
 
 DEFINE_int64(mac_id, 0, "machine id");
 DEFINE_int64(nic_id, 0, "nic idx. Should be align with gid");

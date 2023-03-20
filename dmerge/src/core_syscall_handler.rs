@@ -19,7 +19,7 @@ use mitosis::startup::probe_remote_rpc_end;
 use crate::KRdmaKit::net_util::gid_to_str;
 use crate::KRdmaKit::rust_kernel_rdma_base::linux_kernel_module::file_operations::{ReadFn, SeekFn, WriteFn};
 use crate::remote_descriptor_fetch;
-use crate::rpc_service::rpc_handlers::HeapDescriptorQueryReply;
+use crate::rpc_service::rpc_handlers::{HeapDescriptorQueryReply, RegisterRemoteReply, RegisterRemoteReq};
 
 const TIMEOUT_USEC: i64 = 1000_000; // 1s
 
@@ -141,6 +141,7 @@ impl mitosis::syscalls::FileOperations for DmergeSyscallHandler {
             }
 
             4 => {
+                /* Get gid and machine id */
                 use crate::bindings::get_mac_id_req_t;
                 use crate::mitosis::linux_kernel_module::bindings::{_copy_from_user, _copy_to_user};
                 let mut req: get_mac_id_req_t = Default::default();
@@ -175,6 +176,26 @@ impl mitosis::syscalls::FileOperations for DmergeSyscallHandler {
                     crate::log::error!("[get_mac_id] not found at nic idx: {}", nic_idx);
                     0
                 }
+            }
+            5 => {
+                /* Register to remote heap */
+                use crate::bindings::register_remote_req_t;
+                use crate::mitosis::linux_kernel_module::bindings::_copy_from_user;
+                let mut req: register_remote_req_t = Default::default();
+                unsafe {
+                    _copy_from_user(
+                        (&mut req as *mut register_remote_req_t).cast::<c_void>(),
+                        arg as *mut c_void,
+                        core::mem::size_of_val(&req) as u64,
+                    )
+                };
+                // return the remote heap hint ID
+                let tmp_hint = unsafe { crate::get_heap_id_generator_mut().alloc_one_id() };
+                let hint = self.syscall_register_remote_heap(
+                    req.heap_base as _,
+                    tmp_hint as _,
+                    req.machine_id as _);
+                hint as _
             }
             _ => {
                 -1
@@ -250,7 +271,7 @@ impl DmergeSyscallHandler {
         let res = caller.sync_call::<usize>(
             remote_session_id,
             my_session_id,
-            mitosis::rpc_handlers::RPCId::Query as _,
+            crate::rpc_service::rpc_handlers::RPCId::Query as _,
             handler_id as _,
         );
 
@@ -281,7 +302,11 @@ impl DmergeSyscallHandler {
                             unsafe { crate::global_locks::get_ref()[cpu_id].unlock() };
                             return -1;
                         }
-                        let desc_buf = remote_descriptor_fetch(d, caller, remote_session_id);
+                        let desc_buf = remote_descriptor_fetch(
+                            d.sz,
+                            d.pa,
+                            caller,
+                            remote_session_id);
 
                         crate::log::debug!("sanity check fetched desc_buf {:?}", desc_buf.is_ok());
                         if desc_buf.is_err() {
@@ -319,7 +344,7 @@ impl DmergeSyscallHandler {
                     }
 
                     None => {
-                        crate::log::error!("Deserialize error");
+                        crate::log::error!("Deserialize `HeapDescriptorQueryReply` error");
                         unsafe { crate::global_locks::get_ref()[cpu_id].unlock() };
                         return -1;
                     }
@@ -334,6 +359,7 @@ impl DmergeSyscallHandler {
     }
 
 
+    // ioctrl-3
     #[inline]
     fn syscall_connect_session(
         &mut self,
@@ -356,6 +382,105 @@ impl DmergeSyscallHandler {
     }
 }
 
+impl DmergeSyscallHandler {
+    // ioctrl-5
+    fn syscall_register_remote_heap(&self, start_virt_addr: u64,
+                                    local_hint: usize,
+                                    remote_machine_id: usize) -> c_long {
+        let heap_service = unsafe { crate::get_shs_mut() };
+        let machine_id = remote_machine_id;
+        // Step1: `Local push`
+        let _ = heap_service.register_heap(local_hint as _, start_virt_addr as _);
+        // Step2: `Remote pull` and `remote pull`. Implemented by RPC and one-sided READ
+        let des_buf = heap_service.query_descriptor_buf(local_hint as _);
+        let register_remote_req: Option<RegisterRemoteReq> = match des_buf {
+            Some((addr, len)) => {
+                Some(RegisterRemoteReq {
+                    pa: addr.get_pa(),
+                    sz: len,
+                    source_machine_id: unsafe { mitosis::get_mac_id() },
+                    ready: true,
+                })
+            }
+            _ => { None }
+        };
+        if register_remote_req.is_none() {
+            crate::log::error!("failed to register local heap");
+            return -1;
+        }
+        // Start RPC.
+        let cpu_id = mitosis::get_calling_cpu_id();
+        unsafe { crate::global_locks::get_ref()[cpu_id].lock() };
+        let caller = unsafe {
+            mitosis::rpc_caller_pool::CallerPool::get_global_caller(cpu_id)
+                .expect("the caller should be properly initialized")
+        };
+        let remote_session_id = unsafe {
+            mitosis::startup::calculate_session_id(
+                machine_id as _,
+                cpu_id,
+                mitosis::get_max_caller_num(),
+            )
+        };
+
+        let my_session_id = unsafe {
+            mitosis::startup::calculate_session_id(
+                mitosis::get_mac_id(),
+                cpu_id,
+                mitosis::get_max_caller_num(),
+            )
+        };
+
+        let res = caller.sync_call::<RegisterRemoteReq>(
+            remote_session_id,
+            my_session_id,
+            crate::rpc_service::rpc_handlers::RPCId::RemoteRegister as _,
+            register_remote_req.unwrap() as _,
+        );
+
+        if res.is_err() {
+            crate::log::error!("failed to call {:?}", res);
+            crate::log::info!(
+                "sanity check pending reqs {:?}",
+                caller.get_pending_reqs(remote_session_id)
+            );
+            unsafe { crate::global_locks::get_ref()[cpu_id].unlock() };
+            return -1;
+        };
+        let mut timeout_caller = TimeoutWRef::new(
+            caller, 10 * TIMEOUT_USEC);
+
+        use mitosis::os_network::serialize::Serialize;
+        let mut res_hint = -1;
+        let _reply = match block_on(&mut timeout_caller) {
+            Ok((msg, reply)) => {
+                caller.register_recv_buf(msg)
+                    .expect("register msg buffer cannot fail");
+                match RegisterRemoteReply::deserialize(&reply) {
+                    Some(register_remote_reply) => {
+                        res_hint = register_remote_reply.heap_hint as isize;
+                        unsafe { crate::global_locks::get_ref()[cpu_id].unlock() };
+                    }
+                    None => {
+                        crate::log::error!("Deserialize `RegisterRemoteReply` error");
+                        unsafe { crate::global_locks::get_ref()[cpu_id].unlock() };
+                        return -1;
+                    }
+                }
+            }
+            Err(e) => {
+                crate::log::error!("client receiver reply err {:?}", e);
+                unsafe { crate::global_locks::get_ref()[cpu_id].unlock() };
+                return -1;
+            }
+        };
+        // End RPC
+        // Step3: Return back to user. Wait for consumer's `pull`
+        // And we can directly free the local heap
+        heap_service.unregister(local_hint as _);
+        return res_hint as _;
+    }
+}
 
 /// The fault handler parts
 static mut MY_VM_OP: mitosis::bindings::vm_operations_struct = unsafe {

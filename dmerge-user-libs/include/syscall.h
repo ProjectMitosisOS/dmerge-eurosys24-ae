@@ -56,3 +56,12 @@ call_get_mac_id(int sd, unsigned int nic_idx, const char *gid, size_t *machine_i
     int res = ioctl(sd, GetMacID, &req);
     return res;
 }
+
+static inline int
+call_register_remote(int sd, unsigned long long peak_addr, unsigned int machine_id) {
+    register_remote_req_t req;
+    req.heap_base = peak_addr;
+    req.machine_id = machine_id;
+    int res= ioctl(sd, RegisterRemote, &req);
+    return res;
+}
