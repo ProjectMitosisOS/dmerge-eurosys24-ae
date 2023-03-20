@@ -3,8 +3,8 @@ kind: ConfigMap
 metadata:
   name: knative-configmap
 data:
-  protocol: "DMERGE"
-#  protocol: "S3"
+#  protocol: "DMERGE"
+  protocol: "S3"
   trainerNum: "8"
   logLevel: "INFO"
   heapSizeHex: "40000000"
@@ -65,7 +65,7 @@ spec:
           image: val01:5000/dmerge-ml-pipeline
           resources:
             limits:
-              hostdev.k8s.io/dev_mitosis-syscalls: 1
+              hostdev.k8s.io/dev_mitosis-syscalls: 0
           imagePullPolicy: Always
           env:
             - name: CE_SPECVERSION
@@ -110,7 +110,7 @@ spec:
           image: val01:5000/dmerge-ml-pipeline
           resources:
             limits:
-              hostdev.k8s.io/dev_mitosis-syscalls: 1
+              hostdev.k8s.io/dev_mitosis-syscalls: 0
           imagePullPolicy: Always
           env:
             - name: CE_SPECVERSION
@@ -158,7 +158,7 @@ spec:
           imagePullPolicy: Always
           resources:
             limits:
-              hostdev.k8s.io/dev_mitosis-syscalls: 1
+              hostdev.k8s.io/dev_mitosis-syscalls: 0
           env:
             - name: CE_SPECVERSION
               value: "0.3"
@@ -202,7 +202,7 @@ spec:
           imagePullPolicy: Always
           resources:
             limits:
-              hostdev.k8s.io/dev_mitosis-syscalls: 1
+              hostdev.k8s.io/dev_mitosis-syscalls: 0
           env:
             - name: CE_SPECVERSION
               value: "0.3"
@@ -246,7 +246,7 @@ spec:
           imagePullPolicy: Always
           resources:
             limits:
-              hostdev.k8s.io/dev_mitosis-syscalls: 1
+              hostdev.k8s.io/dev_mitosis-syscalls: 0
           env:
             - name: CE_SPECVERSION
               value: "0.3"
@@ -290,7 +290,7 @@ spec:
           imagePullPolicy: Always
           resources:
             limits:
-              hostdev.k8s.io/dev_mitosis-syscalls: 1
+              hostdev.k8s.io/dev_mitosis-syscalls: 0
           env:
             - name: CE_SPECVERSION
               value: "0.3"
@@ -334,7 +334,7 @@ spec:
           imagePullPolicy: Always
           resources:
             limits:
-              hostdev.k8s.io/dev_mitosis-syscalls: 1
+              hostdev.k8s.io/dev_mitosis-syscalls: 0
           env:
             - name: CE_SPECVERSION
               value: "0.3"
@@ -378,7 +378,7 @@ spec:
           imagePullPolicy: Always
           resources:
             limits:
-              hostdev.k8s.io/dev_mitosis-syscalls: 1
+              hostdev.k8s.io/dev_mitosis-syscalls: 0
           env:
             - name: CE_SPECVERSION
               value: "0.3"
@@ -422,7 +422,7 @@ spec:
           imagePullPolicy: Always
           resources:
             limits:
-              hostdev.k8s.io/dev_mitosis-syscalls: 1
+              hostdev.k8s.io/dev_mitosis-syscalls: 0
           env:
             - name: CE_SPECVERSION
               value: "0.3"

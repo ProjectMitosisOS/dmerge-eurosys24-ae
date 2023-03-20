@@ -1,4 +1,5 @@
-APP_DIR=digital-minist
+APP_DIR=ml-pipeline
+#APP_DIR=digital-minist
 IMG_NAME=val01:5000/dmerge-${APP_DIR}
 COMMON_PATH=common
 
@@ -21,8 +22,12 @@ deploy-meta:
 	kubectl apply -f ${COMMON_PATH}/redis.yaml
 	kubectl apply -f ${COMMON_PATH}/minio.yaml
 
-device-plugins:
+dps: # device plugins
 	kubectl apply -f ${COMMON_PATH}/device-plugin.yaml
+
+udps: # unmount device plugins
+	kubectl delete -f ${COMMON_PATH}/device-plugin.yaml
+
 
 upapp:
 	kubectl apply -f ${APP_DIR}/service.yaml

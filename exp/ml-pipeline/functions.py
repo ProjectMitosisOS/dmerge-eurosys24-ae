@@ -20,7 +20,7 @@ s3_client = Minio(
     endpoint='minio:9000',
     secure=False,
     access_key='ACCESS_KEY', secret_key='SECRET_KEY')
-bucket_name = 'p2p'
+bucket_name = 'ml-pipeline'
 if not s3_client.bucket_exists(bucket_name):
     s3_client.make_bucket(bucket_name)
 
@@ -36,7 +36,7 @@ def read_lines(path):
         return f.readlines()
 
 
-def source(meta):
+def source(_meta):
     data_path = 'dataset/Digits_Train.txt'
     s3_object_key = 'digits'
     out_meta = {

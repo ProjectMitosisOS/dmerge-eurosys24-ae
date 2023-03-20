@@ -3,3 +3,4 @@ build/
 *.so
 *.c
 *.cpp
+img/*.jpg
