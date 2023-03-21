@@ -239,7 +239,8 @@ def runAuditRule(events):
                 route = event['route']
                 gid, mac_id, hint, nic_id = route['gid'], route['machine_id'], \
                     route['hint'], route['nic_id']
-                util.pull(mac_id, hint)
+                r = util.pull(mac_id, hint)
+                assert r == 0
                 data = util.fetch(event['obj_hash']['wholeset_matrix'])
                 pull_time = cur_tick_ms() - tick
 

@@ -211,13 +211,11 @@ def consumer(metas):
 
             pull_start_time = cur_tick_ms()
             sd = sopen()
-            res = syscall_connect_session(
-                sd, gid, machine_id=mac_id, nic_id=nic_id)
-            current_app.logger.info(f"connect res {res}. gid: {gid} ,"
+            current_app.logger.info(f"connect res {0}. gid: {gid} ,"
                                     f"machine id {mac_id} ,"
                                     f"hint {hint} ,"
                                     f"nic id {nic_id}")
-            res = call_pull(sd=sd, hint=hint, machine_id=mac_id)
+            res = call_pull(sd=sd, hint=hint, machine_id=mac_id, eager_fetch=0)
             obj = id_deref(target_id, None)
             current_app.logger.info(f'get result. arr len {len(obj)}')
             data = np.array(obj)

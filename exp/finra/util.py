@@ -2,7 +2,6 @@ import os
 import time
 from bindings import *
 
-
 PROTOCOL = os.environ.get('PROTOCOL', 'S3')
 SD = sopen() if PROTOCOL == 'DMERGE' else 0
 
@@ -38,7 +37,7 @@ def cur_tick_ms():
 
 
 def pull(mac_id, hint):
-    call_pull(sd=SD, hint=hint, machine_id=mac_id)
+    return call_pull(sd=SD, hint=hint, machine_id=mac_id, eager_fetch=1)
 
 
 def fetch(target):
@@ -53,6 +52,7 @@ def push(nic_id, peak_addr):
     gid = fill_gid(gid)
     hint = call_register(sd=SD, peak_addr=peak_addr)
     return gid, mac_id, hint
+
 
 portfolios = {
     "1234": [
@@ -74,4 +74,3 @@ portfolios = {
         }
     ]
 }
-

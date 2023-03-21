@@ -11,7 +11,7 @@ main(int argc, char *argv[]) {
 
     TimerClock TC;
     int sd = sopen();
-    call_pull(sd, FLAGS_heap_id, FLAGS_mac_id); // merge (pull)
+    call_pull(sd, FLAGS_heap_id, FLAGS_mac_id, true); // merge (pull)
     uint64_t addr = FLAGS_base + OFFSET;
     std::cout << "==== Now in Child ====" << std::endl;
 

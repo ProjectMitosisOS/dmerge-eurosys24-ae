@@ -1,8 +1,7 @@
-import numpy as np
-import time
-import copy
-from bindings import *
 import os
+import time
+
+from bindings import *
 
 obj = range(3)
 addr = int(os.environ.get('BASE_HEX'), 16)
@@ -19,7 +18,7 @@ def fill_gid(mac_id):
 
 obj = {
     'li': [3, 4, 5, 7],
-    'str': 'hello world',
+    'str': 'hello',
     'range': range(30),
 }
 
@@ -37,3 +36,4 @@ gid = fill_gid(gid)
 print(f'gid is {gid} , addr is {id(obj)} ,hint is {hint}')
 while True:
     time.sleep(1)
+    # print('waiting...')

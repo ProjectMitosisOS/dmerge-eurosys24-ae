@@ -5,7 +5,7 @@ cdef extern from "native/wrapper.h":
     void * create_heap(unsigned long long start_addr, unsigned long long mem_sz)
     cpdef int sopen()
     cpdef int call_register(int sd, unsigned long long peak_addr)
-    cpdef int call_pull(int sd, unsigned int hint, unsigned int machine_id)
+    cpdef int call_pull(int sd, unsigned int hint, unsigned int machine_id, bint eager_fetch)
     int call_connect_session(int sd, const char *addr, unsigned int mac_id, unsigned int nic_id)
     int call_get_mac_id(int sd, unsigned int nic_idx, const char *gid, size_t *machine_id)
 
