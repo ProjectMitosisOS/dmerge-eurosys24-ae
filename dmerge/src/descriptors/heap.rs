@@ -18,7 +18,6 @@ pub struct HeapDescriptor {
 
     pub vma: Vec<VMADescriptor>,
     pub machine_info: RDMADescriptor,
-    pub eager_fetched_pages: hashbrown::HashSet<VirtAddrType>,
 }
 
 impl Default for HeapDescriptor {
@@ -28,7 +27,6 @@ impl Default for HeapDescriptor {
             page_table: Default::default(),
             vma: Default::default(),
             machine_info: Default::default(),
-            eager_fetched_pages: Default::default(),
         }
     }
 }
@@ -41,14 +39,8 @@ impl HeapDescriptor {
             let access_info = AccessInfo::new(&self.machine_info).unwrap();
             self.vma.clone().into_iter().enumerate().for_each(|(i, m)| {
                 // ensure only map into the heap space
-                let mapped_vma: VMADescriptor = VMADescriptor {
-                    range: (m.get_start(), m.get_end()),
-                    flags: m.flags,
-                    prot: m.prot,
-                    is_anonymous: m.is_anonymous,
-                };
                 let vma = unsafe {
-                    task.map_one_region(file, &mapped_vma,
+                    task.map_one_region(file, &m,
                                         self.vma.get(i + 1))
                 };
 
@@ -76,16 +68,8 @@ impl HeapDescriptor {
         } else {
             (&self.vma).into_iter().enumerate().for_each(|(i, m)| {
                 // ensure only map into the heap space
-                let mapped_vma: VMADescriptor = VMADescriptor {
-                    range: (m.get_start(), m.get_end()),
-                    flags: m.flags,
-                    prot: m.prot,
-                    is_anonymous: m.is_anonymous,
-                };
-                crate::log::debug!("start to map vma start:0x{:x}, end:0x{:x}",
-                    mapped_vma.get_start(), mapped_vma.get_end());
                 let vma = unsafe {
-                    task.map_one_region(file, &mapped_vma,
+                    task.map_one_region(file, m,
                                         self.vma.get(i + 1))
                 };
                 if let Some(vma) = vma {
@@ -172,7 +156,7 @@ impl HeapDescriptor {
                         let _ = unsafe {
                             mitosis::bindings::pmem_vm_insert_page(vma, addr_buf[i], *new_page_p)
                         };
-                        self.eager_fetched_pages.insert(*new_page_p as VirtAddrType);
+                        // self.eager_fetched_pages.insert(*new_page_p as VirtAddrType);
                     }
                 }
                 addr_buf.clear();
@@ -188,7 +172,7 @@ impl HeapDescriptor {
                     let _ = unsafe {
                         mitosis::bindings::pmem_vm_insert_page(vma, addr_buf[i], *new_page_p)
                     };
-                    self.eager_fetched_pages.insert(*new_page_p as VirtAddrType);
+                    // self.eager_fetched_pages.insert(*new_page_p as VirtAddrType);
                 }
             }
         }
@@ -370,7 +354,6 @@ impl crate::mitosis::os_network::serialize::Serialize for HeapDescriptor {
             page_table: pt,
             vma: vmas,
             machine_info: machine_info,
-            eager_fetched_pages: Default::default(),
         })
     }
 

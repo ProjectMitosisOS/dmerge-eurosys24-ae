@@ -3,10 +3,10 @@ kind: ConfigMap
 metadata:
   name: knative-configmap
 data:
-  protocol: "DMERGE"
-#  protocol: "S3"
+#  protocol: "DMERGE"
+  protocol: "S3"
   logLevel: "INFO"
-  heapSizeHex: "40000000"
+  heapSizeHex: "A000000"
 ---
 apiVersion: serving.knative.dev/v1
 kind: Service

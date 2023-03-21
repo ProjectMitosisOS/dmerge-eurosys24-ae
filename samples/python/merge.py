@@ -30,6 +30,7 @@ if connect:
     res = syscall_connect_session(
         sd, gid, machine_id=mac_id, nic_id=0)
     print("connect res %d" % res)
+    assert res == 0
 # obj = np.array([[1, 2, 3], [4, 5, 6]])
 # print(id_deref(id(obj), type(obj)))
 tick = cur_tick_ms()

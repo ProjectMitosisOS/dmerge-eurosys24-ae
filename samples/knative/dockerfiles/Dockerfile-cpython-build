@@ -21,5 +21,5 @@ RUN git clone https://docker:${ACCESS_TOKEN}@ipads.se.sjtu.edu.cn:1312/distribut
     ln -s /usr/local/bin/python3.7 /usr/local/bin/python && \
     ln -s /usr/local/bin/pip3 /usr/local/bin/pip && \
     pip install --upgrade pip
-
+# wget https://bootstrap.pypa.io/get-pip.py
 # RUN python -m pip install Flask==2.0.3 requests cloudevents redis numpy==1.21.6 yfinance lightgbm==2.0.7

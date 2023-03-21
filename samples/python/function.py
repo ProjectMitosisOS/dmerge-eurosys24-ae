@@ -36,3 +36,4 @@ gid = fill_gid(gid)
 print(f'gid is {gid} , addr is {id(obj)} ,hint is {hint}')
 while True:
     time.sleep(1)
+    # print('waiting...')
