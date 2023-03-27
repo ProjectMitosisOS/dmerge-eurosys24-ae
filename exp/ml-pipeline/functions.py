@@ -189,7 +189,8 @@ def pca(meta):
 
     pca_dispatcher = {
         'S3': pca_s3,
-        'DMERGE': pca_dmerge
+        'DMERGE': pca_dmerge,
+        'DMERGE_PUSH': pca_dmerge,
     }
     dispatch_key = util.PROTOCOL
     returnedDic = pca_dispatcher[dispatch_key](meta, train_data)
@@ -362,7 +363,8 @@ def trainer(meta):
 
     trainer_dispatcher = {
         'S3': trainer_s3,
-        'DMERGE': trainer_dmerge
+        'DMERGE': trainer_dmerge,
+        'DMERGE_PUSH': trainer_dmerge
     }
 
     out_dict = trainer_dispatcher[util.PROTOCOL](meta, None)
@@ -381,7 +383,7 @@ def combinemodels(metas):
 
         # for event in _metas:
         #     TODO: Finish reduce
-            # pass
+        # pass
 
         out_meta['profile'].update({
             'combinemodels': {
@@ -394,7 +396,8 @@ def combinemodels(metas):
 
     combine_models_dispatcher = {
         'S3': combine_models_s3,
-        'DMERGE': combine_models_s3
+        'DMERGE': combine_models_s3,
+        'DMERGE_PUSH': combine_models_s3,
     }
     out_dict = combine_models_dispatcher[util.PROTOCOL](metas)
     out_dict['profile']['wf_e2e_time'] = \
@@ -414,8 +417,12 @@ def sink(meta):
             remove_set.add(k)
     for k in remove_set:
         profile.pop(k)
-    current_app.logger.info(f"Profile result: {meta['profile']}")
-    current_app.logger.info(f"E2E time: {e2e_time}")
+    p = meta['profile']
+    current_app.logger.info(f"Profile result: {p}")
+    current_app.logger.info(f"[ {util.PROTOCOL} ]E2E time: {e2e_time}")
+    reduced_profile = util.reduce_profile(p)
+    for k, v in reduced_profile.items():
+        current_app.logger.info(f"Part@ {k} passed {v} ms")
     return {
         'data': meta
     }

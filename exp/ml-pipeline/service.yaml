@@ -4,6 +4,7 @@ metadata:
   name: knative-configmap
 data:
 #  protocol: "DMERGE"
+#  protocol: "DMERGE_PUSH"
   protocol: "S3"
   trainerNum: "8"
   logLevel: "INFO"
@@ -65,7 +66,7 @@ spec:
           image: val01:5000/dmerge-ml-pipeline
           resources:
             limits:
-              hostdev.k8s.io/dev_mitosis-syscalls: 0
+              hostdev.k8s.io/dev_mitosis-syscalls: 1
           imagePullPolicy: Always
           env:
             - name: CE_SPECVERSION
@@ -110,7 +111,7 @@ spec:
           image: val01:5000/dmerge-ml-pipeline
           resources:
             limits:
-              hostdev.k8s.io/dev_mitosis-syscalls: 0
+              hostdev.k8s.io/dev_mitosis-syscalls: 1
           imagePullPolicy: Always
           env:
             - name: CE_SPECVERSION
@@ -158,7 +159,7 @@ spec:
           imagePullPolicy: Always
           resources:
             limits:
-              hostdev.k8s.io/dev_mitosis-syscalls: 0
+              hostdev.k8s.io/dev_mitosis-syscalls: 1
           env:
             - name: CE_SPECVERSION
               value: "0.3"
@@ -202,7 +203,7 @@ spec:
           imagePullPolicy: Always
           resources:
             limits:
-              hostdev.k8s.io/dev_mitosis-syscalls: 0
+              hostdev.k8s.io/dev_mitosis-syscalls: 1
           env:
             - name: CE_SPECVERSION
               value: "0.3"
@@ -246,7 +247,7 @@ spec:
           imagePullPolicy: Always
           resources:
             limits:
-              hostdev.k8s.io/dev_mitosis-syscalls: 0
+              hostdev.k8s.io/dev_mitosis-syscalls: 1
           env:
             - name: CE_SPECVERSION
               value: "0.3"
@@ -290,7 +291,7 @@ spec:
           imagePullPolicy: Always
           resources:
             limits:
-              hostdev.k8s.io/dev_mitosis-syscalls: 0
+              hostdev.k8s.io/dev_mitosis-syscalls: 1
           env:
             - name: CE_SPECVERSION
               value: "0.3"
@@ -334,7 +335,7 @@ spec:
           imagePullPolicy: Always
           resources:
             limits:
-              hostdev.k8s.io/dev_mitosis-syscalls: 0
+              hostdev.k8s.io/dev_mitosis-syscalls: 1
           env:
             - name: CE_SPECVERSION
               value: "0.3"
@@ -378,7 +379,7 @@ spec:
           imagePullPolicy: Always
           resources:
             limits:
-              hostdev.k8s.io/dev_mitosis-syscalls: 0
+              hostdev.k8s.io/dev_mitosis-syscalls: 1
           env:
             - name: CE_SPECVERSION
               value: "0.3"
@@ -422,7 +423,7 @@ spec:
           imagePullPolicy: Always
           resources:
             limits:
-              hostdev.k8s.io/dev_mitosis-syscalls: 0
+              hostdev.k8s.io/dev_mitosis-syscalls: 1
           env:
             - name: CE_SPECVERSION
               value: "0.3"
@@ -479,6 +480,11 @@ spec:
                   key: trainerNum
             - name: LOG_LEVEL
               value: "INFO"
+            - name: PROTOCOL
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: protocol
 #            - name: BASE_HEX
 #              value: "150000000"
 #            - name: TOTAL_SZ_HEX
@@ -512,6 +518,11 @@ spec:
               value: "1"
             - name: LOG_LEVEL
               value: "INFO"
+            - name: PROTOCOL
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: protocol
 ---
 # Main body of MapReduce-alike framework
 apiVersion: flows.knative.dev/v1
