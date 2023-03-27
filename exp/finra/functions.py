@@ -293,7 +293,11 @@ def runAuditRule(events):
     }
 
     current_app.logger.info(f"return meta {out_meta}")
-    current_app.logger.info(f"workflow e2e time {cur_tick_ms() - events[-1]['profile']['wf_start_tick']}")
+    p = events[-1]['profile']
+    current_app.logger.info(f"{util.PROTOCOL} workflow e2e time {cur_tick_ms() - p['wf_start_tick']}")
+    reduced_profile = util.reduce_profile(p)
+    for k, v in reduced_profile.items():
+        current_app.logger.info(f"Part@ {k} passed {v} ms")
     return out_meta
 
 
