@@ -114,6 +114,7 @@ def splitter(meta):
     predict_dispatcher = {
         'S3': splitter_s3,
         'DMERGE': splitter_dmerge,
+        'DMERGE_PUSH': splitter_dmerge,
         'P2P': splitter_s3
     }
     dispatch_key = protocol
@@ -190,7 +191,8 @@ def predict(meta):
         route = _meta['route']
         gid, mac_id, hint, nic_id = route['gid'], route['machine_id'], \
             route['hint'], route['nic_id']
-        util.pull(mac_id, hint)
+        r = util.pull(mac_id, hint)
+        assert r == 0
         data = util.fetch(meta['obj_hash'][str(ID)])
         pull_time = cur_tick_ms() - tick
 
@@ -229,6 +231,7 @@ def predict(meta):
     predict_dispatcher = {
         'S3': predict_s3,
         'DMERGE': predict_dmerge,
+        'DMERGE_PUSH': predict_dmerge,
         'P2P': predict_s3
     }
     dispatch_key = meta['features']['protocol']
@@ -270,7 +273,8 @@ def combine(metas):
         current_app.logger.debug(f"Ready to pull: mac id: {mac_id} ,"
                                  f"hint: {hint} ,"
                                  f"ID: {ID}")
-        util.pull(mac_id, hint)
+        r = util.pull(mac_id, hint)
+        assert r == 0
         data = util.fetch(event['obj_hash'][str(ID)])
         pull_time = cur_tick_ms() - tick
 
@@ -283,6 +287,7 @@ def combine(metas):
     combine_dispatcher = {
         'S3': combine_s3,
         'DMERGE': combine_dmerge,
+        'DMERGE_PUSH': combine_dmerge,
         'P2P': combine_s3
     }
     wf_e2e_time = 0
@@ -292,7 +297,7 @@ def combine(metas):
         out_dict['profile']['combine']['stage_time'] = sum(out_dict['profile']['combine'].values())
         wf_e2e_time = max(wf_e2e_time, cur_tick_ms() - event['profile']['wf_start_tick'])
         current_app.logger.debug(f"event@{i} profile: {out_dict['profile']}")
-    current_app.logger.info(f"workflow e2e time: {wf_e2e_time}")
+    current_app.logger.info(f"[ {util.PROTOCOL} ] workflow e2e time: {wf_e2e_time}")
     # Compute mean of the times:
 
     profile_len = len(metas)
@@ -313,6 +318,9 @@ def combine(metas):
                 profile[stage][category] /= profile_len
 
     current_app.logger.info(f"Profile for each stage: {profile}")
+    reduced_profile = util.reduce_profile(profile)
+    for k, v in reduced_profile.items():
+        current_app.logger.info(f"Part@ {k} passed {v} ms")
     return {}
 
 
