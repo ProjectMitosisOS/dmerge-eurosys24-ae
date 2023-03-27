@@ -152,6 +152,7 @@ def fetchData(meta):
         public_data_dispatcher = {
             'S3': public_data_s3,
             'DMERGE': public_data_dmerge,
+            'DMERGE_PUSH': public_data_dmerge,
             'P2P': public_data_s3
         }
         public_data_dispatcher[protocol](out_meta, whole_set)
@@ -234,7 +235,7 @@ def runAuditRule(events):
             tick = cur_tick_ms()
             market_data = body['marketData']
             # Get whole set
-            if protocol == 'DMERGE':
+            if protocol in ['DMERGE', 'DMERGE_PUSH']:
                 tick = cur_tick_ms()
                 route = event['route']
                 gid, mac_id, hint, nic_id = route['gid'], route['machine_id'], \
