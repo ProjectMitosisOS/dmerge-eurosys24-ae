@@ -4,8 +4,8 @@ metadata:
   name: knative-configmap
 data:
 #  protocol: "DMERGE"
-  protocol: "DMERGE_PUSH"
-#  protocol: "S3"
+#  protocol: "DMERGE_PUSH"
+  protocol: "S3"
   trainerNum: "8"
   logLevel: "INFO"
   heapSizeHex: "40000000"
@@ -172,7 +172,7 @@ spec:
             - name: LOG_LEVEL
               value: "INFO"
             - name: BASE_HEX
-              value: "2A0000000"
+              value: "1c0000000"
             - name: TOTAL_SZ_HEX
               valueFrom:
                 configMapKeyRef:
@@ -216,7 +216,7 @@ spec:
             - name: LOG_LEVEL
               value: "INFO"
             - name: BASE_HEX
-              value: "2F0000000"
+              value: "200000000"
             - name: TOTAL_SZ_HEX
               valueFrom:
                 configMapKeyRef:
@@ -260,7 +260,7 @@ spec:
             - name: LOG_LEVEL
               value: "INFO"
             - name: BASE_HEX
-              value: "340000000"
+              value: "240000000"
             - name: TOTAL_SZ_HEX
               valueFrom:
                 configMapKeyRef:
@@ -304,7 +304,7 @@ spec:
             - name: LOG_LEVEL
               value: "INFO"
             - name: BASE_HEX
-              value: "390000000"
+              value: "280000000"
             - name: TOTAL_SZ_HEX
               valueFrom:
                 configMapKeyRef:
@@ -348,7 +348,7 @@ spec:
             - name: LOG_LEVEL
               value: "INFO"
             - name: BASE_HEX
-              value: "3E0000000"
+              value: "2c0000000"
             - name: TOTAL_SZ_HEX
               valueFrom:
                 configMapKeyRef:
@@ -392,7 +392,7 @@ spec:
             - name: LOG_LEVEL
               value: "INFO"
             - name: BASE_HEX
-              value: "430000000"
+              value: "300000000"
             - name: TOTAL_SZ_HEX
               valueFrom:
                 configMapKeyRef:
@@ -436,7 +436,7 @@ spec:
             - name: LOG_LEVEL
               value: "INFO"
             - name: BASE_HEX
-              value: "540000000"
+              value: "340000000"
             - name: TOTAL_SZ_HEX
               valueFrom:
                 configMapKeyRef:
@@ -449,7 +449,6 @@ spec:
                 configMapKeyRef:
                   name: knative-configmap
                   key: protocol
-
 ---
 apiVersion: serving.knative.dev/v1
 kind: Service
@@ -485,12 +484,6 @@ spec:
                 configMapKeyRef:
                   name: knative-configmap
                   key: protocol
-#            - name: BASE_HEX
-#              value: "150000000"
-#            - name: TOTAL_SZ_HEX
-#              value: "40000000"
-#            - name: LD_PRELOAD
-#              value: "/usr/local/share/libmalloc_wrapper.so"
 ---
 apiVersion: serving.knative.dev/v1
 kind: Service
@@ -603,7 +596,6 @@ spec:
           apiVersion: serving.knative.dev/v1
           kind: Service
           name: trainer-5
-
     - subscriber:
         ref:
           apiVersion: serving.knative.dev/v1

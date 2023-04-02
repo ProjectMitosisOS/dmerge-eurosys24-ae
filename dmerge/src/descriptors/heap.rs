@@ -140,8 +140,6 @@ impl HeapDescriptor {
     ) {
         let (size, start) = (vma_des.get_sz(), vma_des.get_start());
         let len = 12;
-        // let threshold = 1 * 1024 * 1024 / 4096;
-        // let mut cnt = 0;
         let mut addr_buf: Vec<VirtAddrType> = Vec::with_capacity(len);
         for addr in (start..start + size).step_by(4096) {
             if addr_buf.len() < len {
@@ -160,11 +158,6 @@ impl HeapDescriptor {
                         };
                     }
                 }
-                // cnt += addr_buf.len();
-                // addr_buf.clear();
-                // if cnt >= threshold {
-                //     break;
-                // }
             }
         }
         if !addr_buf.is_empty() {

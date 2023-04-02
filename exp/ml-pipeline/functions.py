@@ -148,7 +148,7 @@ def pca(meta):
 
         for feature_fraction in [0.25, 0.5, 0.75, 0.95]:
             max_depth = 10
-            for num_of_trees in [5, 6, 7, 8]:
+            for num_of_trees in [5, 5, 5, 5]:
                 list_hyper_params.append((num_of_trees, max_depth, feature_fraction))
 
         returnedDic["detail"] = {
