@@ -4,8 +4,8 @@ metadata:
   name: knative-configmap
 data:
 #  protocol: "DMERGE"
-#  protocol: "DMERGE_PUSH"
-  protocol: "S3"
+  protocol: "DMERGE_PUSH"
+#  protocol: "S3"
   trainerNum: "8"
   logLevel: "INFO"
   heapSizeHex: "40000000"

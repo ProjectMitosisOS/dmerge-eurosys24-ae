@@ -1,6 +1,6 @@
 #APP_DIR=finra
-APP_DIR=digital-minist
-#APP_DIR=ml-pipeline
+#APP_DIR=digital-minist
+APP_DIR=ml-pipeline
 IMG_NAME=val01:5000/dmerge-${APP_DIR}
 COMMON_PATH=common
 
