@@ -4,19 +4,19 @@ metadata:
   name: knative-configmap
 data:
 #  protocol: "DMERGE"
-#  protocol: "DMERGE_PUSH"
+  protocol: "DMERGE_PUSH"
 #  protocol: "RRPC"
-  protocol: "S3"
+#  protocol: "S3"
 
   trainerNum: "8" # Default
   logLevel: "INFO"
   heapSizeHex: "40000000"
 
-#  epoch: "2"
 #  epoch: "5"
-  epoch: "10" # Default
+#  epoch: "10" # Default
+#  epoch: "15"
 #  epoch: "20"
-#  epoch: "30"
+  epoch: "30"
 
 #  dataRatio: "10"
 #  dataRatio: "30"
