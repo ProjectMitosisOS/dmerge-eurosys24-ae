@@ -123,10 +123,10 @@ def pca(meta):
 
         first_n_A_label_obj_id = id(global_obj["first_n_A_label"])
         current_app.logger.debug(f'gid is {gid} ,'
-                                f'first_n_A_label_obj_id is {first_n_A_label_obj_id} ,'
-                                f'hint is {hint} ,'
-                                f'mac id {mac_id} ,'
-                                f'base addr in {hex(addr)}')
+                                 f'first_n_A_label_obj_id is {first_n_A_label_obj_id} ,'
+                                 f'hint is {hint} ,'
+                                 f'mac id {mac_id} ,'
+                                 f'base addr in {hex(addr)}')
 
         out_meta['obj_hash'] = {
             'first_n_A_label': first_n_A_label_obj_id,
@@ -148,7 +148,6 @@ def pca(meta):
         })
         current_app.logger.debug(f'RRPC profile: {out_meta}')
         return out_meta
-
 
     def pca_dmerge(_meta, train_data):
         out_meta = dict(_meta)
@@ -199,7 +198,7 @@ def pca(meta):
         list_hyper_params = []
         epochs = int(os.environ.get('EPOCH', '10'))
 
-        for feature_fraction in [0.25, 0.5, 0.75, 0.95]:
+        for feature_fraction in [0.5, 0.5, 0.5, 0.5]:
             max_depth = 10
             for num_of_trees in [epochs, epochs, epochs, epochs]:
                 list_hyper_params.append((num_of_trees, max_depth, feature_fraction))
@@ -438,13 +437,24 @@ def combinemodels(metas):
     start_time = cur_tick_ms()
 
     def combine_models_s3(_metas):
-        out_meta = _metas[-1]
+        out_meta = dict(_metas[-1])
         prev_leave_tick = out_meta['profile']['leave_tick']
+        le = len(_metas)
 
-        # for event in _metas:
-        #     TODO: Finish reduce
-        # pass
-
+        P = {}
+        for event in _metas:
+            profile = event['profile']
+            for k, v in profile.items():
+                if isinstance(v, dict):
+                    if k not in P.keys():
+                        P[k] = {}
+                    for stage, _time in v.items():
+                        if stage not in P[k].keys():
+                            P[k][stage] = 0
+                        P[k][stage] += _time / le
+                else:
+                    P[k] = v
+        out_meta['profile'] = P
         out_meta['profile'].update({
             'combinemodels': {
                 'nt_time': start_time - prev_leave_tick

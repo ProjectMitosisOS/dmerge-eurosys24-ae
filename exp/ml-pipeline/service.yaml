@@ -5,8 +5,8 @@ metadata:
 data:
 #  protocol: "DMERGE"
 #  protocol: "DMERGE_PUSH"
-  protocol: "RRPC"
-#  protocol: "S3"
+#  protocol: "RRPC"
+  protocol: "S3"
 
   trainerNum: "8" # Default
   logLevel: "INFO"
