@@ -5,12 +5,25 @@ metadata:
 data:
 #  protocol: "DMERGE"
 #  protocol: "DMERGE_PUSH"
-  protocol: "S3"
-  trainerNum: "8"
+  protocol: "RRPC"
+#  protocol: "S3"
+
+  trainerNum: "8" # Default
   logLevel: "INFO"
   heapSizeHex: "40000000"
-  epoch: "20"
-  dataRatio: "10"
+
+#  epoch: "2"
+#  epoch: "5"
+  epoch: "10" # Default
+#  epoch: "20"
+#  epoch: "30"
+
+#  dataRatio: "10"
+#  dataRatio: "30"
+#  dataRatio: "40"
+#  dataRatio: "60"
+  dataRatio: "70" # Default
+
 ---
 apiVersion: serving.knative.dev/v1
 kind: Service

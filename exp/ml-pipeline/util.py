@@ -4,7 +4,7 @@ from bindings import *
 
 
 PROTOCOL = os.environ.get('PROTOCOL', 'S3')
-SD = sopen() if PROTOCOL in ['DMERGE', 'DMERGE_PUSH'] else 0
+SD = sopen() if PROTOCOL in ['DMERGE', 'DMERGE_PUSH', 'RRPC'] else 0
 
 def reduce_profile(profile_dicts):
     res_dic = {}

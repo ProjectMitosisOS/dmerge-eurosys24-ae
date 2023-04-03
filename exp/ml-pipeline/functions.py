@@ -98,6 +98,58 @@ def pca(meta):
         }
         return out_meta
 
+    def pca_rrpc(_meta, train_data):
+        out_meta = dict(_meta)
+        # Execute
+        tick = cur_tick_ms()
+        vectors, first_n_A_label = execute_body(train_data)
+        execute_time = cur_tick_ms() - tick
+        # Deserialize
+        tick = cur_tick_ms()
+        for i in range(2):
+            np.save("/tmp/vectors_pca.txt", vectors)
+            np.savetxt("/tmp/Digits_Train_Transform.txt", first_n_A_label, delimiter="\t")
+        sd_time = cur_tick_ms() - tick
+
+        push_start_time = cur_tick_ms()
+        addr = int(os.environ.get('BASE_HEX', '100000000'), 16)
+        first_n_A_label_li = first_n_A_label.tolist()
+        # global_obj['vectors'] = vectors_li
+        global_obj['first_n_A_label'] = first_n_A_label_li
+
+        nic_idx = 0
+        gid, mac_id, hint = util.push(nic_id=nic_idx, peak_addr=addr)
+        push_time = cur_tick_ms() - push_start_time
+
+        first_n_A_label_obj_id = id(global_obj["first_n_A_label"])
+        current_app.logger.debug(f'gid is {gid} ,'
+                                f'first_n_A_label_obj_id is {first_n_A_label_obj_id} ,'
+                                f'hint is {hint} ,'
+                                f'mac id {mac_id} ,'
+                                f'base addr in {hex(addr)}')
+
+        out_meta['obj_hash'] = {
+            'first_n_A_label': first_n_A_label_obj_id,
+        }
+        out_meta['route'] = {
+            'gid': gid,
+            'machine_id': mac_id,
+            'nic_id': nic_idx,
+            'hint': hint
+        }
+        # out_meta['s3_obj_key'] = 'ML_Pipeline/train_pca_transform_2.txt'
+        out_meta['profile'].update({
+            'pca': {
+                'execute_time': execute_time,
+                'push_time': push_time,
+                'sd_time': sd_time,
+            },
+            'leave_tick': cur_tick_ms()
+        })
+        current_app.logger.debug(f'RRPC profile: {out_meta}')
+        return out_meta
+
+
     def pca_dmerge(_meta, train_data):
         out_meta = dict(_meta)
 
@@ -191,6 +243,7 @@ def pca(meta):
 
     pca_dispatcher = {
         'S3': pca_s3,
+        'RRPC': pca_rrpc,
         'DMERGE': pca_dmerge,
         'DMERGE_PUSH': pca_dmerge,
     }
@@ -330,6 +383,9 @@ def trainer(meta):
         current_app.logger.debug(f"Inner Trainer s3 with meta: {out_meta}")
         return out_meta
 
+    def trainer_rrpc(meta, data):
+        return trainer_dmerge(meta, data)
+
     def trainer_dmerge(meta, _data):
         out_meta = dict(meta)
         event = meta['detail']['indeces'][int(os.environ.get("ID"))]
@@ -366,6 +422,7 @@ def trainer(meta):
 
     trainer_dispatcher = {
         'S3': trainer_s3,
+        'RRPC': trainer_rrpc,
         'DMERGE': trainer_dmerge,
         'DMERGE_PUSH': trainer_dmerge
     }
@@ -399,6 +456,7 @@ def combinemodels(metas):
 
     combine_models_dispatcher = {
         'S3': combine_models_s3,
+        'RRPC': combine_models_s3,
         'DMERGE': combine_models_s3,
         'DMERGE_PUSH': combine_models_s3,
     }
