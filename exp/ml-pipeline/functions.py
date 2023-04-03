@@ -145,10 +145,10 @@ def pca(meta):
     def post_handle(returnedDic):
         mapper_num = int(returnedDic['trainer_num'])
         list_hyper_params = []
+        epochs = int(os.environ.get('EPOCH', '10'))
 
         for feature_fraction in [0.25, 0.5, 0.75, 0.95]:
             max_depth = 10
-            epochs = 2
             for num_of_trees in [epochs, epochs, epochs, epochs]:
                 list_hyper_params.append((num_of_trees, max_depth, feature_fraction))
 
@@ -185,7 +185,8 @@ def pca(meta):
     s3_obj = meta['s3_obj_key']
     s3_client.fget_object(bucket_name, s3_obj, local_data_path)  # download all
     train_data = np.genfromtxt(local_data_path, delimiter='\t')
-
+    data_ratio = int(os.environ.get('DATA_RAIO', '100'))
+    sz = int(len(train_data) * data_ratio / 100)
     meta['profile']['wf_start_tick'] = cur_tick_ms()
 
     pca_dispatcher = {
@@ -194,7 +195,7 @@ def pca(meta):
         'DMERGE_PUSH': pca_dmerge,
     }
     dispatch_key = util.PROTOCOL
-    returnedDic = pca_dispatcher[dispatch_key](meta, train_data)
+    returnedDic = pca_dispatcher[dispatch_key](meta, train_data[:sz, :])
     out_dict = post_handle(returnedDic)
     out_dict['profile'].update({
         'leave_tick': cur_tick_ms(),
@@ -262,8 +263,9 @@ def trainer(meta):
         }
 
     def execute_body(event, train_data):
-        y_train = train_data[:5000, 0]
-        X_train = train_data[:5000, 1:train_data.shape[1]]
+        sz = min(5000, len(train_data))
+        y_train = train_data[:sz, 0]
+        X_train = train_data[:sz, 1:train_data.shape[1]]
         manager = Manager()
         return_dict = manager.dict()
         process_dict = manager.dict()
