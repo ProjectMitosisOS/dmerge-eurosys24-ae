@@ -148,7 +148,8 @@ def pca(meta):
 
         for feature_fraction in [0.25, 0.5, 0.75, 0.95]:
             max_depth = 10
-            for num_of_trees in [5, 5, 5, 5]:
+            epochs = 2
+            for num_of_trees in [epochs, epochs, epochs, epochs]:
                 list_hyper_params.append((num_of_trees, max_depth, feature_fraction))
 
         returnedDic["detail"] = {
@@ -409,7 +410,7 @@ def combinemodels(metas):
 
 def sink(meta):
     profile = meta['profile']
-    e2e_time = meta['profile']['wf_e2e_time']
+    # e2e_time = meta['profile']['wf_e2e_time']
 
     remove_set = set()
     for k in profile.keys():
@@ -418,9 +419,10 @@ def sink(meta):
     for k in remove_set:
         profile.pop(k)
     p = meta['profile']
-    current_app.logger.info(f"Profile result: {p}")
-    current_app.logger.info(f"[ {util.PROTOCOL} ]E2E time: {e2e_time}")
     reduced_profile = util.reduce_profile(p)
+    current_app.logger.info(f"Profile result: {p}")
+    current_app.logger.info(f"[ {util.PROTOCOL} ]E2E time: "
+                            f"{reduced_profile['stage_time']}")
     for k, v in reduced_profile.items():
         current_app.logger.info(f"Part@ {k} passed {v} ms")
     return {
