@@ -23,6 +23,12 @@ deploy-meta:
 	kubectl apply -f ${COMMON_PATH}/redis.yaml
 	kubectl apply -f ${COMMON_PATH}/minio.yaml
 
+undeploy-meta:
+	kubectl delete -f ${COMMON_PATH}/meta.yaml
+	kubectl delete -f ${COMMON_PATH}/redis.yaml
+	kubectl delete -f ${COMMON_PATH}/minio.yaml
+
+
 dps: # device plugins
 	kubectl apply -f ${COMMON_PATH}/device-plugin.yaml
 
