@@ -83,6 +83,11 @@ def splitter(meta):
         }
         return out_dict
 
+    def splitter_rrpc(meta, split_arr):
+        out = splitter_s3(meta, split_arr)
+        out['profile']['splitter'].pop('sd_time')
+        return out
+
     def splitter_dmerge(meta, split_arr):
         global_obj['train_data'] = {}
         out_dict = dict(meta)
@@ -115,7 +120,7 @@ def splitter(meta):
         'S3': splitter_s3,
         'DMERGE': splitter_dmerge,
         'DMERGE_PUSH': splitter_dmerge,
-        'P2P': splitter_s3
+        'RRPC': splitter_rrpc
     }
     dispatch_key = protocol
     out_dict = predict_dispatcher[dispatch_key](meta, split_arr)
@@ -183,6 +188,11 @@ def predict(meta):
         })
         return out_dict
 
+    def predict_rrpc(_meta):
+        out = predict_s3(_meta)
+        out['profile']['predict'].pop('sd_time')
+        return out
+
     def predict_dmerge(_meta):
         out_dict = dict(_meta)
 
@@ -232,7 +242,7 @@ def predict(meta):
         'S3': predict_s3,
         'DMERGE': predict_dmerge,
         'DMERGE_PUSH': predict_dmerge,
-        'P2P': predict_s3
+        'RRPC': predict_rrpc
     }
     dispatch_key = meta['features']['protocol']
     out_dict = predict_dispatcher[dispatch_key](meta)
@@ -262,6 +272,11 @@ def combine(metas):
         }
         return out_dict
 
+    def combine_rrpc(event):
+        out = combine_s3(event)
+        out['profile']['combine'].pop('s3_time')
+        return out
+
     def combine_dmerge(event):
         out_dict = dict(event)
 
@@ -288,7 +303,7 @@ def combine(metas):
         'S3': combine_s3,
         'DMERGE': combine_dmerge,
         'DMERGE_PUSH': combine_dmerge,
-        'P2P': combine_s3
+        'RRPC': combine_rrpc
     }
     wf_e2e_time = 0
     for i, event in enumerate(metas):
@@ -296,8 +311,7 @@ def combine(metas):
         out_dict = combine_dispatcher[dispatch_key](event)
         out_dict['profile']['combine']['stage_time'] = sum(out_dict['profile']['combine'].values())
         wf_e2e_time = max(wf_e2e_time, cur_tick_ms() - event['profile']['wf_start_tick'])
-        current_app.logger.debug(f"event@{i} profile: {out_dict['profile']}")
-    current_app.logger.info(f"[ {util.PROTOCOL} ] workflow e2e time: {wf_e2e_time}")
+        current_app.logger.info(f"event@{i} profile: {out_dict['profile']}")
     # Compute mean of the times:
 
     profile_len = len(metas)
@@ -316,9 +330,8 @@ def combine(metas):
         if isinstance(detail, dict):
             for category, time_span in detail.items():
                 profile[stage][category] /= profile_len
-
-    current_app.logger.info(f"Profile for each stage: {profile}")
     reduced_profile = util.reduce_profile(profile)
+    current_app.logger.info(f"[ {util.PROTOCOL} ] workflow e2e time: {reduced_profile['stage_time']}")
     for k, v in reduced_profile.items():
         current_app.logger.info(f"Part@ {k} passed {v} ms")
     return {}

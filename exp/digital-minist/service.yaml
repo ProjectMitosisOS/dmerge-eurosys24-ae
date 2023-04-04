@@ -5,8 +5,11 @@ metadata:
 data:
 #  protocol: "DMERGE"
 #  protocol: "DMERGE_PUSH"
-  protocol: "S3"
-  workerNum: "8"
+  protocol: "RRPC"
+#  protocol: "S3"
+
+  workerNum: "8" # Default
+
   logLevel: "INFO"
   heapSizeHex: "40000000"
 ---
