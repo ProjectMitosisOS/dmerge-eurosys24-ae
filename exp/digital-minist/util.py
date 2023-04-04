@@ -5,6 +5,8 @@ from bindings import *
 PROTOCOL = os.environ.get('PROTOCOL', 'S3')
 
 SD = sopen() if PROTOCOL in ['DMERGE', 'DMERGE_PUSH'] else 0
+eager_fetch = 0
+
 
 def reduce_profile(profile_dicts):
     res_dic = {}
@@ -49,7 +51,8 @@ def cur_tick_ms():
 
 
 def pull(mac_id, hint):
-    return call_pull(sd=SD, hint=hint, machine_id=mac_id, eager_fetch=0)
+    return call_pull(sd=SD, hint=hint,
+                     machine_id=mac_id, eager_fetch=eager_fetch)
 
 
 def fetch(target):

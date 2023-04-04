@@ -85,7 +85,7 @@ def splitter(meta):
 
     def splitter_rrpc(meta, split_arr):
         out = splitter_s3(meta, split_arr)
-        out['profile']['splitter'].pop('sd_time')
+        out['profile']['splitter'].pop('s3_time')
         return out
 
     def splitter_dmerge(meta, split_arr):
@@ -190,7 +190,7 @@ def predict(meta):
 
     def predict_rrpc(_meta):
         out = predict_s3(_meta)
-        out['profile']['predict'].pop('sd_time')
+        out['profile']['predict'].pop('s3_time')
         return out
 
     def predict_dmerge(_meta):
@@ -306,13 +306,15 @@ def combine(metas):
         'RRPC': combine_rrpc
     }
     wf_e2e_time = 0
+    T = cur_tick_ms()
     for i, event in enumerate(metas):
         dispatch_key = event['features']['protocol']
         out_dict = combine_dispatcher[dispatch_key](event)
         out_dict['profile']['combine']['stage_time'] = sum(out_dict['profile']['combine'].values())
-        wf_e2e_time = max(wf_e2e_time, cur_tick_ms() - event['profile']['wf_start_tick'])
+        wf_e2e_time = max(wf_e2e_time, T - event['profile']['wf_start_tick'])
         current_app.logger.info(f"event@{i} profile: {out_dict['profile']}")
     # Compute mean of the times:
+    current_app.logger.info(f"[ {util.PROTOCOL} ] workflow e2e time A: {wf_e2e_time}")
 
     profile_len = len(metas)
     profile = metas[0]['profile']
