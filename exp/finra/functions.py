@@ -154,6 +154,7 @@ def fetchData(meta):
 
         public_data_dispatcher = {
             'S3': public_data_s3,
+            'RPC': public_data_rrpc,
             'DMERGE': public_data_dmerge,
             'DMERGE_PUSH': public_data_dmerge,
             'RRPC': public_data_rrpc

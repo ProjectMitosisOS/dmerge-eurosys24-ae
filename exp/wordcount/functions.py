@@ -111,11 +111,44 @@ def splitter(meta):
         }
         return out_meta
 
+    def splitter_dmerge(meta, mapper_num):
+        tick = cur_tick_ms()
+        wcs = execute_body(text_path, mapper_num=mapper_num)
+        execute_time = cur_tick_ms() - tick
+        global_obj['wcs'] = wcs
+
+        push_start_time = cur_tick_ms()
+        addr = int(os.environ.get('BASE_HEX', '100000000'), 16)
+        nic_idx = 0
+        gid, mac_id, hint = util.push(nic_id=nic_idx, peak_addr=addr)
+        push_time = cur_tick_ms() - push_start_time
+
+        wcs_id = id(global_obj["wcs"])
+        out_meta = {
+            'obj_hash': {
+                'wcs': wcs_id
+            },
+            'route': {
+                'gid': gid,
+                'machine_id': mac_id,
+                'nic_id': nic_idx,
+                'hint': hint
+            },
+            'profile': {
+                stage_name: {
+                    'execute_time': execute_time,
+                    'push_time': push_time,
+                }
+            },
+        }
+        return out_meta
+
     splitter_dispatcher = {
         'S3': splitter_s3,
+        'RPC': splitter_rrpc,
         'RRPC': splitter_rrpc,
-        'DMERGE': splitter_rrpc,
-        'DMERGE_PUSH': splitter_rrpc,
+        'DMERGE': splitter_dmerge,
+        'DMERGE_PUSH': splitter_dmerge,
     }
     mapper_num = int(os.environ.get('MAPPER_NUM', 3))
     dispatch_key = util.PROTOCOL
@@ -197,11 +230,57 @@ def mapper(meta):
         }
         return meta
 
+    def mapper_dmerge(meta):
+        ID = int(os.environ.get('ID', 0))
+        route = meta['route']
+        gid, mac_id, hint, nic_id = route['gid'], route['machine_id'], \
+            route['hint'], route['nic_id']
+        # Pull
+        pull_start_time = cur_tick_ms()
+        util.pull(mac_id, hint)
+        data = util.fetch(meta['obj_hash']['wcs'])
+        pull_time = cur_tick_ms() - pull_start_time
+
+        tick = cur_tick_ms()
+        self_data = data[ID]
+        wc_res = execute_body(self_data)
+        execute_time = cur_tick_ms() - tick
+
+        global_obj['wc_result'] = wc_res
+
+        push_start_time = cur_tick_ms()
+        addr = int(os.environ.get('BASE_HEX', '100000000'), 16)
+        nic_idx = 0
+        gid, mac_id, hint = util.push(nic_id=nic_idx, peak_addr=addr)
+        push_time = cur_tick_ms() - push_start_time
+
+        wcs_id = id(global_obj['wc_result'])
+
+        meta.update({
+            'obj_hash': {
+                'wc_result': wcs_id
+            },
+            'route': {
+                'gid': gid,
+                'machine_id': mac_id,
+                'nic_id': nic_idx,
+                'hint': hint
+            },
+        })
+        meta['profile'][stage_name] = {
+            'execute_time': execute_time,
+            'pull_time': pull_time,
+            'push_time': push_time,
+            'nt_time': stage_start_tick - meta['profile']['leave_tick']
+        }
+        return meta
+
     mapper_dispatcher = {
         'S3': mapper_s3,
+        'RPC': mapper_rrpc,
         'RRPC': mapper_rrpc,
-        'DMERGE': mapper_rrpc,
-        'DMERGE_PUSH': mapper_rrpc,
+        'DMERGE': mapper_dmerge,
+        'DMERGE_PUSH': mapper_dmerge,
     }
     dispatch_key = util.PROTOCOL
     return_dict = mapper_dispatcher[dispatch_key](meta)
@@ -268,11 +347,38 @@ def reducer(metas):
         }
         return event
 
+    def reducer_dmerge(metas):
+        pull_time = 0
+        wc_aggregate = []
+        for event in metas:
+            route = event['route']
+            gid, mac_id, hint, nic_id = route['gid'], route['machine_id'], \
+                route['hint'], route['nic_id']
+            # Pull
+            pull_start_time = cur_tick_ms()
+            util.pull(mac_id, hint)
+            data = util.fetch(event['obj_hash']['wc_result'])
+            wc_aggregate.append(data)
+            pull_time += cur_tick_ms() - pull_start_time
+
+        tick = cur_tick_ms()
+        wc_res = execute_body(wc_aggregate)
+        execute_time = cur_tick_ms() - tick
+
+        event = metas[-1]
+        event['profile'][stage_name] = {
+            'execute_time': execute_time,
+            'pull_time': pull_time,
+            'nt_time': stage_start_tick - event['profile']['leave_tick']
+        }
+        return event
+
     reducer_dispatcher = {
         'S3': reducer_s3,
+        'RPC': reducer_rrpc,
         'RRPC': reducer_rrpc,
-        'DMERGE': reducer_rrpc,
-        'DMERGE_PUSH': reducer_rrpc,
+        'DMERGE': reducer_dmerge,
+        'DMERGE_PUSH': reducer_dmerge,
     }
     dispatch_key = util.PROTOCOL
     return_dict = reducer_dispatcher[dispatch_key](metas)
