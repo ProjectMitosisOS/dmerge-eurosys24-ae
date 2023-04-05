@@ -124,6 +124,10 @@ def fetchData(meta):
             meta['profile'][stage_name]['s3_time'] = s3_time
             meta['s3_obj_key'] = s3_obj_key
 
+        def public_data_rrpc(meta, whole_set):
+            public_data_s3(meta, whole_set)
+            meta['profile'][stage_name].pop('s3_time')
+
         def public_data_dmerge(meta, data):
             tick = cur_tick_ms()
             np_arr = np.array(data)
@@ -153,7 +157,7 @@ def fetchData(meta):
             'S3': public_data_s3,
             'DMERGE': public_data_dmerge,
             'DMERGE_PUSH': public_data_dmerge,
-            'P2P': public_data_s3
+            'RRPC': public_data_rrpc
         }
         public_data_dispatcher[protocol](out_meta, whole_set)
         out_meta.update({
@@ -272,6 +276,8 @@ def runAuditRule(events):
                         'nt_time': start_tick - event['profile']['leave_tick']
                     }
                 })
+                if protocol == 'RRPC':
+                    event['profile'][stage_name].pop('s3_time')
         elif 'valid' in body:
             portfolio = event['body']['portfolio']
             valid_format = valid_format and body['valid']
@@ -294,8 +300,9 @@ def runAuditRule(events):
 
     current_app.logger.info(f"return meta {out_meta}")
     p = events[-1]['profile']
-    current_app.logger.info(f"{util.PROTOCOL} workflow e2e time {cur_tick_ms() - p['wf_start_tick']}")
+    e2e = cur_tick_ms() - p['wf_start_tick']
     reduced_profile = util.reduce_profile(p)
+    current_app.logger.info(f"{util.PROTOCOL} workflow e2e time {reduced_profile['stage_time']}")
     for k, v in reduced_profile.items():
         current_app.logger.info(f"Part@ {k} passed {v} ms")
     return out_meta
