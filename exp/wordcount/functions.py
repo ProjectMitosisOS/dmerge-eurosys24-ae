@@ -53,7 +53,7 @@ def fill_gid(gid):
 
 
 def splitter(meta):
-    text_path = 'datasets/OliverTwist_CharlesDickens/OliverTwist_CharlesDickens_English.txt'
+    text_path = 'datasets/OliverTwist_CharlesDickens/OliverTwist_CharlesDickens_French.txt'
     stage_name = 'splitter'
     wf_start_tick = cur_tick_ms()
 
@@ -88,24 +88,19 @@ def splitter(meta):
         wcs = execute_body(text_path, mapper_num=mapper_num)
         execute_time = cur_tick_ms() - tick
 
-        s3_object_list = []
-        sd_time = 0
-        s3_time = 0
-        for i in range(mapper_num):
-            tick = cur_tick_ms()
+        out_file_path = text_path + '.txt'
 
-            out_file_path = text_path + '%d.txt' % i
-            with open(out_file_path, 'wb') as f:
-                pickle.dump(wcs[i], f)
-            sd_time += cur_tick_ms() - tick
+        tick = cur_tick_ms()
+        with open(out_file_path, 'wb') as f:
+            pickle.dump(wcs, f)
+        sd_time = cur_tick_ms() - tick
 
-            tick = cur_tick_ms()
-            s3_client.fput_object(bucket_name, out_file_path, out_file_path)
-            s3_object_list.append(out_file_path)
-            s3_time += cur_tick_ms() - tick
+        tick = cur_tick_ms()
+        s3_client.fput_object(bucket_name, out_file_path, out_file_path)
+        s3_time = cur_tick_ms() - tick
 
         out_meta = {
-            's3_obj_key': s3_object_list,
+            's3_obj_key': out_file_path,
             'profile': {
                 stage_name: {
                     'execute_time': execute_time,
@@ -155,7 +150,7 @@ def mapper(meta):
 
     def mapper_s3(meta):
         ID = int(os.environ.get('ID', 0))
-        s3_obj_key = meta['s3_obj_key'][ID]
+        s3_obj_key = meta['s3_obj_key']
         file_path = '/tmp/article.txt'
         tick = cur_tick_ms()
         s3_client.fget_object(bucket_name, s3_obj_key, file_path)
@@ -163,7 +158,7 @@ def mapper(meta):
 
         tick = cur_tick_ms()
         with open(file_path, 'rb') as f:
-            lines = pickle.load(f)
+            lines = pickle.load(f)[ID]
         sd_time = cur_tick_ms() - tick
 
         tick = cur_tick_ms()
