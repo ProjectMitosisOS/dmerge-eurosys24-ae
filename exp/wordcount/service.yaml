@@ -8,7 +8,7 @@ data:
 #  protocol: "RRPC"
   protocol: "S3"
 
-  mapperNum: "2" # Default
+  mapperNum: "8" # Default
   logLevel: "INFO"
   heapSizeHex: "40000000"
 
@@ -46,6 +46,15 @@ spec:
                 configMapKeyRef:
                   name: knative-configmap
                   key: mapperNum
+            - name: BASE_HEX
+              value: "100000000"
+            - name: TOTAL_SZ_HEX
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: heapSizeHex
+            - name: LD_PRELOAD
+              value: "/usr/local/share/libmalloc_wrapper.so"
             - name: PROTOCOL
               valueFrom:
                 configMapKeyRef:
@@ -149,6 +158,288 @@ spec:
 apiVersion: serving.knative.dev/v1
 kind: Service
 metadata:
+  name: mapper-2
+  namespace: default
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/min-scale: "1"
+    spec:
+      containers:
+        - name: dmerge-wordcount
+          image: val01:5000/dmerge-wordcount
+          resources:
+            limits:
+              hostdev.k8s.io/dev_mitosis-syscalls: 0
+          imagePullPolicy: Always
+          env:
+            - name: CE_SPECVERSION
+              value: "0.3"
+            - name: CE_TYPE
+              value: "mapper"
+            - name: ID
+              value: "2"
+            - name: UPSTREAM_NUM
+              value: "1"
+            - name: LOG_LEVEL
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: logLevel
+            - name: BASE_HEX
+              value: "1c0000000"
+            - name: TOTAL_SZ_HEX
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: heapSizeHex
+            - name: LD_PRELOAD
+              value: "/usr/local/share/libmalloc_wrapper.so"
+            - name: PROTOCOL
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: protocol
+---
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: mapper-3
+  namespace: default
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/min-scale: "1"
+    spec:
+      containers:
+        - name: dmerge-wordcount
+          image: val01:5000/dmerge-wordcount
+          resources:
+            limits:
+              hostdev.k8s.io/dev_mitosis-syscalls: 0
+          imagePullPolicy: Always
+          env:
+            - name: CE_SPECVERSION
+              value: "0.3"
+            - name: CE_TYPE
+              value: "mapper"
+            - name: ID
+              value: "3"
+            - name: UPSTREAM_NUM
+              value: "1"
+            - name: LOG_LEVEL
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: logLevel
+            - name: BASE_HEX
+              value: "200000000"
+            - name: TOTAL_SZ_HEX
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: heapSizeHex
+            - name: LD_PRELOAD
+              value: "/usr/local/share/libmalloc_wrapper.so"
+            - name: PROTOCOL
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: protocol
+---
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: mapper-4
+  namespace: default
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/min-scale: "1"
+    spec:
+      containers:
+        - name: dmerge-wordcount
+          image: val01:5000/dmerge-wordcount
+          resources:
+            limits:
+              hostdev.k8s.io/dev_mitosis-syscalls: 0
+          imagePullPolicy: Always
+          env:
+            - name: CE_SPECVERSION
+              value: "0.3"
+            - name: CE_TYPE
+              value: "mapper"
+            - name: ID
+              value: "4"
+            - name: UPSTREAM_NUM
+              value: "1"
+            - name: LOG_LEVEL
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: logLevel
+            - name: BASE_HEX
+              value: "240000000"
+            - name: TOTAL_SZ_HEX
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: heapSizeHex
+            - name: LD_PRELOAD
+              value: "/usr/local/share/libmalloc_wrapper.so"
+            - name: PROTOCOL
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: protocol
+---
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: mapper-5
+  namespace: default
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/min-scale: "1"
+    spec:
+      containers:
+        - name: dmerge-wordcount
+          image: val01:5000/dmerge-wordcount
+          resources:
+            limits:
+              hostdev.k8s.io/dev_mitosis-syscalls: 0
+          imagePullPolicy: Always
+          env:
+            - name: CE_SPECVERSION
+              value: "0.3"
+            - name: CE_TYPE
+              value: "mapper"
+            - name: ID
+              value: "5"
+            - name: UPSTREAM_NUM
+              value: "1"
+            - name: LOG_LEVEL
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: logLevel
+            - name: BASE_HEX
+              value: "280000000"
+            - name: TOTAL_SZ_HEX
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: heapSizeHex
+            - name: LD_PRELOAD
+              value: "/usr/local/share/libmalloc_wrapper.so"
+            - name: PROTOCOL
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: protocol
+---
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: mapper-6
+  namespace: default
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/min-scale: "1"
+    spec:
+      containers:
+        - name: dmerge-wordcount
+          image: val01:5000/dmerge-wordcount
+          resources:
+            limits:
+              hostdev.k8s.io/dev_mitosis-syscalls: 0
+          imagePullPolicy: Always
+          env:
+            - name: CE_SPECVERSION
+              value: "0.3"
+            - name: CE_TYPE
+              value: "mapper"
+            - name: ID
+              value: "6"
+            - name: UPSTREAM_NUM
+              value: "1"
+            - name: LOG_LEVEL
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: logLevel
+            - name: BASE_HEX
+              value: "2c0000000"
+            - name: TOTAL_SZ_HEX
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: heapSizeHex
+            - name: LD_PRELOAD
+              value: "/usr/local/share/libmalloc_wrapper.so"
+            - name: PROTOCOL
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: protocol
+---
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: mapper-7
+  namespace: default
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/min-scale: "1"
+    spec:
+      containers:
+        - name: dmerge-wordcount
+          image: val01:5000/dmerge-wordcount
+          resources:
+            limits:
+              hostdev.k8s.io/dev_mitosis-syscalls: 0
+          imagePullPolicy: Always
+          env:
+            - name: CE_SPECVERSION
+              value: "0.3"
+            - name: CE_TYPE
+              value: "mapper"
+            - name: ID
+              value: "7"
+            - name: UPSTREAM_NUM
+              value: "1"
+            - name: LOG_LEVEL
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: logLevel
+            - name: BASE_HEX
+              value: "300000000"
+            - name: TOTAL_SZ_HEX
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: heapSizeHex
+            - name: LD_PRELOAD
+              value: "/usr/local/share/libmalloc_wrapper.so"
+            - name: PROTOCOL
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: protocol
+---
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
   name: reducer-0
   namespace: default
 spec:
@@ -178,6 +469,15 @@ spec:
                   key: mapperNum
             - name: LOG_LEVEL
               value: "INFO"
+            - name: BASE_HEX
+              value: "700000000"
+            - name: TOTAL_SZ_HEX
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: heapSizeHex
+            - name: LD_PRELOAD
+              value: "/usr/local/share/libmalloc_wrapper.so"
             - name: PROTOCOL
               valueFrom:
                 configMapKeyRef:
@@ -223,6 +523,36 @@ spec:
           apiVersion: serving.knative.dev/v1
           kind: Service
           name: mapper-1
+    - subscriber:
+        ref:
+          apiVersion: serving.knative.dev/v1
+          kind: Service
+          name: mapper-2
+    - subscriber:
+        ref:
+          apiVersion: serving.knative.dev/v1
+          kind: Service
+          name: mapper-3
+    - subscriber:
+        ref:
+          apiVersion: serving.knative.dev/v1
+          kind: Service
+          name: mapper-4
+    - subscriber:
+        ref:
+          apiVersion: serving.knative.dev/v1
+          kind: Service
+          name: mapper-5
+    - subscriber:
+        ref:
+          apiVersion: serving.knative.dev/v1
+          kind: Service
+          name: mapper-6
+    - subscriber:
+        ref:
+          apiVersion: serving.knative.dev/v1
+          kind: Service
+          name: mapper-7
   reply:
     ref:
       apiVersion: flows.knative.dev/v1

@@ -53,7 +53,8 @@ def fill_gid(gid):
 
 def splitter(meta):
     text_path = 'datasets/OliverTwist_CharlesDickens/OliverTwist_CharlesDickens_English.txt'
-    s3_object_key = 'article'
+    stage_name = 'splitter'
+    wf_start_tick = cur_tick_ms()
 
     def execute_body(path, mapper_num=3):
         with open(path) as f:
@@ -67,25 +68,45 @@ def splitter(meta):
             wcs.append(lines[start:end])
         return wcs
 
+    def splitter_rrpc(meta, mapper_num):
+        tick = cur_tick_ms()
+        wcs = execute_body(text_path, mapper_num=mapper_num)
+        execute_time = cur_tick_ms() - tick
+        out_meta = {
+            'data': wcs,
+            'profile': {
+                stage_name: {
+                    'execute_time': execute_time
+                }
+            },
+        }
+        return out_meta
+
+    splitter_dispatcher = {
+        'S3': splitter_rrpc,
+        'RRPC': splitter_rrpc,
+        'DMERGE': splitter_rrpc,
+        'DMERGE_PUSH': splitter_rrpc,
+    }
     mapper_num = int(os.environ.get('MAPPER_NUM', 3))
-    wcs = execute_body(text_path, mapper_num=mapper_num)
-    wf_start_tick = cur_tick_ms()
-    out_meta = {
+    dispatch_key = util.PROTOCOL
+    return_dict = splitter_dispatcher[dispatch_key](meta, mapper_num)
+
+    return_dict.update({
         'statusCode': 200,
         'wf_id': str(uuid.uuid4()),
-        'mapper_num': mapper_num,
-        'profile': {
-            'wf_start_tick': wf_start_tick
-        },
-        's3_obj_key': s3_object_key,
-        'data': wcs
-    }
-    # s3_client.fput_object(bucket_name, s3_object_key, text_path)
-    return out_meta
+    })
+
+    return_dict['profile']['wf_start_tick'] = wf_start_tick
+    return_dict['profile']['leave_tick'] = cur_tick_ms()
+    return_dict['profile'][stage_name]['stage_time'] = \
+        sum(return_dict['profile'][stage_name].values())
+    return return_dict
 
 
 def mapper(meta):
-    ID = int(os.environ.get('ID', 0))
+    stage_name = 'mapper'
+    stage_start_tick = cur_tick_ms()
 
     def execute_body(lines):
         word_count = {}
@@ -98,13 +119,37 @@ def mapper(meta):
                     word_count[word] += 1
         return word_count
 
-    self_data = meta['data'][ID]
-    wc_res = execute_body(self_data)
-    meta['data'] = wc_res
+    def mapper_rrpc(meta):
+        ID = int(os.environ.get('ID', 0))
+        tick = cur_tick_ms()
+        self_data = meta['data'][ID]
+        wc_res = execute_body(self_data)
+        execute_time = cur_tick_ms() - tick
+        meta['data'] = wc_res
+        meta['profile'][stage_name] = {
+            'execute_time': execute_time,
+            'nt_time': stage_start_tick - meta['profile']['leave_tick']
+        }
+        return meta
+
+    mapper_dispatcher = {
+        'S3': mapper_rrpc,
+        'RRPC': mapper_rrpc,
+        'DMERGE': mapper_rrpc,
+        'DMERGE_PUSH': mapper_rrpc,
+    }
+    dispatch_key = util.PROTOCOL
+    return_dict = mapper_dispatcher[dispatch_key](meta)
+    return_dict['profile']['leave_tick'] = cur_tick_ms()
+    return_dict['profile'][stage_name]['stage_time'] = \
+        sum(return_dict['profile'][stage_name].values())
     return meta
 
 
 def reducer(metas):
+    stage_name = 'reducer'
+    stage_start_tick = cur_tick_ms()
+
     def execute_body(word_counts):
         word_count = {}
         for wc in word_counts:
@@ -115,10 +160,33 @@ def reducer(metas):
                     word_count[word] += count
         return word_count
 
-    wc_aggregate = [event['data'] for event in metas]
-    wc_res = execute_body(wc_aggregate)
+    def reducer_rrpc(metas):
+        tick = cur_tick_ms()
+        wc_aggregate = [event['data'] for event in metas]
+        wc_res = execute_body(wc_aggregate)
+        execute_time = cur_tick_ms() - tick
+
+        event = metas[-1]
+        event['profile'][stage_name] = {
+            'execute_time': execute_time,
+            'nt_time': stage_start_tick - event['profile']['leave_tick']
+        }
+        return event
+
+    reducer_dispatcher = {
+        'S3': reducer_rrpc,
+        'RRPC': reducer_rrpc,
+        'DMERGE': reducer_rrpc,
+        'DMERGE_PUSH': reducer_rrpc,
+    }
+    dispatch_key = util.PROTOCOL
+    return_dict = reducer_dispatcher[dispatch_key](metas)
+    return_dict['profile'][stage_name]['stage_time'] = \
+        sum(return_dict['profile'][stage_name].values())
+
     T = cur_tick_ms() - metas[-1]["profile"]["wf_start_tick"]
     current_app.logger.info(f'workflow passed {T} ms')
+    current_app.logger.info(f'return profile {return_dict["profile"]}')
     return {}
 
 
