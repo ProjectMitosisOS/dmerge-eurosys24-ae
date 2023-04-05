@@ -1,5 +1,7 @@
 APP_DIR=finra
 #APP_DIR=digital-minist
+#APP_DIR=ml-pipeline
+#APP_DIR=wordcount
 IMG_NAME=val01:5000/dmerge-${APP_DIR}
 COMMON_PATH=common
 
@@ -21,6 +23,12 @@ deploy-meta:
 	kubectl apply -f ${COMMON_PATH}/meta.yaml
 	kubectl apply -f ${COMMON_PATH}/redis.yaml
 	kubectl apply -f ${COMMON_PATH}/minio.yaml
+
+undeploy-meta:
+	kubectl delete -f ${COMMON_PATH}/meta.yaml
+	kubectl delete -f ${COMMON_PATH}/redis.yaml
+	kubectl delete -f ${COMMON_PATH}/minio.yaml
+
 
 dps: # device plugins
 	kubectl apply -f ${COMMON_PATH}/device-plugin.yaml

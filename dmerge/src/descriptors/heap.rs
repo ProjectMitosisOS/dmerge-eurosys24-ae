@@ -156,10 +156,8 @@ impl HeapDescriptor {
                         let _ = unsafe {
                             mitosis::bindings::pmem_vm_insert_page(vma, addr_buf[i], *new_page_p)
                         };
-                        // self.eager_fetched_pages.insert(*new_page_p as VirtAddrType);
                     }
                 }
-                addr_buf.clear();
             }
         }
         if !addr_buf.is_empty() {
@@ -172,7 +170,6 @@ impl HeapDescriptor {
                     let _ = unsafe {
                         mitosis::bindings::pmem_vm_insert_page(vma, addr_buf[i], *new_page_p)
                     };
-                    // self.eager_fetched_pages.insert(*new_page_p as VirtAddrType);
                 }
             }
         }

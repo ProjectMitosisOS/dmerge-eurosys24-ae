@@ -98,6 +98,57 @@ def pca(meta):
         }
         return out_meta
 
+    def pca_rrpc(_meta, train_data):
+        out_meta = dict(_meta)
+        # Execute
+        tick = cur_tick_ms()
+        vectors, first_n_A_label = execute_body(train_data)
+        execute_time = cur_tick_ms() - tick
+        # Deserialize
+        tick = cur_tick_ms()
+        for i in range(2):
+            np.save("/tmp/vectors_pca.txt", vectors)
+            np.savetxt("/tmp/Digits_Train_Transform.txt", first_n_A_label, delimiter="\t")
+        sd_time = cur_tick_ms() - tick
+
+        push_start_time = cur_tick_ms()
+        addr = int(os.environ.get('BASE_HEX', '100000000'), 16)
+        first_n_A_label_li = first_n_A_label.tolist()
+        # global_obj['vectors'] = vectors_li
+        global_obj['first_n_A_label'] = first_n_A_label_li
+
+        nic_idx = 0
+        gid, mac_id, hint = util.push(nic_id=nic_idx, peak_addr=addr)
+        push_time = cur_tick_ms() - push_start_time
+
+        first_n_A_label_obj_id = id(global_obj["first_n_A_label"])
+        current_app.logger.debug(f'gid is {gid} ,'
+                                 f'first_n_A_label_obj_id is {first_n_A_label_obj_id} ,'
+                                 f'hint is {hint} ,'
+                                 f'mac id {mac_id} ,'
+                                 f'base addr in {hex(addr)}')
+
+        out_meta['obj_hash'] = {
+            'first_n_A_label': first_n_A_label_obj_id,
+        }
+        out_meta['route'] = {
+            'gid': gid,
+            'machine_id': mac_id,
+            'nic_id': nic_idx,
+            'hint': hint
+        }
+        # out_meta['s3_obj_key'] = 'ML_Pipeline/train_pca_transform_2.txt'
+        out_meta['profile'].update({
+            'pca': {
+                'execute_time': execute_time,
+                'push_time': push_time,
+                'sd_time': sd_time,
+            },
+            'leave_tick': cur_tick_ms()
+        })
+        current_app.logger.debug(f'RRPC profile: {out_meta}')
+        return out_meta
+
     def pca_dmerge(_meta, train_data):
         out_meta = dict(_meta)
 
@@ -145,10 +196,11 @@ def pca(meta):
     def post_handle(returnedDic):
         mapper_num = int(returnedDic['trainer_num'])
         list_hyper_params = []
+        epochs = int(os.environ.get('EPOCH', '10'))
 
-        for feature_fraction in [0.25, 0.5, 0.75, 0.95]:
+        for feature_fraction in [0.5, 0.5, 0.5, 0.5]:
             max_depth = 10
-            for num_of_trees in [5, 6, 7, 8]:
+            for num_of_trees in [epochs, epochs, epochs, epochs]:
                 list_hyper_params.append((num_of_trees, max_depth, feature_fraction))
 
         returnedDic["detail"] = {
@@ -184,15 +236,18 @@ def pca(meta):
     s3_obj = meta['s3_obj_key']
     s3_client.fget_object(bucket_name, s3_obj, local_data_path)  # download all
     train_data = np.genfromtxt(local_data_path, delimiter='\t')
-
+    data_ratio = int(os.environ.get('DATA_RAIO', '100'))
+    sz = int(len(train_data) * data_ratio / 100)
     meta['profile']['wf_start_tick'] = cur_tick_ms()
 
     pca_dispatcher = {
         'S3': pca_s3,
-        'DMERGE': pca_dmerge
+        'RRPC': pca_rrpc,
+        'DMERGE': pca_dmerge,
+        'DMERGE_PUSH': pca_dmerge,
     }
     dispatch_key = util.PROTOCOL
-    returnedDic = pca_dispatcher[dispatch_key](meta, train_data)
+    returnedDic = pca_dispatcher[dispatch_key](meta, train_data[:sz, :])
     out_dict = post_handle(returnedDic)
     out_dict['profile'].update({
         'leave_tick': cur_tick_ms(),
@@ -260,8 +315,9 @@ def trainer(meta):
         }
 
     def execute_body(event, train_data):
-        y_train = train_data[:5000, 0]
-        X_train = train_data[:5000, 1:train_data.shape[1]]
+        sz = min(5000, len(train_data))
+        y_train = train_data[:sz, 0]
+        X_train = train_data[:sz, 1:train_data.shape[1]]
         manager = Manager()
         return_dict = manager.dict()
         process_dict = manager.dict()
@@ -326,6 +382,9 @@ def trainer(meta):
         current_app.logger.debug(f"Inner Trainer s3 with meta: {out_meta}")
         return out_meta
 
+    def trainer_rrpc(meta, data):
+        return trainer_dmerge(meta, data)
+
     def trainer_dmerge(meta, _data):
         out_meta = dict(meta)
         event = meta['detail']['indeces'][int(os.environ.get("ID"))]
@@ -362,7 +421,9 @@ def trainer(meta):
 
     trainer_dispatcher = {
         'S3': trainer_s3,
-        'DMERGE': trainer_dmerge
+        'RRPC': trainer_rrpc,
+        'DMERGE': trainer_dmerge,
+        'DMERGE_PUSH': trainer_dmerge
     }
 
     out_dict = trainer_dispatcher[util.PROTOCOL](meta, None)
@@ -376,13 +437,24 @@ def combinemodels(metas):
     start_time = cur_tick_ms()
 
     def combine_models_s3(_metas):
-        out_meta = _metas[-1]
+        out_meta = dict(_metas[-1])
         prev_leave_tick = out_meta['profile']['leave_tick']
+        le = len(_metas)
 
-        # for event in _metas:
-        #     TODO: Finish reduce
-            # pass
-
+        P = {}
+        for event in _metas:
+            profile = event['profile']
+            for k, v in profile.items():
+                if isinstance(v, dict):
+                    if k not in P.keys():
+                        P[k] = {}
+                    for stage, _time in v.items():
+                        if stage not in P[k].keys():
+                            P[k][stage] = 0
+                        P[k][stage] += _time / le
+                else:
+                    P[k] = v
+        out_meta['profile'] = P
         out_meta['profile'].update({
             'combinemodels': {
                 'nt_time': start_time - prev_leave_tick
@@ -394,7 +466,9 @@ def combinemodels(metas):
 
     combine_models_dispatcher = {
         'S3': combine_models_s3,
-        'DMERGE': combine_models_s3
+        'RRPC': combine_models_s3,
+        'DMERGE': combine_models_s3,
+        'DMERGE_PUSH': combine_models_s3,
     }
     out_dict = combine_models_dispatcher[util.PROTOCOL](metas)
     out_dict['profile']['wf_e2e_time'] = \
@@ -406,7 +480,7 @@ def combinemodels(metas):
 
 def sink(meta):
     profile = meta['profile']
-    e2e_time = meta['profile']['wf_e2e_time']
+    # e2e_time = meta['profile']['wf_e2e_time']
 
     remove_set = set()
     for k in profile.keys():
@@ -414,8 +488,13 @@ def sink(meta):
             remove_set.add(k)
     for k in remove_set:
         profile.pop(k)
-    current_app.logger.info(f"Profile result: {meta['profile']}")
-    current_app.logger.info(f"E2E time: {e2e_time}")
+    p = meta['profile']
+    reduced_profile = util.reduce_profile(p)
+    current_app.logger.info(f"Profile result: {p}")
+    current_app.logger.info(f"[ {util.PROTOCOL} ]E2E time: "
+                            f"{reduced_profile['stage_time']}")
+    for k, v in reduced_profile.items():
+        current_app.logger.info(f"Part@ {k} passed {v} ms")
     return {
         'data': meta
     }

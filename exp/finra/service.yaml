@@ -4,9 +4,12 @@ metadata:
   name: knative-configmap
 data:
 #  protocol: "DMERGE"
-  protocol: "S3"
+#  protocol: "DMERGE_PUSH"
+  protocol: "RRPC"
+#  protocol: "S3"
   logLevel: "INFO"
-  heapSizeHex: "A000000"
+  heapSizeHex: "40000000"
+  touchRatio: "4"
 ---
 apiVersion: serving.knative.dev/v1
 kind: Service
@@ -87,6 +90,11 @@ spec:
                 configMapKeyRef:
                   name: knative-configmap
                   key: protocol
+            - name: TOUCH_RATIO
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: touchRatio
 ---
 apiVersion: serving.knative.dev/v1
 kind: Service

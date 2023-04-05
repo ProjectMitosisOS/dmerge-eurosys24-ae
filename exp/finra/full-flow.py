@@ -1,12 +1,28 @@
-import pickle
-import socket
-import time
-
 import numpy as np
 import pandas as pd
-from util import *
-import os
 from minio import Minio
+import time
+
+portfolios = {
+    "1234": [
+        {
+            "Security": "GOOG",
+            "LastQty": 10,
+            "LastPx": 1363.85123,
+            "Side": 1,
+            "TrdSubType": 0,
+            "TradeDate": "200507"
+        },
+        {
+            "Security": "MSFT",
+            "LastQty": 20,
+            "LastPx": 183.851234,
+            "Side": 1,
+            "TrdSubType": 0,
+            "TradeDate": "200507"
+        }
+    ]
+}
 
 s3_client = Minio(
     endpoint='127.0.0.1:9000',
@@ -150,10 +166,13 @@ def bargin_balance(events):
     tick = cur_tick_ms()
     portfolioData = portfolios[portfolio]
     marginSatisfied = checkMarginBalance(portfolioData, marketData, portfolio)
-    avg_data = [whole_set[key] for key in finance_columns]
-    sum_data = [whole_set[key] for key in finance_columns]
-    std_data = [whole_set[key] for key in finance_columns]
-    whole_data = [avg_data[0], sum_data[0], std_data[0]]
+    avg_data = np.array([np.average(whole_set[key].tolist()) for key in finance_columns[1:]])
+    sum_data = np.array([np.sum(whole_set[key].tolist()) for key in finance_columns[1:]])
+    std_data = np.array([np.std(whole_set[key].tolist()) for key in finance_columns[1:]])
+    X = np.array([whole_set[key].tolist() for key in finance_columns[1:]])
+    cov_matrix = np.cov(X, rowvar=False)
+
+    whole_data = [avg_data, sum_data, std_data]
     execute_time = cur_tick_ms() - tick
     out_meta = {
         'statusCode': 200,

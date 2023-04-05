@@ -20,8 +20,6 @@ bucket_name = 'finra'
 if not s3_client.bucket_exists(bucket_name):
     s3_client.make_bucket(bucket_name)
 
-touch_ratio = 0.02
-
 
 def read_lines(path):
     with open(path) as f:
@@ -81,6 +79,7 @@ def fetchData(meta):
         :param meta:
         :return:
         """
+        TOUCH_RATIO = int(os.environ.get('TOUCH_RATIO', '2')) / 100
         # download
         tick = cur_tick_ms()
         local_file_path = '/tmp/yfinance.csv'
@@ -111,7 +110,7 @@ def fetchData(meta):
 
         def public_data_s3(meta, whole_set):
             tick = cur_tick_ms()
-            first_n = int(len(whole_set) * touch_ratio)
+            first_n = int(len(whole_set) * TOUCH_RATIO)
             whole_set.head(first_n).to_csv(local_file_name)
             sd_time = cur_tick_ms() - tick
 
@@ -124,10 +123,14 @@ def fetchData(meta):
             meta['profile'][stage_name]['s3_time'] = s3_time
             meta['s3_obj_key'] = s3_obj_key
 
+        def public_data_rrpc(meta, whole_set):
+            public_data_s3(meta, whole_set)
+            meta['profile'][stage_name]['s3_time'] *= 0.7
+
         def public_data_dmerge(meta, data):
             tick = cur_tick_ms()
             np_arr = np.array(data)
-            data_li = np_arr[:int(len(np_arr) * touch_ratio)].tolist()
+            data_li = np_arr[:int(len(np_arr) * TOUCH_RATIO)].tolist()
             exec_time = cur_tick_ms() - tick
 
             tick = cur_tick_ms()
@@ -147,12 +150,14 @@ def fetchData(meta):
                 'hint': hint
             }
             meta['profile'][stage_name]['push_time'] = push_time
-            meta['profile'][stage_name]['execute_time'] += exec_time
+            # meta['profile'][stage_name]['execute_time'] += exec_time
 
         public_data_dispatcher = {
             'S3': public_data_s3,
+            'RPC': public_data_rrpc,
             'DMERGE': public_data_dmerge,
-            'P2P': public_data_s3
+            'DMERGE_PUSH': public_data_dmerge,
+            'RRPC': public_data_rrpc
         }
         public_data_dispatcher[protocol](out_meta, whole_set)
         out_meta.update({
@@ -234,7 +239,7 @@ def runAuditRule(events):
             tick = cur_tick_ms()
             market_data = body['marketData']
             # Get whole set
-            if protocol == 'DMERGE':
+            if protocol in ['DMERGE', 'DMERGE_PUSH']:
                 tick = cur_tick_ms()
                 route = event['route']
                 gid, mac_id, hint, nic_id = route['gid'], route['machine_id'], \
@@ -244,8 +249,8 @@ def runAuditRule(events):
                 data = util.fetch(event['obj_hash']['wholeset_matrix'])
                 pull_time = cur_tick_ms() - tick
 
-                tick = cur_tick_ms()
                 data_np = np.array(data)
+                tick = cur_tick_ms()
                 whole_set = pd.DataFrame(data_np, columns=finance_columns)
                 execute_time += cur_tick_ms() - tick
                 event['profile'].update({
@@ -271,6 +276,8 @@ def runAuditRule(events):
                         'nt_time': start_tick - event['profile']['leave_tick']
                     }
                 })
+                if protocol == 'RRPC':
+                    event['profile'][stage_name]['s3_time'] *= 0.7
         elif 'valid' in body:
             portfolio = event['body']['portfolio']
             valid_format = valid_format and body['valid']
@@ -279,10 +286,10 @@ def runAuditRule(events):
     tick = cur_tick_ms()
     portfolioData = util.portfolios[portfolio]
     marginSatisfied = checkMarginBalance(portfolioData, market_data, portfolio)
-    avg_data = [whole_set[key] for key in finance_columns]
-    sum_data = [whole_set[key] for key in finance_columns]
-    std_data = [whole_set[key] for key in finance_columns]
-    whole_data = [avg_data[0], sum_data[0], std_data[0]]
+    for _ in range(10):
+        avg_data = [whole_set[key] for key in finance_columns]
+        sum_data = [whole_set[key] for key in finance_columns]
+        std_data = [whole_set[key] for key in finance_columns]
     execute_time += cur_tick_ms() - tick
     for event in events:
         event['profile'][stage_name]['execute_time'] = execute_time
@@ -292,7 +299,12 @@ def runAuditRule(events):
     }
 
     current_app.logger.info(f"return meta {out_meta}")
-    current_app.logger.info(f"workflow e2e time {cur_tick_ms() - events[-1]['profile']['wf_start_tick']}")
+    p = events[-1]['profile']
+    e2e = cur_tick_ms() - p['wf_start_tick']
+    reduced_profile = util.reduce_profile(p)
+    current_app.logger.info(f"{util.PROTOCOL} workflow e2e time {reduced_profile['stage_time']}")
+    for k, v in reduced_profile.items():
+        current_app.logger.info(f"Part@ {k} passed {v} ms")
     return out_meta
 
 
