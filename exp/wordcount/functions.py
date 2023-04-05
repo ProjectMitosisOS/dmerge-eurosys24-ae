@@ -10,6 +10,7 @@ import util
 from util import cur_tick_ms
 import math
 import re
+import pickle
 
 global_obj = {}
 
@@ -82,8 +83,41 @@ def splitter(meta):
         }
         return out_meta
 
+    def splitter_s3(meta, mapper_num):
+        tick = cur_tick_ms()
+        wcs = execute_body(text_path, mapper_num=mapper_num)
+        execute_time = cur_tick_ms() - tick
+
+        s3_object_list = []
+        sd_time = 0
+        s3_time = 0
+        for i in range(mapper_num):
+            tick = cur_tick_ms()
+
+            out_file_path = text_path + '%d.txt' % i
+            with open(out_file_path, 'wb') as f:
+                pickle.dump(wcs[i], f)
+            sd_time += cur_tick_ms() - tick
+
+            tick = cur_tick_ms()
+            s3_client.fput_object(bucket_name, out_file_path, out_file_path)
+            s3_object_list.append(out_file_path)
+            s3_time += cur_tick_ms() - tick
+
+        out_meta = {
+            's3_obj_key': s3_object_list,
+            'profile': {
+                stage_name: {
+                    'execute_time': execute_time,
+                    'sd_time': sd_time,
+                    's3_time': s3_time,
+                }
+            },
+        }
+        return out_meta
+
     splitter_dispatcher = {
-        'S3': splitter_rrpc,
+        'S3': splitter_s3,
         'RRPC': splitter_rrpc,
         'DMERGE': splitter_rrpc,
         'DMERGE_PUSH': splitter_rrpc,
@@ -119,6 +153,42 @@ def mapper(meta):
                     word_count[word] += 1
         return word_count
 
+    def mapper_s3(meta):
+        ID = int(os.environ.get('ID', 0))
+        s3_obj_key = meta['s3_obj_key'][ID]
+        file_path = '/tmp/article.txt'
+        tick = cur_tick_ms()
+        s3_client.fget_object(bucket_name, s3_obj_key, file_path)
+        s3_time = cur_tick_ms() - tick
+
+        tick = cur_tick_ms()
+        with open(file_path, 'rb') as f:
+            lines = pickle.load(f)
+        sd_time = cur_tick_ms() - tick
+
+        tick = cur_tick_ms()
+        wc_res = execute_body(lines)
+        execute_time = cur_tick_ms() - tick
+
+        tick = cur_tick_ms()
+        out_file_path = '/tmp/wc.txt'
+        with open(out_file_path, 'wb') as f:
+            pickle.dump(wc_res, f)
+        sd_time += cur_tick_ms() - tick
+
+        tick = cur_tick_ms()
+        s3_client.fput_object(bucket_name, out_file_path, out_file_path)
+        s3_time += cur_tick_ms() - tick
+
+        meta['s3_obj_key'] = out_file_path
+        meta['profile'][stage_name] = {
+            'execute_time': execute_time,
+            's3_time': s3_time,
+            'sd_time': sd_time,
+            'nt_time': stage_start_tick - meta['profile']['leave_tick']
+        }
+        return meta
+
     def mapper_rrpc(meta):
         ID = int(os.environ.get('ID', 0))
         tick = cur_tick_ms()
@@ -133,7 +203,7 @@ def mapper(meta):
         return meta
 
     mapper_dispatcher = {
-        'S3': mapper_rrpc,
+        'S3': mapper_s3,
         'RRPC': mapper_rrpc,
         'DMERGE': mapper_rrpc,
         'DMERGE_PUSH': mapper_rrpc,
@@ -160,6 +230,36 @@ def reducer(metas):
                     word_count[word] += count
         return word_count
 
+    def reducer_s3(metas):
+        datas = []
+        ce = metas[-1]
+        s3_time = 0
+        sd_time = 0
+
+        for event in metas:
+            tick = cur_tick_ms()
+            s3_obj_key = event['s3_obj_key']
+            s3_client.fget_object(bucket_name, s3_obj_key, s3_obj_key)
+            s3_time += cur_tick_ms() - tick
+
+            tick = cur_tick_ms()
+            with open(s3_obj_key, 'rb') as f:
+                wc = pickle.load(f)
+                datas.append(wc)
+            sd_time += cur_tick_ms() - tick
+
+        tick = cur_tick_ms()
+        wc_res = execute_body(datas)
+        execute_time = cur_tick_ms() - tick
+
+        ce['profile'][stage_name] = {
+            'execute_time': execute_time,
+            's3_time': s3_time,
+            'sd_time': sd_time,
+            'nt_time': stage_start_tick - ce['profile']['leave_tick']
+        }
+        return ce
+
     def reducer_rrpc(metas):
         tick = cur_tick_ms()
         wc_aggregate = [event['data'] for event in metas]
@@ -174,7 +274,7 @@ def reducer(metas):
         return event
 
     reducer_dispatcher = {
-        'S3': reducer_rrpc,
+        'S3': reducer_s3,
         'RRPC': reducer_rrpc,
         'DMERGE': reducer_rrpc,
         'DMERGE_PUSH': reducer_rrpc,
@@ -185,8 +285,12 @@ def reducer(metas):
         sum(return_dict['profile'][stage_name].values())
 
     T = cur_tick_ms() - metas[-1]["profile"]["wf_start_tick"]
+    p = return_dict['profile']
+    current_app.logger.info(f'return profile {p}')
     current_app.logger.info(f'workflow passed {T} ms')
-    current_app.logger.info(f'return profile {return_dict["profile"]}')
+    reduced_profile = util.reduce_profile(p)
+    for k, v in reduced_profile.items():
+        current_app.logger.info(f"Part@ {k} passed {v} ms")
     return {}
 
 
