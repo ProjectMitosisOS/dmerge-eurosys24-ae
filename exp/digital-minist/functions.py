@@ -1,13 +1,26 @@
 import os
+import pickle
 import uuid
 
-import numpy as np
 from bindings import *
 from flask import current_app
 from minio import Minio
 import lightgbm as lgb
 import util
+import json
+import numpy as np
+
 from util import cur_tick_ms
+
+
+class NumpyJsonEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, np.ndarray):
+            return obj.tolist()
+        elif isinstance(obj, bytes):
+            return str(obj, encoding='utf-8')
+        return json.JSONEncoder.default(self, obj)
+
 
 global_obj = {}
 
@@ -58,7 +71,12 @@ def splitter(meta):
     split_arr = np.array_split(test_data, predict_worker_num)
     execute_time = cur_tick_ms() - tick
     protocol = util.PROTOCOL
-    meta['profile'] = {}
+    meta['profile'] = {
+        'runtime': {
+            'fetch_data_time': 0,
+            'nt_time': 0,
+        }
+    }
 
     def splitter_s3(meta, split_arr):
         s3_time = 0
@@ -70,6 +88,8 @@ def splitter(meta):
             tick = cur_tick_ms()
             path = store_path + str(i)
             obj_key = 'digit_' + str(i)
+            # with open(path, 'wb') as f:
+            #     pickle.dump(data, f)
             np.savetxt(path, data, delimiter='\t')
             sd_time += cur_tick_ms() - tick
 
@@ -87,6 +107,18 @@ def splitter(meta):
         out = splitter_s3(meta, split_arr)
         out['profile']['splitter'].pop('s3_time')
         return out
+
+    def splitter_rpc(meta, split_arr):
+        out_dict = meta
+        out_dict['payload'] = {}
+        tick = cur_tick_ms()
+        for i, data in enumerate(split_arr):
+            out_dict['payload'][str(i)] = data.tolist()
+        sd_time = cur_tick_ms() - tick
+        out_dict['profile']['splitter'] = {
+            'sd_time': sd_time
+        }
+        return out_dict
 
     def splitter_dmerge(meta, split_arr):
         global_obj['train_data'] = {}
@@ -112,7 +144,6 @@ def splitter(meta):
             'splitter': {
                 'push_time': push_time,
             },
-            'leave_tick': cur_tick_ms()
         })
         return out_dict
 
@@ -120,7 +151,8 @@ def splitter(meta):
         'S3': splitter_s3,
         'DMERGE': splitter_dmerge,
         'DMERGE_PUSH': splitter_dmerge,
-        'RRPC': splitter_rrpc
+        'RRPC': splitter_rrpc,
+        'RPC': splitter_rpc,
     }
     dispatch_key = protocol
     out_dict = predict_dispatcher[dispatch_key](meta, split_arr)
@@ -128,7 +160,6 @@ def splitter(meta):
         'wf_id': str(uuid.uuid4()),
         'features': {'protocol': protocol},
     })
-    out_dict['profile']['leave_tick'] = cur_tick_ms()
     out_dict['profile']['wf_start_tick'] = wf_start_tick
     out_dict['profile']['splitter']['execute_time'] = execute_time
     out_dict['profile']['splitter']['stage_time'] = sum(out_dict['profile']['splitter'].values())
@@ -157,6 +188,8 @@ def predict(meta):
         s3_time = cur_tick_ms() - tick
 
         tick = cur_tick_ms()
+        # with open(path, 'rb') as f:
+        #     data = pickle.load(f)
         data = np.genfromtxt(path, delimiter='\t')
         sd_time = cur_tick_ms() - tick
 
@@ -167,6 +200,8 @@ def predict(meta):
 
         tick = cur_tick_ms()
         pred_saved_path = "/tmp/pred.txt"
+        # with open(pred_saved_path, 'wb') as f:
+        #     pickle.dump(y_pred, f)
         np.savetxt(pred_saved_path, y_pred, delimiter='\t')
         sd_time += cur_tick_ms() - tick
 
@@ -183,7 +218,6 @@ def predict(meta):
                 'execute_time': execute_time,
                 's3_time': s3_time,
                 'sd_time': sd_time,
-                'nt_time': start_tick - _meta['profile']['leave_tick']
             }
         })
         return out_dict
@@ -192,6 +226,33 @@ def predict(meta):
         out = predict_s3(_meta)
         out['profile']['predict'].pop('s3_time')
         return out
+
+    def predict_rpc(_meta):
+        out_dict = _meta
+        ID = os.environ.get('ID', 0)
+        data_raw = _meta['payload'][str(ID)]
+
+        tick = cur_tick_ms()
+        data = np.array(data_raw)
+        sd_time = cur_tick_ms() - tick
+
+        tick = cur_tick_ms()
+        y_pred = execute_body(data)
+
+        y_pred = [line.tolist() for line in y_pred]
+        execute_time = cur_tick_ms() - tick
+
+        out_dict['payload'] = {
+            'ID': str(ID),
+            str(ID): y_pred
+        }
+        out_dict['profile'].update({
+            'predict': {
+                'execute_time': execute_time,
+                'sd_time': sd_time,
+            }
+        })
+        return out_dict
 
     def predict_dmerge(_meta):
         out_dict = dict(_meta)
@@ -233,7 +294,6 @@ def predict(meta):
                 'execute_time': execute_time,
                 'pull_time': pull_time,
                 'push_time': push_time,
-                'nt_time': start_tick - _meta['profile']['leave_tick']
             }
         })
         return out_dict
@@ -242,16 +302,17 @@ def predict(meta):
         'S3': predict_s3,
         'DMERGE': predict_dmerge,
         'DMERGE_PUSH': predict_dmerge,
-        'RRPC': predict_rrpc
+        'RRPC': predict_rrpc,
+        'RPC': predict_rpc,
     }
     dispatch_key = meta['features']['protocol']
     out_dict = predict_dispatcher[dispatch_key](meta)
-    out_dict['profile']['leave_tick'] = cur_tick_ms()
     out_dict['profile']['predict']['stage_time'] = sum(out_dict['profile']['predict'].values())
     return out_dict
 
 
 def combine(metas):
+    start_tick = cur_tick_ms()
     def combine_s3(event):
         tick = cur_tick_ms()
         ID = event['s3_obj_key_pred']['ID']
@@ -261,14 +322,16 @@ def combine(metas):
         s3_time = cur_tick_ms() - tick
 
         tick = cur_tick_ms()
+        # with open(path, 'rb') as f:
+        #     pred_data = pickle.load(f)
         pred_data = np.genfromtxt(path, delimiter='\t')
         sd_time = cur_tick_ms() - tick
 
-        out_dict = dict(event)
+        out_dict = event
         out_dict['pred'] = pred_data
         out_dict['profile']['combine'] = {
             's3_time': s3_time,
-            'sd_time': sd_time
+            'sd_time': sd_time,
         }
         return out_dict
 
@@ -276,6 +339,16 @@ def combine(metas):
         out = combine_s3(event)
         out['profile']['combine'].pop('s3_time')
         return out
+
+    def combine_rpc(event):
+        ID = event['payload']['ID']
+        pred_data = event['payload'][str(ID)]
+
+        out_dict = dict(event)
+        out_dict['payload'] = pred_data
+        out_dict['profile']['combine'] = {
+        }
+        return out_dict
 
     def combine_dmerge(event):
         out_dict = dict(event)
@@ -303,18 +376,20 @@ def combine(metas):
         'S3': combine_s3,
         'DMERGE': combine_dmerge,
         'DMERGE_PUSH': combine_dmerge,
-        'RRPC': combine_rrpc
+        'RRPC': combine_rrpc,
+        'RPC': combine_rpc,
     }
     wf_e2e_time = 0
     T = cur_tick_ms()
     for i, event in enumerate(metas):
         dispatch_key = event['features']['protocol']
         out_dict = combine_dispatcher[dispatch_key](event)
+        out_dict['profile']['runtime']['stage_time'] = sum(out_dict['profile']['runtime'].values())
         out_dict['profile']['combine']['stage_time'] = sum(out_dict['profile']['combine'].values())
         wf_e2e_time = max(wf_e2e_time, T - event['profile']['wf_start_tick'])
         current_app.logger.info(f"event@{i} profile: {out_dict['profile']}")
     # Compute mean of the times:
-    current_app.logger.info(f"[ {util.PROTOCOL} ] workflow e2e time A: {wf_e2e_time}")
+    current_app.logger.info(f"[ {util.PROTOCOL} ] workflow tick offset: {wf_e2e_time}")
 
     profile_len = len(metas)
     profile = metas[0]['profile']

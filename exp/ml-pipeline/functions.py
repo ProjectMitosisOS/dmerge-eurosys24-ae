@@ -43,7 +43,12 @@ def source(_meta):
         'statusCode': 200,
         'wf_id': str(uuid.uuid4()),
         'trainer_num': int(os.environ.get('TRAINER_NUM', 4)),
-        'profile': {},
+        'profile': {
+            'runtime': {
+                'fetch_data_time': 0,
+                'nt_time': 0,
+            }
+        },
         's3_obj_key': s3_object_key
     }
     s3_client.fput_object(bucket_name, s3_object_key, data_path)
@@ -99,54 +104,27 @@ def pca(meta):
         return out_meta
 
     def pca_rrpc(_meta, train_data):
+        return _meta
+
+    def pca_rpc(_meta, train_data):
         out_meta = dict(_meta)
+
         # Execute
         tick = cur_tick_ms()
         vectors, first_n_A_label = execute_body(train_data)
         execute_time = cur_tick_ms() - tick
-        # Deserialize
+
         tick = cur_tick_ms()
-        for i in range(2):
-            np.save("/tmp/vectors_pca.txt", vectors)
-            np.savetxt("/tmp/Digits_Train_Transform.txt", first_n_A_label, delimiter="\t")
+        out_meta['payload'] = {
+            'vectors': vectors,
+            'first_n_A_label': first_n_A_label
+        }
         sd_time = cur_tick_ms() - tick
 
-        push_start_time = cur_tick_ms()
-        addr = int(os.environ.get('BASE_HEX', '100000000'), 16)
-        first_n_A_label_li = first_n_A_label.tolist()
-        # global_obj['vectors'] = vectors_li
-        global_obj['first_n_A_label'] = first_n_A_label_li
-
-        nic_idx = 0
-        gid, mac_id, hint = util.push(nic_id=nic_idx, peak_addr=addr)
-        push_time = cur_tick_ms() - push_start_time
-
-        first_n_A_label_obj_id = id(global_obj["first_n_A_label"])
-        current_app.logger.debug(f'gid is {gid} ,'
-                                 f'first_n_A_label_obj_id is {first_n_A_label_obj_id} ,'
-                                 f'hint is {hint} ,'
-                                 f'mac id {mac_id} ,'
-                                 f'base addr in {hex(addr)}')
-
-        out_meta['obj_hash'] = {
-            'first_n_A_label': first_n_A_label_obj_id,
+        out_meta['profile']['pca'] = {
+            'execute_time': execute_time,
+            'sd_time': sd_time,
         }
-        out_meta['route'] = {
-            'gid': gid,
-            'machine_id': mac_id,
-            'nic_id': nic_idx,
-            'hint': hint
-        }
-        # out_meta['s3_obj_key'] = 'ML_Pipeline/train_pca_transform_2.txt'
-        out_meta['profile'].update({
-            'pca': {
-                'execute_time': execute_time,
-                'push_time': push_time,
-                'sd_time': sd_time,
-            },
-            'leave_tick': cur_tick_ms()
-        })
-        current_app.logger.debug(f'RRPC profile: {out_meta}')
         return out_meta
 
     def pca_dmerge(_meta, train_data):
@@ -167,11 +145,11 @@ def pca(meta):
         push_time = cur_tick_ms() - push_start_time
 
         first_n_A_label_obj_id = id(global_obj["first_n_A_label"])
-        current_app.logger.info(f'gid is {gid} ,'
-                                f'first_n_A_label_obj_id is {first_n_A_label_obj_id} ,'
-                                f'hint is {hint} ,'
-                                f'mac id {mac_id} ,'
-                                f'base addr in {hex(addr)}')
+        current_app.logger.debug(f'gid is {gid} ,'
+                                 f'first_n_A_label_obj_id is {first_n_A_label_obj_id} ,'
+                                 f'hint is {hint} ,'
+                                 f'mac id {mac_id} ,'
+                                 f'base addr in {hex(addr)}')
 
         out_meta['obj_hash'] = {
             'first_n_A_label': first_n_A_label_obj_id,
@@ -243,23 +221,18 @@ def pca(meta):
     pca_dispatcher = {
         'S3': pca_s3,
         'RRPC': pca_rrpc,
+        'RPC': pca_rpc,
         'DMERGE': pca_dmerge,
         'DMERGE_PUSH': pca_dmerge,
     }
     dispatch_key = util.PROTOCOL
     returnedDic = pca_dispatcher[dispatch_key](meta, train_data[:sz, :])
     out_dict = post_handle(returnedDic)
-    out_dict['profile'].update({
-        'leave_tick': cur_tick_ms(),
-    })
     out_dict['profile']['pca']['stage_time'] = sum(out_dict['profile']['pca'].values())
     return out_dict
 
 
 def trainer(meta):
-    start_time = cur_tick_ms()
-    nt_time = start_time - meta['profile']['leave_tick']
-
     def train_tree(t_index, X_train, y_train, event, num_of_trees, max_depth, feature_fraction, return_dict, runs,
                    process_dict, upload_dict):
         start_process = cur_tick_ms()
@@ -344,14 +317,12 @@ def trainer(meta):
         current_app.logger.debug(f"process dict: {process_dict}")
         return return_dict, exe_time, upload_time
 
-    def trainer_s3(meta, data):
+    def trainer_s3(meta):
         out_meta = dict(meta)
         id = int(os.environ.get("ID"))
         event = meta['detail']['indeces'][int(id)]
 
         s3_time = 0
-        sd_time = 0
-        exe_time = 0
 
         tick = cur_tick_ms()
         filename = "/tmp/Digits_Train_Transform.txt"
@@ -361,10 +332,11 @@ def trainer(meta):
 
         tick = cur_tick_ms()
         train_data = np.genfromtxt(filename, delimiter='\t')
-        sd_time += cur_tick_ms() - tick
+        sd_time = cur_tick_ms() - tick
 
+        tick = cur_tick_ms()
         return_dict, execute_body_time, upload_time = execute_body(event, train_data)
-        exe_time += execute_body_time
+        exe_time = cur_tick_ms() - tick - upload_time
         s3_time += upload_time
 
         out_meta.update({
@@ -376,22 +348,50 @@ def trainer(meta):
             'execute_time': exe_time,
             's3_time': s3_time,
             'sd_time': sd_time,
-            'nt_time': nt_time
         }
         out_meta.pop('detail')
         current_app.logger.debug(f"Inner Trainer s3 with meta: {out_meta}")
         return out_meta
 
-    def trainer_rrpc(meta, data):
-        return trainer_dmerge(meta, data)
+    def trainer_rrpc(meta):
+        return trainer_dmerge(meta)
 
-    def trainer_dmerge(meta, _data):
+    def trainer_rpc(meta):
+        out_meta = dict(meta)
+        id = int(os.environ.get("ID"))
+        event = meta['detail']['indeces'][int(id)]
+
+        tick = cur_tick_ms()
+        train_data = meta['payload']['first_n_A_label']
+        sd_time = cur_tick_ms() - tick
+
+        tick = cur_tick_ms()
+        return_dict, execute_body_time, upload_time = execute_body(event, train_data)
+        exe_time = cur_tick_ms() - tick - upload_time
+        s3_time = upload_time
+
+        out_meta.update({
+            'statusCode': 200,
+            'trees_max_depthes': return_dict.keys(),
+            'accuracies': return_dict.values(),
+        })
+        out_meta['profile']['train'] = {
+            'execute_time': exe_time,
+            'sd_time': sd_time,
+            's3_time': s3_time,
+        }
+        out_meta.pop('detail')
+        out_meta.pop('payload')
+        current_app.logger.debug(f"Inner Trainer s3 with meta: {out_meta}")
+        return out_meta
+
+    def trainer_dmerge(meta):
         out_meta = dict(meta)
         event = meta['detail']['indeces'][int(os.environ.get("ID"))]
         route = meta['route']
         gid, mac_id, hint, nic_id = route['gid'], route['machine_id'], \
             route['hint'], route['nic_id']
-        current_app.logger.info(f"trainer dmerge meta is {meta}")
+        current_app.logger.debug(f"trainer dmerge meta is {meta}")
         # # Pull
         pull_start_time = cur_tick_ms()
         util.pull(mac_id, hint)
@@ -399,9 +399,9 @@ def trainer(meta):
         pull_time = cur_tick_ms() - pull_start_time
         # Execute
         train_data = np.array(data)
-        exe_time = 0
+        tick = cur_tick_ms()
         return_dict, execute_body_time, upload_time = execute_body(event, train_data)
-        exe_time += execute_body_time
+        exe_time = cur_tick_ms() - tick - upload_time
         s3_time = upload_time
 
         out_meta.update({
@@ -413,7 +413,6 @@ def trainer(meta):
             'execute_time': exe_time,
             's3_time': s3_time,
             'pull_time': pull_time,
-            'nt_time': nt_time,
         }
         out_meta.pop('detail')
         current_app.logger.info(f"Inner Trainer s3 with meta: {out_meta}")
@@ -422,23 +421,19 @@ def trainer(meta):
     trainer_dispatcher = {
         'S3': trainer_s3,
         'RRPC': trainer_rrpc,
+        'RPC': trainer_rpc,
         'DMERGE': trainer_dmerge,
         'DMERGE_PUSH': trainer_dmerge
     }
 
-    out_dict = trainer_dispatcher[util.PROTOCOL](meta, None)
-    end_time = cur_tick_ms()
-    out_dict['profile']['leave_tick'] = end_time
+    out_dict = trainer_dispatcher[util.PROTOCOL](meta)
     out_dict['profile']['train']['stage_time'] = sum(out_dict['profile']['train'].values())
     return out_dict
 
 
 def combinemodels(metas):
-    start_time = cur_tick_ms()
-
     def combine_models_s3(_metas):
         out_meta = dict(_metas[-1])
-        prev_leave_tick = out_meta['profile']['leave_tick']
         le = len(_metas)
 
         P = {}
@@ -456,16 +451,15 @@ def combinemodels(metas):
                     P[k] = v
         out_meta['profile'] = P
         out_meta['profile'].update({
-            'combinemodels': {
-                'nt_time': start_time - prev_leave_tick
-            },
+            'combinemodels': {},
         })
         for i, meta in enumerate(_metas):
-            current_app.logger.info(f"@{i} Inner combine_models s3 with Profile: {meta['profile']}")
+            current_app.logger.debug(f"@{i} Inner combine_models s3 with Profile: {meta['profile']}")
         return out_meta
 
     combine_models_dispatcher = {
         'S3': combine_models_s3,
+        'RPC': combine_models_s3,
         'RRPC': combine_models_s3,
         'DMERGE': combine_models_s3,
         'DMERGE_PUSH': combine_models_s3,
@@ -480,7 +474,7 @@ def combinemodels(metas):
 
 def sink(meta):
     profile = meta['profile']
-    # e2e_time = meta['profile']['wf_e2e_time']
+    e2e = meta['profile']['wf_e2e_time']
 
     remove_set = set()
     for k in profile.keys():
@@ -489,8 +483,12 @@ def sink(meta):
     for k in remove_set:
         profile.pop(k)
     p = meta['profile']
+    p['runtime']['stage_time'] = \
+        sum(p['runtime'].values())
     reduced_profile = util.reduce_profile(p)
     current_app.logger.info(f"Profile result: {p}")
+    current_app.logger.info(f"[ {util.PROTOCOL} ]E2E time for whole: "
+                            f"{e2e}")
     current_app.logger.info(f"[ {util.PROTOCOL} ]E2E time: "
                             f"{reduced_profile['stage_time']}")
     for k, v in reduced_profile.items():
