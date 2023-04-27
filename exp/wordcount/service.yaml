@@ -6,13 +6,14 @@ data:
 #  protocol: "DMERGE"
 #  protocol: "DMERGE_PUSH"
 #  protocol: "RRPC"
-  protocol: "RPC"
-#  protocol: "S3"
+#  protocol: "RPC"
+  protocol: "S3"
 
   mapperNum: "8" # Default
   logLevel: "INFO"
   heapSizeHex: "40000000"
-
+#  LD_PRELOAD: "/usr/local/share/libmalloc_wrapper.so"
+  LD_PRELOAD: ""
 ---
 apiVersion: serving.knative.dev/v1
 kind: Service
@@ -58,7 +59,10 @@ spec:
                   name: knative-configmap
                   key: heapSizeHex
             - name: LD_PRELOAD
-              value: "/usr/local/share/libmalloc_wrapper.so"
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: LD_PRELOAD
             - name: PROTOCOL
               valueFrom:
                 configMapKeyRef:
@@ -105,7 +109,10 @@ spec:
                   name: knative-configmap
                   key: heapSizeHex
             - name: LD_PRELOAD
-              value: "/usr/local/share/libmalloc_wrapper.so"
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: LD_PRELOAD
             - name: PROTOCOL
               valueFrom:
                 configMapKeyRef:
@@ -152,7 +159,10 @@ spec:
                   name: knative-configmap
                   key: heapSizeHex
             - name: LD_PRELOAD
-              value: "/usr/local/share/libmalloc_wrapper.so"
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: LD_PRELOAD
             - name: PROTOCOL
               valueFrom:
                 configMapKeyRef:
@@ -199,7 +209,10 @@ spec:
                   name: knative-configmap
                   key: heapSizeHex
             - name: LD_PRELOAD
-              value: "/usr/local/share/libmalloc_wrapper.so"
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: LD_PRELOAD
             - name: PROTOCOL
               valueFrom:
                 configMapKeyRef:
@@ -246,7 +259,10 @@ spec:
                   name: knative-configmap
                   key: heapSizeHex
             - name: LD_PRELOAD
-              value: "/usr/local/share/libmalloc_wrapper.so"
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: LD_PRELOAD
             - name: PROTOCOL
               valueFrom:
                 configMapKeyRef:
@@ -293,7 +309,10 @@ spec:
                   name: knative-configmap
                   key: heapSizeHex
             - name: LD_PRELOAD
-              value: "/usr/local/share/libmalloc_wrapper.so"
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: LD_PRELOAD
             - name: PROTOCOL
               valueFrom:
                 configMapKeyRef:
@@ -340,7 +359,10 @@ spec:
                   name: knative-configmap
                   key: heapSizeHex
             - name: LD_PRELOAD
-              value: "/usr/local/share/libmalloc_wrapper.so"
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: LD_PRELOAD
             - name: PROTOCOL
               valueFrom:
                 configMapKeyRef:
@@ -387,7 +409,10 @@ spec:
                   name: knative-configmap
                   key: heapSizeHex
             - name: LD_PRELOAD
-              value: "/usr/local/share/libmalloc_wrapper.so"
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: LD_PRELOAD
             - name: PROTOCOL
               valueFrom:
                 configMapKeyRef:
@@ -434,7 +459,10 @@ spec:
                   name: knative-configmap
                   key: heapSizeHex
             - name: LD_PRELOAD
-              value: "/usr/local/share/libmalloc_wrapper.so"
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: LD_PRELOAD
             - name: PROTOCOL
               valueFrom:
                 configMapKeyRef:
@@ -481,7 +509,10 @@ spec:
                   name: knative-configmap
                   key: heapSizeHex
             - name: LD_PRELOAD
-              value: "/usr/local/share/libmalloc_wrapper.so"
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: LD_PRELOAD
             - name: PROTOCOL
               valueFrom:
                 configMapKeyRef:

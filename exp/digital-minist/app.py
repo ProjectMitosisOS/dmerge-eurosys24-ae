@@ -24,13 +24,31 @@ handler_dispatch = {
 # Thanks the CE python SDK https://github.com/cloudevents/sdk-python
 @app.route('/', methods=['POST'])
 def faas_entry():
-    event = from_http(request.headers, request.get_data())
+    step_start_tick = cur_tick_ms()
+    payload = request.data  # Note: Flask uses lazy loading of the payload. We account it into network time.
+    fetch_data_time = cur_tick_ms() - step_start_tick
+    if request.headers['Ce-Source'] == 'ping-pong':
+        unmarshaller = None
+    else:
+        unmarshaller = None
+        # unmarshaller = pickle.loads
+
+    event = from_http(request.headers, payload, data_unmarshaller=unmarshaller)
+
+    nt_time = step_start_tick - (int(event['source']) if event['source'] != 'ping-pong' else step_start_tick)
+    try:
+        P = event.data['profile']['runtime']
+        P['nt_time'] += nt_time
+        P['fetch_data_time'] += fetch_data_time
+        event.data['profile']['runtime'] = P
+    except Exception:
+        pass
     data, ceType = handle_ce(event)
     response = make_response(data)
+    # response = make_response(pickle.dumps(data))
     response.headers = util.fill_ce_header(id=str(uuid.uuid4()),
                                            ce_specversion=ce_specversion,
-                                           ce_type=ceType,
-                                           ce_source="p2p")
+                                           ce_type=ceType)
     return response
 
 

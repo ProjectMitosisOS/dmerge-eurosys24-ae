@@ -59,7 +59,11 @@ def source(_meta):
         'features': {'protocol': protocol},
         'profile': {
             'leave_tick': cur_tick_ms(),
-            'wf_start_tick': wf_start_tick
+            'wf_start_tick': wf_start_tick,
+            'runtime': {
+                'fetch_data_time': 0,
+                'nt_time': 0,
+            }
         },
         "body": {"portfolioType": "S&P", "portfolio": "1234"}
     })
@@ -70,7 +74,6 @@ def source(_meta):
 def fetchData(meta):
     start_tick = cur_tick_ms()
     current_app.logger.info(f"in fetchData, meta: {meta}")
-    nt_time = start_tick - meta['profile']['leave_tick']
     stage_name = 'fetchData'
 
     def fetch_market_data(meta):
@@ -105,7 +108,6 @@ def fetchData(meta):
         # Dump data
         out_meta['profile'][stage_name] = {
             'execute_time': execute_time,
-            'nt_time': nt_time
         }
 
         def public_data_s3(meta, whole_set):
@@ -126,6 +128,15 @@ def fetchData(meta):
         def public_data_rrpc(meta, whole_set):
             public_data_s3(meta, whole_set)
             meta['profile'][stage_name]['s3_time'] *= 0.7
+
+        def public_data_rpc(meta, whole_set):
+            tick = cur_tick_ms()
+            first_n = int(len(whole_set) * TOUCH_RATIO)
+            data = whole_set.head(first_n)
+            sd_time = cur_tick_ms() - tick
+
+            meta['payload'] = data
+            meta['profile'][stage_name]['sd_time'] = sd_time
 
         def public_data_dmerge(meta, data):
             tick = cur_tick_ms()
@@ -154,7 +165,7 @@ def fetchData(meta):
 
         public_data_dispatcher = {
             'S3': public_data_s3,
-            'RPC': public_data_rrpc,
+            'RPC': public_data_rpc,
             'DMERGE': public_data_dmerge,
             'DMERGE_PUSH': public_data_dmerge,
             'RRPC': public_data_rrpc
@@ -190,7 +201,6 @@ def fetchData(meta):
         })
         out_meta['profile'][stage_name] = {
             'execute_time': execute_time,
-            'nt_time': nt_time
         }
         return out_meta
 
@@ -204,7 +214,6 @@ def fetchData(meta):
 
 
 def runAuditRule(events):
-    start_tick = cur_tick_ms()
     stage_name = 'runAuditRule'
 
     def checkMarginBalance(portfolioData, marketData, portfolio):
@@ -229,17 +238,16 @@ def runAuditRule(events):
     market_data = {}
     whole_set = {}
     valid_format = True
-    execute_time = 0
     finance_columns = ['Date', 'Open', 'High', 'Low', 'Close', 'Volume', 'Dividends',
                        'Stock Splits']
     for event in events:
         body = event['body']
         if 'marketData' in body:
             protocol = event['features']['protocol']
-            tick = cur_tick_ms()
             market_data = body['marketData']
+
             # Get whole set
-            if protocol in ['DMERGE', 'DMERGE_PUSH']:
+            def handle_public_dmerge(event):
                 tick = cur_tick_ms()
                 route = event['route']
                 gid, mac_id, hint, nic_id = route['gid'], route['machine_id'], \
@@ -250,16 +258,20 @@ def runAuditRule(events):
                 pull_time = cur_tick_ms() - tick
 
                 data_np = np.array(data)
+
                 tick = cur_tick_ms()
                 whole_set = pd.DataFrame(data_np, columns=finance_columns)
-                execute_time += cur_tick_ms() - tick
+                execute_time = cur_tick_ms() - tick
                 event['profile'].update({
                     stage_name: {
                         'pull_time': pull_time,
-                        'nt_time': start_tick - event['profile']['leave_tick']
+                        'execute_time': execute_time,
                     }
                 })
-            else:
+                return whole_set
+
+            def handle_public_s3(event):
+                tick = cur_tick_ms()
                 s3_obj_key = event['s3_obj_key']
                 local_path = 'tmp.csv'
                 s3_client.fget_object(bucket_name, s3_obj_key, local_path)
@@ -273,15 +285,37 @@ def runAuditRule(events):
                     stage_name: {
                         's3_time': s3_time,
                         'sd_time': sd_time,
-                        'nt_time': start_tick - event['profile']['leave_tick']
+                        'execute_time': 0,
                     }
                 })
-                if protocol == 'RRPC':
-                    event['profile'][stage_name]['s3_time'] *= 0.7
+                return whole_set
+
+            def handle_public_rpc(event):
+                tick = cur_tick_ms()
+                whole_set = event['payload']
+                sd_time = cur_tick_ms() - tick
+
+                event['profile'].update({
+                    stage_name: {
+                        'sd_time': sd_time,
+                        'execute_time': 0,
+                    }
+                })
+                return whole_set
+
+            dispatcher = {
+                'S3': handle_public_s3,
+                'RPC': handle_public_rpc,
+                'DMERGE': handle_public_dmerge,
+                'DMERGE_PUSH': handle_public_dmerge,
+                'RRPC': handle_public_rpc,
+            }
+            whole_set = dispatcher[protocol](event)
+
         elif 'valid' in body:
             portfolio = event['body']['portfolio']
             valid_format = valid_format and body['valid']
-            event['profile'].update({stage_name: {}})
+            event['profile'].update({stage_name: {'execute_time': 0}})
 
     tick = cur_tick_ms()
     portfolioData = util.portfolios[portfolio]
@@ -290,9 +324,10 @@ def runAuditRule(events):
         avg_data = [whole_set[key] for key in finance_columns]
         sum_data = [whole_set[key] for key in finance_columns]
         std_data = [whole_set[key] for key in finance_columns]
-    execute_time += cur_tick_ms() - tick
+    execute_time = cur_tick_ms() - tick
     for event in events:
-        event['profile'][stage_name]['execute_time'] = execute_time
+        event['profile']['runtime']['stage_time'] = sum(event['profile']['runtime'].values())
+        event['profile'][stage_name]['execute_time'] += execute_time
         event['profile'][stage_name]['stage_time'] = sum(event['profile'][stage_name].values())
     out_meta = {
         'events': [event['profile'] for event in events],
@@ -302,7 +337,8 @@ def runAuditRule(events):
     p = events[-1]['profile']
     e2e = cur_tick_ms() - p['wf_start_tick']
     reduced_profile = util.reduce_profile(p)
-    current_app.logger.info(f"{util.PROTOCOL} workflow e2e time {reduced_profile['stage_time']}")
+    current_app.logger.info(f"[{util.PROTOCOL}] workflow e2e time for whole {e2e}")
+    current_app.logger.info(f"[{util.PROTOCOL}] workflow e2e time {reduced_profile['stage_time']}")
     for k, v in reduced_profile.items():
         current_app.logger.info(f"Part@ {k} passed {v} ms")
     return out_meta
