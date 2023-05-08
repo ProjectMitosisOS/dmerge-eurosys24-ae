@@ -3,17 +3,17 @@ kind: ConfigMap
 metadata:
   name: knative-configmap
 data:
-  protocol: "DMERGE"
+#  protocol: "DMERGE"
 #  protocol: "DMERGE_PUSH"
 #  protocol: "RRPC"
 #  protocol: "RPC"
-#  protocol: "S3"
+  protocol: "ES"
 
   logLevel: "INFO"
-  heapSizeHex: "40000000"
-  touchRatio: "50"
-  LD_PRELOAD: "/usr/local/share/libmalloc_wrapper.so"
-#  LD_PRELOAD: ""
+  heapSizeHex: "20000000"
+  touchRatio: "100"
+#  LD_PRELOAD: "/usr/local/share/libmalloc_wrapper.so"
+  LD_PRELOAD: ""
 ---
 apiVersion: serving.knative.dev/v1
 kind: Service
@@ -66,7 +66,7 @@ spec:
           image: val01:5000/dmerge-finra
           resources:
             limits:
-              hostdev.k8s.io/dev_mitosis-syscalls: 1
+              hostdev.k8s.io/dev_mitosis-syscalls: 0
           imagePullPolicy: Always
           env:
             - name: CE_SPECVERSION
@@ -120,7 +120,7 @@ spec:
           image: val01:5000/dmerge-finra
           resources:
             limits:
-              hostdev.k8s.io/dev_mitosis-syscalls: 1
+              hostdev.k8s.io/dev_mitosis-syscalls: 0
           imagePullPolicy: Always
           env:
             - name: CE_SPECVERSION
@@ -169,7 +169,7 @@ spec:
           image: val01:5000/dmerge-finra
           resources:
             limits:
-              hostdev.k8s.io/dev_mitosis-syscalls: 1
+              hostdev.k8s.io/dev_mitosis-syscalls: 0
           imagePullPolicy: Always
           env:
             - name: CE_SPECVERSION

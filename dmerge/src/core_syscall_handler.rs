@@ -29,7 +29,12 @@ pub struct DmergeSyscallHandler {
 }
 
 impl Drop for DmergeSyscallHandler {
-    fn drop(&mut self) {}
+    fn drop(&mut self) {
+        for hint in &self.caller_status.private_heap_hints {
+            let heap_service = unsafe { crate::get_shs_mut() };
+            heap_service.unregister(*hint as _);
+        }
+    }
 }
 
 #[allow(dead_code)]
@@ -43,14 +48,16 @@ struct HeapDataStruct {
 struct CallerData {
     // whether pin itself after close the fd
     ping_data: bool,
-    heaps: Vec<HeapDataStruct>,
+    private_heap_hints: Vec<usize>,
+    public_heaps: Vec<HeapDataStruct>,
 }
 
 impl Default for CallerData {
     fn default() -> Self {
         Self {
             ping_data: false,
-            heaps: Vec::new(),
+            private_heap_hints: Default::default(),
+            public_heaps: Vec::new(),
         }
     }
 }
@@ -92,6 +99,7 @@ impl mitosis::syscalls::FileOperations for DmergeSyscallHandler {
                 };
                 let heap_hint = unsafe { crate::get_heap_id_generator_mut().alloc_one_id() };
                 let _ = self.syscall_register_heap(req.heap_base as _, heap_hint as _);
+                self.caller_status.private_heap_hints.push(heap_hint as _);
                 heap_hint as _
             }
             1 => {
@@ -329,17 +337,13 @@ impl DmergeSyscallHandler {
                             unsafe { crate::global_locks::get_ref()[cpu_id].unlock() };
                             return -1;
                         }
+
                         des.apply_to(self.file, eager_fetch);
-                        self.caller_status.heaps.push(HeapDataStruct {
+                        self.caller_status.public_heaps.push(HeapDataStruct {
                             id: handler_id as _,
                             descriptor: des,
                             access_info: access_info.unwrap(),
                         });
-                        // self.caller_status.heaps = Some(HeapDataStruct {
-                        //     id: handler_id as _,
-                        //     descriptor: des,
-                        //     access_info: access_info.unwrap(),
-                        // });
                         unsafe { crate::global_locks::get_ref()[cpu_id].unlock() };
                         return 0;
                     }
@@ -502,7 +506,7 @@ impl DmergeSyscallHandler {
     #[inline(always)]
     unsafe fn handle_page_fault(&mut self, vmf: *mut mitosis::bindings::vm_fault) -> c_int {
         let fault_addr = (*vmf).address;
-        let heaps = &mut self.caller_status.heaps;
+        let heaps = &mut self.caller_status.public_heaps;
         crate::log::debug!("in page fault. heap len {}", heaps.len());
         let mut new_page: Option<*mut mitosis::bindings::page> = None;
         for heap in heaps {
@@ -525,7 +529,7 @@ impl DmergeSyscallHandler {
             }
         }
         if new_page.is_none() {
-            crate::log::error!("Can not find page for fault_addr");
+            crate::log::error!("Can not find page for fault_addr 0x{:x}", fault_addr);
         }
 
 

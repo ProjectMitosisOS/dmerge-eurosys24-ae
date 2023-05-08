@@ -1,4 +1,5 @@
 import os
+import pickle
 import uuid
 
 import numpy as np
@@ -48,20 +49,19 @@ def source(_meta):
     protocol = util.PROTOCOL
 
     out_dict = {}
-    s3_obj_key = 'yfinance.csv'
-    s3_client.fput_object(bucket_name, s3_obj_key, 'yfinance.csv')
 
     wf_start_tick = cur_tick_ms()
 
     out_dict.update({
         'wf_id': str(uuid.uuid4()),
-        's3_obj_key': s3_obj_key,
         'features': {'protocol': protocol},
         'profile': {
+            'sd_bytes_len': 0,
             'leave_tick': cur_tick_ms(),
             'wf_start_tick': wf_start_tick,
             'runtime': {
                 'fetch_data_time': 0,
+                'sd_time': 0,
                 'nt_time': 0,
             }
         },
@@ -73,7 +73,7 @@ def source(_meta):
 
 def fetchData(meta):
     start_tick = cur_tick_ms()
-    current_app.logger.info(f"in fetchData, meta: {meta}")
+    current_app.logger.debug(f"in fetchData, meta: {meta}")
     stage_name = 'fetchData'
 
     def fetch_market_data(meta):
@@ -85,10 +85,9 @@ def fetchData(meta):
         TOUCH_RATIO = int(os.environ.get('TOUCH_RATIO', '2')) / 100
         # download
         tick = cur_tick_ms()
-        local_file_path = '/tmp/yfinance.csv'
+        local_file_path = 'yfinance.csv'
+
         protocol = meta['features']['protocol']
-        s3_obj_key = meta['s3_obj_key']
-        s3_client.fget_object(bucket_name, s3_obj_key, local_file_path)
 
         portfolioType = meta['body']['portfolioType']
         tickers_for_portfolio_types = {'S&P': ['GOOG', 'AMZN', 'MSFT', 'SVFAU', 'AB', 'ABC', 'ABCB']}
@@ -98,40 +97,45 @@ def fetchData(meta):
         whole_set = pd.read_csv(local_file_path)
         for ticker in tickers:
             # Get last closing price
-            prices[ticker] = whole_set['Close'].unique()[0]
-
+            prices[ticker] = whole_set['Close'][0]
+        pd_time = cur_tick_ms() - tick
+        tick = cur_tick_ms()
         out_meta = dict(meta)
-
-        local_file_name = 'whole_data.csv'
         execute_time = cur_tick_ms() - tick
+        local_file_name = 'whole_data.csv'
 
         # Dump data
         out_meta['profile'][stage_name] = {
             'execute_time': execute_time,
+            'pd_time': pd_time,
         }
 
-        def public_data_s3(meta, whole_set):
+        def public_data_es(meta, whole_set):
             tick = cur_tick_ms()
             first_n = int(len(whole_set) * TOUCH_RATIO)
-            whole_set.head(first_n).to_csv(local_file_name)
+            o = pickle.dumps(whole_set.head(first_n))
+            # with open(local_file_name, 'wb') as f:
+            #     pickle.dump(whole_set.head(first_n), f)
+            # whole_set.head(first_n).to_csv(local_file_name)
+            out_meta['profile']['sd_bytes_len'] += len(o)
             sd_time = cur_tick_ms() - tick
 
             tick = cur_tick_ms()
             s3_obj_key = 'whole_data'
-            s3_client.fput_object(bucket_name, s3_obj_key, local_file_name)
-            s3_time = cur_tick_ms() - tick
+            util.redis_put(s3_obj_key, o)
+            es_time = cur_tick_ms() - tick
 
             meta['profile'][stage_name]['sd_time'] = sd_time
-            meta['profile'][stage_name]['s3_time'] = s3_time
+            meta['profile'][stage_name]['es_time'] = es_time
             meta['s3_obj_key'] = s3_obj_key
 
         def public_data_rrpc(meta, whole_set):
-            public_data_s3(meta, whole_set)
-            meta['profile'][stage_name]['s3_time'] *= 0.7
+            public_data_es(meta, whole_set)
 
         def public_data_rpc(meta, whole_set):
             tick = cur_tick_ms()
             first_n = int(len(whole_set) * TOUCH_RATIO)
+            current_app.logger.info(f'first n: {first_n}')
             data = whole_set.head(first_n)
             sd_time = cur_tick_ms() - tick
 
@@ -164,7 +168,7 @@ def fetchData(meta):
             # meta['profile'][stage_name]['execute_time'] += exec_time
 
         public_data_dispatcher = {
-            'S3': public_data_s3,
+            'ES': public_data_es,
             'RPC': public_data_rpc,
             'DMERGE': public_data_dmerge,
             'DMERGE_PUSH': public_data_dmerge,
@@ -209,7 +213,7 @@ def fetchData(meta):
     out_dict = fetch_datas[ID](meta)
     out_dict['profile']['leave_tick'] = cur_tick_ms()
     out_dict['profile'][stage_name]['stage_time'] = sum(out_dict['profile'][stage_name].values())
-    current_app.logger.info(f"FetchData out profile: {out_dict['profile']}")
+    current_app.logger.debug(f"FetchData out profile: {out_dict['profile']}")
     return out_dict
 
 
@@ -258,9 +262,9 @@ def runAuditRule(events):
                 pull_time = cur_tick_ms() - tick
 
                 data_np = np.array(data)
+                whole_set = pd.DataFrame(data_np, columns=finance_columns)
 
                 tick = cur_tick_ms()
-                whole_set = pd.DataFrame(data_np, columns=finance_columns)
                 execute_time = cur_tick_ms() - tick
                 event['profile'].update({
                     stage_name: {
@@ -270,20 +274,20 @@ def runAuditRule(events):
                 })
                 return whole_set
 
-            def handle_public_s3(event):
+            def handle_public_es(event):
                 tick = cur_tick_ms()
                 s3_obj_key = event['s3_obj_key']
-                local_path = 'tmp.csv'
-                s3_client.fget_object(bucket_name, s3_obj_key, local_path)
-                s3_time = cur_tick_ms() - tick
+                o = util.redis_get(s3_obj_key)
+                es_time = cur_tick_ms() - tick
 
                 tick = cur_tick_ms()
-                whole_set = pd.read_csv(local_path)
+                whole_set = pickle.loads(o)
+                # whole_set = pd.read_csv(local_path)
                 sd_time = cur_tick_ms() - tick
 
                 event['profile'].update({
                     stage_name: {
-                        's3_time': s3_time,
+                        'es_time': es_time,
                         'sd_time': sd_time,
                         'execute_time': 0,
                     }
@@ -304,7 +308,7 @@ def runAuditRule(events):
                 return whole_set
 
             dispatcher = {
-                'S3': handle_public_s3,
+                'ES': handle_public_es,
                 'RPC': handle_public_rpc,
                 'DMERGE': handle_public_dmerge,
                 'DMERGE_PUSH': handle_public_dmerge,
@@ -320,10 +324,6 @@ def runAuditRule(events):
     tick = cur_tick_ms()
     portfolioData = util.portfolios[portfolio]
     marginSatisfied = checkMarginBalance(portfolioData, market_data, portfolio)
-    for _ in range(10):
-        avg_data = [whole_set[key] for key in finance_columns]
-        sum_data = [whole_set[key] for key in finance_columns]
-        std_data = [whole_set[key] for key in finance_columns]
     execute_time = cur_tick_ms() - tick
     for event in events:
         event['profile']['runtime']['stage_time'] = sum(event['profile']['runtime'].values())
@@ -337,7 +337,7 @@ def runAuditRule(events):
     p = events[-1]['profile']
     e2e = cur_tick_ms() - p['wf_start_tick']
     reduced_profile = util.reduce_profile(p)
-    current_app.logger.info(f"[{util.PROTOCOL}] workflow e2e time for whole {e2e}")
+    # current_app.logger.info(f"[{util.PROTOCOL}] workflow e2e time for whole {e2e}")
     current_app.logger.info(f"[{util.PROTOCOL}] workflow e2e time {reduced_profile['stage_time']}")
     for k, v in reduced_profile.items():
         current_app.logger.info(f"Part@ {k} passed {v} ms")

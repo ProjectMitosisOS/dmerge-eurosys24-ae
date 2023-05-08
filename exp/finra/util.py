@@ -5,6 +5,17 @@ from bindings import *
 PROTOCOL = os.environ.get('PROTOCOL', 'S3')
 
 SD = sopen() if PROTOCOL in ['DMERGE', 'DMERGE_PUSH'] else 0
+import redis
+
+redis_client = redis.Redis(host='redis', port=6379, password='redis')
+
+
+def redis_put(k, v):
+    redis_client.set(k, v)
+
+
+def redis_get(k):
+    return redis_client.get(k)
 
 
 def reduce_profile(profile_dicts):
@@ -63,8 +74,6 @@ def push(nic_id, peak_addr):
     gid, mac_id = syscall_get_gid(sd=SD, nic_idx=nic_id)
     gid = fill_gid(gid)
     hint = call_register(sd=SD, peak_addr=peak_addr)
-    if PROTOCOL == 'DMERGE_PUSH':
-        call_register(sd=SD, peak_addr=peak_addr)
     return gid, mac_id, hint
 
 

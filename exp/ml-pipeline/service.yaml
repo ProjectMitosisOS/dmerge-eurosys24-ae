@@ -7,7 +7,7 @@ data:
 #  protocol: "DMERGE_PUSH"
 #  protocol: "RRPC"
 #  protocol: "RPC"
-  protocol: "S3"
+  protocol: "ES"
 
   trainerNum: "8" # Default
   logLevel: "INFO"
@@ -23,7 +23,8 @@ data:
 #  dataRatio: "30"
 #  dataRatio: "40"
 #  dataRatio: "60"
-  dataRatio: "70" # Default
+#  dataRatio: "70" # Default
+  dataRatio: "100"
 
 #  LD_PRELOAD: "/usr/local/share/libmalloc_wrapper.so"
   LD_PRELOAD: ""

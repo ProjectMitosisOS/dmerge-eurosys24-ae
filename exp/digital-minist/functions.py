@@ -63,57 +63,74 @@ def fill_gid(gid):
 
 
 def splitter(meta):
+    test_data = np.genfromtxt('dataset/Digits_Test.txt', delimiter='\t')
     wf_start_tick = cur_tick_ms()
-
     tick = cur_tick_ms()
     predict_worker_num = int(os.environ.get('WORKER_NUM', '1'))
-    test_data = np.genfromtxt('dataset/Digits_Test.txt', delimiter='\t')
     split_arr = np.array_split(test_data, predict_worker_num)
+    model = lgb.Booster(model_file='mnist_model.txt')
     execute_time = cur_tick_ms() - tick
     protocol = util.PROTOCOL
     meta['profile'] = {
+        'sd_bytes_len': 0,
         'runtime': {
             'fetch_data_time': 0,
+            'sd_time': 0,
             'nt_time': 0,
         }
     }
 
-    def splitter_s3(meta, split_arr):
-        s3_time = 0
+    def splitter_es(meta, split_arr):
+        es_time = 0
         sd_time = 0
         store_path = '/tmp/test_data_'
         out_dict = dict(meta)
-        out_dict['s3_obj_key_data'] = {}
+        model_key = 'model'
+
+        tick = cur_tick_ms()
+        o = pickle.dumps(model)
+        out_dict['profile']['sd_bytes_len'] += len(o)
+        sd_time += cur_tick_ms() - tick
+
+        tick = cur_tick_ms()
+        out_dict['s3_obj_key_data'] = {
+            'model': model_key
+        }
+        util.redis_put(model_key, o)
+        es_time += cur_tick_ms() - tick
+
         for i, data in enumerate(split_arr):
             tick = cur_tick_ms()
-            path = store_path + str(i)
             obj_key = 'digit_' + str(i)
-            # with open(path, 'wb') as f:
-            #     pickle.dump(data, f)
-            np.savetxt(path, data, delimiter='\t')
+            t = pickle.dumps(data)
+            out_dict['profile']['sd_bytes_len'] += len(t)
+
             sd_time += cur_tick_ms() - tick
 
             tick = cur_tick_ms()
-            s3_client.fput_object(bucket_name, obj_key, path)
+            util.redis_put(obj_key, t)
             out_dict['s3_obj_key_data'][str(i)] = obj_key
-            s3_time += cur_tick_ms() - tick
+            es_time += cur_tick_ms() - tick
+
         out_dict['profile']['splitter'] = {
-            's3_time': s3_time,
+            'es_time': es_time,
             'sd_time': sd_time,
         }
         return out_dict
 
     def splitter_rrpc(meta, split_arr):
-        out = splitter_s3(meta, split_arr)
-        out['profile']['splitter'].pop('s3_time')
+        out = splitter_es(meta, split_arr)
+        out['profile']['splitter'].pop('es_time')
         return out
 
     def splitter_rpc(meta, split_arr):
         out_dict = meta
-        out_dict['payload'] = {}
+        out_dict['payload'] = {
+            'model': model
+        }
         tick = cur_tick_ms()
         for i, data in enumerate(split_arr):
-            out_dict['payload'][str(i)] = data.tolist()
+            out_dict['payload'][str(i)] = data
         sd_time = cur_tick_ms() - tick
         out_dict['profile']['splitter'] = {
             'sd_time': sd_time
@@ -125,11 +142,11 @@ def splitter(meta):
         out_dict = dict(meta)
         out_dict['obj_hash'] = {}
         addr = int(os.environ.get('BASE_HEX', '100000000'), 16)
+        datas = [t.tolist() for t in split_arr]
         push_start_time = cur_tick_ms()
         nic_idx = 0
-        for i, data in enumerate(split_arr):
-            data_li = data.tolist()
-            global_obj[str(i)] = data_li
+        for i, data in enumerate(datas):
+            global_obj[str(i)] = data
             out_dict['obj_hash'][str(i)] = id(global_obj[str(i)])
 
         gid, mac_id, hint = util.push(nic_id=nic_idx, peak_addr=addr)
@@ -148,7 +165,7 @@ def splitter(meta):
         return out_dict
 
     predict_dispatcher = {
-        'S3': splitter_s3,
+        'ES': splitter_es,
         'DMERGE': splitter_dmerge,
         'DMERGE_PUSH': splitter_dmerge,
         'RRPC': splitter_rrpc,
@@ -169,46 +186,43 @@ def splitter(meta):
 def predict(meta):
     start_tick = cur_tick_ms()
 
-    def execute_body(data):
+    def execute_body(model, data):
         # y_test = data[:, 0]
         x_test = data[:, 1:data.shape[1]]
-        model = lgb.Booster(model_file='mnist_model.txt')
         y_pred = model.predict(x_test)
         y_pred = [np.argmax(line) for line in y_pred]
         return y_pred
 
-    def predict_s3(_meta):
+    def predict_es(_meta):
         current_app.logger.info(f"meta in predict s3: {_meta}")
         out_dict = dict(_meta)
         tick = cur_tick_ms()
         ID = os.environ.get('ID', 0)
         path = '/tmp/digits_' + str(ID) + '.txt'
         s3_obj = _meta['s3_obj_key_data'][str(ID)]
-        s3_client.fget_object(bucket_name, s3_obj, path)  # download all
-        s3_time = cur_tick_ms() - tick
+        bi = util.redis_get(s3_obj)
+        model_o = util.redis_get(_meta['s3_obj_key_data']['model'])
+        es_time = cur_tick_ms() - tick
 
         tick = cur_tick_ms()
-        # with open(path, 'rb') as f:
-        #     data = pickle.load(f)
-        data = np.genfromtxt(path, delimiter='\t')
+        data = pickle.loads(bi)
+        model = pickle.loads(model_o)
         sd_time = cur_tick_ms() - tick
 
         tick = cur_tick_ms()
-        y_pred = execute_body(data)
-        y_pred = [line.tolist() for line in y_pred]
+        y_pred = execute_body(model, data)
         execute_time = cur_tick_ms() - tick
 
         tick = cur_tick_ms()
         pred_saved_path = "/tmp/pred.txt"
-        # with open(pred_saved_path, 'wb') as f:
-        #     pickle.dump(y_pred, f)
-        np.savetxt(pred_saved_path, y_pred, delimiter='\t')
+        t = pickle.dumps(y_pred)
+        out_dict['profile']['sd_bytes_len'] += len(t)
+        pred_obj_key = 'y_pred_' + str(ID)
         sd_time += cur_tick_ms() - tick
 
         tick = cur_tick_ms()
-        pred_obj_key = 'y_pred_' + str(ID)
-        s3_client.fput_object(bucket_name, pred_obj_key, pred_saved_path)
-        s3_time += cur_tick_ms() - tick
+        util.redis_put(pred_obj_key, t)
+        es_time += cur_tick_ms() - tick
         out_dict['s3_obj_key_pred'] = {
             'ID': str(ID),
             str(ID): pred_obj_key
@@ -216,30 +230,28 @@ def predict(meta):
         out_dict['profile'].update({
             'predict': {
                 'execute_time': execute_time,
-                's3_time': s3_time,
+                'es_time': es_time,
                 'sd_time': sd_time,
             }
         })
         return out_dict
 
     def predict_rrpc(_meta):
-        out = predict_s3(_meta)
-        out['profile']['predict'].pop('s3_time')
+        out = predict_es(_meta)
+        out['profile']['predict'].pop('es_time')
         return out
 
     def predict_rpc(_meta):
         out_dict = _meta
         ID = os.environ.get('ID', 0)
-        data_raw = _meta['payload'][str(ID)]
+        data = _meta['payload'][str(ID)]
+        model = _meta['payload']['model']
+        # tick = cur_tick_ms()
+        # data = np.array(data_raw)
+        # sd_time = cur_tick_ms() - tick
 
         tick = cur_tick_ms()
-        data = np.array(data_raw)
-        sd_time = cur_tick_ms() - tick
-
-        tick = cur_tick_ms()
-        y_pred = execute_body(data)
-
-        y_pred = [line.tolist() for line in y_pred]
+        y_pred = execute_body(model, data)
         execute_time = cur_tick_ms() - tick
 
         out_dict['payload'] = {
@@ -249,7 +261,6 @@ def predict(meta):
         out_dict['profile'].update({
             'predict': {
                 'execute_time': execute_time,
-                'sd_time': sd_time,
             }
         })
         return out_dict
@@ -271,7 +282,7 @@ def predict(meta):
         test_data = np.array(data)
         pred_y = execute_body(test_data)
         execute_time = cur_tick_ms() - tick
-        current_app.logger.info(f"pred y finish. len {len(pred_y)}")
+        current_app.logger.debug(f"pred y finish. len {len(pred_y)}")
         push_start_time = cur_tick_ms()
         nic_idx = 0
         addr = int(os.environ.get('BASE_HEX', '100000000'), 16)
@@ -299,7 +310,7 @@ def predict(meta):
         return out_dict
 
     predict_dispatcher = {
-        'S3': predict_s3,
+        'ES': predict_es,
         'DMERGE': predict_dmerge,
         'DMERGE_PUSH': predict_dmerge,
         'RRPC': predict_rrpc,
@@ -313,31 +324,30 @@ def predict(meta):
 
 def combine(metas):
     start_tick = cur_tick_ms()
-    def combine_s3(event):
+
+    def combine_es(event):
         tick = cur_tick_ms()
         ID = event['s3_obj_key_pred']['ID']
         path = '/tmp/digits_' + str(ID) + '.txt'
         s3_obj = event['s3_obj_key_pred'][str(ID)]
-        s3_client.fget_object(bucket_name, s3_obj, path)  # download all
-        s3_time = cur_tick_ms() - tick
+        bi = util.redis_get(s3_obj)
+        es_time = cur_tick_ms() - tick
 
         tick = cur_tick_ms()
-        # with open(path, 'rb') as f:
-        #     pred_data = pickle.load(f)
-        pred_data = np.genfromtxt(path, delimiter='\t')
+        pred_data = pickle.loads(bi)
         sd_time = cur_tick_ms() - tick
 
         out_dict = event
         out_dict['pred'] = pred_data
         out_dict['profile']['combine'] = {
-            's3_time': s3_time,
+            'es_time': es_time,
             'sd_time': sd_time,
         }
         return out_dict
 
     def combine_rrpc(event):
-        out = combine_s3(event)
-        out['profile']['combine'].pop('s3_time')
+        out = combine_es(event)
+        out['profile']['combine'].pop('es_time')
         return out
 
     def combine_rpc(event):
@@ -373,7 +383,7 @@ def combine(metas):
         return out_dict
 
     combine_dispatcher = {
-        'S3': combine_s3,
+        'ES': combine_es,
         'DMERGE': combine_dmerge,
         'DMERGE_PUSH': combine_dmerge,
         'RRPC': combine_rrpc,
@@ -389,7 +399,7 @@ def combine(metas):
         wf_e2e_time = max(wf_e2e_time, T - event['profile']['wf_start_tick'])
         current_app.logger.info(f"event@{i} profile: {out_dict['profile']}")
     # Compute mean of the times:
-    current_app.logger.info(f"[ {util.PROTOCOL} ] workflow tick offset: {wf_e2e_time}")
+    # current_app.logger.info(f"[ {util.PROTOCOL} ] workflow tick offset: {wf_e2e_time}")
 
     profile_len = len(metas)
     profile = metas[0]['profile']

@@ -29,24 +29,30 @@ def faas_entry():
     step_start_tick = cur_tick_ms()
     payload = request.data  # Note: Flask uses lazy loading of the payload. We account it into network time.
     fetch_data_time = cur_tick_ms() - step_start_tick
-    if request.headers['Ce-Source'] == 'ping-pong':
+    tick = cur_tick_ms()
+    is_pingpong = request.headers['Ce-Source'] == 'ping-pong'
+    if is_pingpong:
         unmarshaller = None
     else:
         # unmarshaller = None
         unmarshaller = pickle.loads
 
     event = from_http(request.headers, payload, data_unmarshaller=unmarshaller)
+    deseri_time = cur_tick_ms() - tick
 
-    nt_time = step_start_tick - (int(event['source']) if event['source'] != 'ping-pong' else step_start_tick)
-    try:
-        P = event.data['profile']['runtime']
-        P['nt_time'] += nt_time
-        P['fetch_data_time'] += fetch_data_time
-        event.data['profile']['runtime'] = P
-    except Exception:
-        pass
+    nt_time = step_start_tick - (int(event['source']) if not is_pingpong else step_start_tick)
+
+    if isinstance(event.data, dict) and 'profile' in event.data.keys():
+        event.data['profile']['runtime']['nt_time'] += nt_time
+        event.data['profile']['runtime']['fetch_data_time'] += fetch_data_time
+        event.data['profile']['runtime']['sd_time'] += deseri_time
+
     data, ceType = handle_ce(event)
-    # response = make_response(data)
+    if isinstance(data, dict) and 'profile' in data.keys():
+        tick = cur_tick_ms()
+        _obj = pickle.dumps(data)
+        seri_time = cur_tick_ms() - tick
+        data['profile']['runtime']['sd_time'] += seri_time
     response = make_response(pickle.dumps(data))
     response.headers = util.fill_ce_header(id=str(uuid.uuid4()),
                                            ce_specversion=ce_specversion,
