@@ -5,12 +5,12 @@ metadata:
 data:
 #  protocol: "DMERGE"
 #  protocol: "DMERGE_PUSH"
-  protocol: "RPC"
-#  protocol: "S3"
+#  protocol: "RPC"
+  protocol: "ES"
 
   logLevel: "INFO"
   heapSizeHex: "40000000"
-  touchRatio: "4"
+  touchRatio: "10"
   consumerNum: "1"
 #  LD_PRELOAD: "/usr/local/share/libmalloc_wrapper.so"
   LD_PRELOAD: ""
@@ -184,7 +184,7 @@ spec:
                   name: knative-configmap
                   key: logLevel
             - name: BASE_HEX
-              value: "240000000"
+              value: "190000000"
             - name: TOTAL_SZ_HEX
               valueFrom:
                 configMapKeyRef:

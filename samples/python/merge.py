@@ -34,7 +34,7 @@ if connect:
 # obj = np.array([[1, 2, 3], [4, 5, 6]])
 # print(id_deref(id(obj), type(obj)))
 tick = cur_tick_ms()
-res = call_pull(sd=sd, hint=1, machine_id=mac_id, eager_fetch=1)
+res = call_pull(sd=sd, hint=heap_hint, machine_id=mac_id, eager_fetch=0)
 print(f'finish pull {1}/ with time {cur_tick_ms() - tick}')
 
 arr = id_deref(addr, None)

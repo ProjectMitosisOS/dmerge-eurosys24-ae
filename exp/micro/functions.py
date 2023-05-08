@@ -2,13 +2,13 @@ import json
 import os
 import pickle
 import uuid
-
+import lightgbm as lgb
 from bindings import *
 from flask import current_app
 from minio import Minio
 
-from util import cur_tick_ms
 import util
+from util import cur_tick_ms
 
 s3_client = Minio(
     endpoint='minio:9000',
@@ -25,34 +25,19 @@ if not s3_client.bucket_exists(bucket_name):
 # @Serialize: Data transform into IR
 # @Deserialize: IR transform into Data
 
-def read_lines(path):
-    with open(path) as f:
-        return f.readlines()
-
-
-def fill_gid(gid):
-    new_mac_id_parts = []
-    for part in gid.split(":"):
-        new_part = ":".join([str(hex(int(i, 16)))[2:].zfill(4) for i in part.split(".")])
-        new_mac_id_parts.append(new_part)
-    new_mac_id = ":".join(new_mac_id_parts)
-    return new_mac_id
-
-
 def splitter(meta):
-    data_path = 'data/digits.txt'
-    s3_client.fput_object(bucket_name, 'digits', data_path)
     return {
         'status': 200,
-        's3_obj_key': 'digits',
         'wf_id': str(uuid.uuid4()),
         'features': {
             'protocol': os.environ.get('PROTOCOL', 'S3')  # value of DMERGE / S3 / RPC --- Default as S3
         },
         'profile': {
+            'sd_bytes_len': 0,
             'leave_tick': cur_tick_ms(),
             'runtime': {
                 'fetch_data_time': 0,
+                'sd_time': 0,
                 'nt_time': 0,
             }
         },
@@ -66,35 +51,27 @@ global_obj = {}
 
 
 def producer(meta):
-    def execute_body():
-        k = 1  # TODO: replace k
-        arr = np.genfromtxt(local_data_path, delimiter='\t')
-        sub_arrays = np.array_split(arr, k)
-        return sub_arrays[0]
-
     stage_name = 'producer'
-    s3_obj = meta['s3_obj_key']
-    local_data_path = '/tmp/digits.txt'
-    s3_client.fget_object(bucket_name, s3_obj, local_data_path)  # download all
-    out_data = execute_body()
+    data = np.genfromtxt('data/Digits_Train.txt', delimiter='\t').tolist()
+    # data = lgb.Booster(model_file='data/mnist_model.txt')
 
-    def producer_s3(_meta):
+    def producer_es(_meta):
         filename = "/tmp/data.txt"
         out_meta = _meta
         tick = cur_tick_ms()
-        with open(filename, 'w') as f:
-            json.dump(out_data.tolist(), f)
+        o = pickle.dumps(data)
+        out_meta['profile']['sd_bytes_len'] += len(o)
         sd_time = cur_tick_ms() - tick
 
         tick = cur_tick_ms()
-        s3_obj_key = 'Data.txt'
-        s3_client.fput_object(bucket_name, s3_obj_key, filename)
-        s3_time = cur_tick_ms() - tick
+        s3_obj_key = 'Data-{}.txt'.format(util.random_string())
+        util.redis_put(s3_obj_key, o)
+        es_time = cur_tick_ms() - tick
 
         out_meta['s3_obj_key'] = s3_obj_key
         out_meta['profile'].update({
             'producer': {
-                's3_time': s3_time,
+                'es_time': es_time,
                 'sd_time': sd_time,
             },
         })
@@ -104,8 +81,7 @@ def producer(meta):
         out_meta = _meta
 
         tick = cur_tick_ms()
-        out_meta['payload'] = out_data.tolist()
-        # pickle.dumps(out_meta)
+        out_meta['payload'] = data
         sd_time = cur_tick_ms() - tick
 
         out_meta['profile'].update({
@@ -117,25 +93,23 @@ def producer(meta):
 
     def producer_dmerge(_meta):
         out_meta = _meta
+        o = data
 
-        li = out_data.tolist()
         tick = cur_tick_ms()
-        global_obj['data'] = li  # write to global variable to avoid GC
+        global_obj['data'] = o  # write to global variable to avoid GC
 
         addr = int(os.environ.get('BASE_HEX', '100000000'), 16)
         execute_time = cur_tick_ms() - tick
 
         push_start_time = cur_tick_ms()
-        sd = sopen()
         nic_idx = 0
-        gid, mac_id = syscall_get_gid(sd=sd, nic_idx=nic_idx)
-        gid = fill_gid(gid)
-        hint = call_register(sd=sd, peak_addr=addr)
+        gid, mac_id, hint = util.push(nic_id=nic_idx, peak_addr=addr)
+        if util.PROTOCOL == 'DMERGE_PUSH':
+            util.push(nic_id=nic_idx, peak_addr=addr)
         push_time = cur_tick_ms() - push_start_time
 
         obj_id = id(global_obj["data"])
 
-        out_meta.pop('s3_obj_key')
         out_meta['profile'].update({
             'producer': {
                 'push_time': push_time,
@@ -156,8 +130,9 @@ def producer(meta):
 
     wf_start_tick = cur_tick_ms()
     producer_dispatcher = {
-        'S3': producer_s3,
+        'ES': producer_es,
         'DMERGE': producer_dmerge,
+        'DMERGE_PUSH': producer_dmerge,
         'RPC': producer_rpc
     }
     dispatch_key = meta['features']['protocol']
@@ -171,25 +146,21 @@ def producer(meta):
 def consumer(event):
     stage_name = 'consumer'
 
-    def consumer_s3(event):
+    def consumer_es(event):
         out_meta = event
 
+        tick = cur_tick_ms()
         s3_obj_key = event['s3_obj_key']
+        o = util.redis_get(s3_obj_key)
+        es_time = cur_tick_ms() - tick
 
         tick = cur_tick_ms()
-        local_data_path = '/tmp/digits.txt'
-        s3_client.fget_object(bucket_name, s3_obj_key, local_data_path)
-        s3_time = cur_tick_ms() - tick
-
-        tick = cur_tick_ms()
-        with open(local_data_path, 'rb') as f:
-            data = np.array(json.load(f))
-            # data = pickle.load(f)
+        data = pickle.loads(o)
         sd_time = cur_tick_ms() - tick
 
         out_meta['profile'].update({
             'consumer': {
-                's3_time': s3_time,
+                'es_time': es_time,
                 'sd_time': sd_time,
             },
         })
@@ -219,14 +190,9 @@ def consumer(event):
             route['hint'], route['nic_id']
 
         pull_start_time = cur_tick_ms()
-        sd = sopen()
-        current_app.logger.debug(f"connect res {0}. gid: {gid} ,"
-                                 f"machine id {mac_id} ,"
-                                 f"hint {hint} ,"
-                                 f"nic id {nic_id}")
-        res = call_pull(sd=sd, hint=hint, machine_id=mac_id, eager_fetch=0)
-        obj = np.array(id_deref(target_id, None)) # Retrieve all or not
-        # current_app.logger.debug(f'get result. arr len {np.shape(obj)}')
+        r = util.pull(mac_id, hint)
+        assert r == 0
+        _data = util.fetch(target_id)  # Retrieve all or not
         pull_time = cur_tick_ms() - pull_start_time
 
         out_meta['profile'].update({
@@ -238,8 +204,9 @@ def consumer(event):
         return out_meta
 
     consumer_dispatcher = {
-        'S3': consumer_s3,
+        'ES': consumer_es,
         'DMERGE': consumer_dmerge,
+        'DMERGE_PUSH': consumer_dmerge,
         'RPC': consumer_rpc
     }
     dispatch_key = event['features']['protocol']
@@ -262,8 +229,8 @@ def sink(metas):
 
     reduced_profile = util.reduce_profile(meta['profile'])
     e2e_time = meta['profile']['wf_end_tick'] - meta['profile']['wf_start_tick']
-    current_app.logger.info(f"[ {util.PROTOCOL} ] "
-                            f"workflow e2e time for whole: {e2e_time}")
+    # current_app.logger.info(f"[ {util.PROTOCOL} ] "
+    #                         f"workflow e2e time for whole: {e2e_time}")
     current_app.logger.info(f"[ {util.PROTOCOL} ] "
                             f"workflow e2e time: {reduced_profile['stage_time']}")
     for k, v in reduced_profile.items():

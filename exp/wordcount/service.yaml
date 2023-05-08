@@ -7,11 +7,11 @@ data:
 #  protocol: "DMERGE_PUSH"
 #  protocol: "RRPC"
 #  protocol: "RPC"
-  protocol: "S3"
+  protocol: "ES"
 
   mapperNum: "8" # Default
   logLevel: "INFO"
-  heapSizeHex: "40000000"
+  heapSizeHex: "20000000"
 #  LD_PRELOAD: "/usr/local/share/libmalloc_wrapper.so"
   LD_PRELOAD: ""
 ---
@@ -33,7 +33,7 @@ spec:
           imagePullPolicy: Always
           resources:
             limits:
-              hostdev.k8s.io/dev_mitosis-syscalls: 1
+              hostdev.k8s.io/dev_mitosis-syscalls: 0
           env:
             - name: CE_SPECVERSION
               value: "0.3"
@@ -85,7 +85,7 @@ spec:
           image: val01:5000/dmerge-wordcount
           resources:
             limits:
-              hostdev.k8s.io/dev_mitosis-syscalls: 1
+              hostdev.k8s.io/dev_mitosis-syscalls: 0
           imagePullPolicy: Always
           env:
             - name: CE_SPECVERSION
@@ -135,7 +135,7 @@ spec:
           image: val01:5000/dmerge-wordcount
           resources:
             limits:
-              hostdev.k8s.io/dev_mitosis-syscalls: 1
+              hostdev.k8s.io/dev_mitosis-syscalls: 0
           imagePullPolicy: Always
           env:
             - name: CE_SPECVERSION
@@ -185,7 +185,7 @@ spec:
           image: val01:5000/dmerge-wordcount
           resources:
             limits:
-              hostdev.k8s.io/dev_mitosis-syscalls: 1
+              hostdev.k8s.io/dev_mitosis-syscalls: 0
           imagePullPolicy: Always
           env:
             - name: CE_SPECVERSION
@@ -235,7 +235,7 @@ spec:
           image: val01:5000/dmerge-wordcount
           resources:
             limits:
-              hostdev.k8s.io/dev_mitosis-syscalls: 1
+              hostdev.k8s.io/dev_mitosis-syscalls: 0
           imagePullPolicy: Always
           env:
             - name: CE_SPECVERSION
@@ -285,7 +285,7 @@ spec:
           image: val01:5000/dmerge-wordcount
           resources:
             limits:
-              hostdev.k8s.io/dev_mitosis-syscalls: 1
+              hostdev.k8s.io/dev_mitosis-syscalls: 0
           imagePullPolicy: Always
           env:
             - name: CE_SPECVERSION
@@ -335,7 +335,7 @@ spec:
           image: val01:5000/dmerge-wordcount
           resources:
             limits:
-              hostdev.k8s.io/dev_mitosis-syscalls: 1
+              hostdev.k8s.io/dev_mitosis-syscalls: 0
           imagePullPolicy: Always
           env:
             - name: CE_SPECVERSION
@@ -385,7 +385,7 @@ spec:
           image: val01:5000/dmerge-wordcount
           resources:
             limits:
-              hostdev.k8s.io/dev_mitosis-syscalls: 1
+              hostdev.k8s.io/dev_mitosis-syscalls: 0
           imagePullPolicy: Always
           env:
             - name: CE_SPECVERSION
@@ -435,7 +435,7 @@ spec:
           image: val01:5000/dmerge-wordcount
           resources:
             limits:
-              hostdev.k8s.io/dev_mitosis-syscalls: 1
+              hostdev.k8s.io/dev_mitosis-syscalls: 0
           imagePullPolicy: Always
           env:
             - name: CE_SPECVERSION
@@ -486,7 +486,7 @@ spec:
           imagePullPolicy: Always
           resources:
             limits:
-              hostdev.k8s.io/dev_mitosis-syscalls: 1
+              hostdev.k8s.io/dev_mitosis-syscalls: 0
           env:
             - name: CE_SPECVERSION
               value: "0.3"
