@@ -3,18 +3,18 @@ kind: ConfigMap
 metadata:
   name: knative-configmap
 data:
-#  protocol: "DMERGE"
+  protocol: "DMERGE" # TODO: Finish model heapize
 #  protocol: "DMERGE_PUSH"
 #  protocol: "RRPC"
 #  protocol: "RPC"
-  protocol: "ES"
+#  protocol: "ES"
 
   workerNum: "8" # Default
 
   logLevel: "INFO"
   heapSizeHex: "40000000"
-#  LD_PRELOAD: "/usr/local/share/libmalloc_wrapper.so"
-  LD_PRELOAD: ""
+  LD_PRELOAD: "/usr/local/share/libmalloc_wrapper.so"
+#  LD_PRELOAD: ""
 ---
 apiVersion: serving.knative.dev/v1
 kind: Service
@@ -27,6 +27,7 @@ spec:
       annotations:
         # Credit to https://knative.dev/docs/serving/autoscaling/scale-bounds/#lower-bound
         autoscaling.knative.dev/min-scale: "1"
+        autoscaling.knative.dev/max-scale: "1"
     spec:
       containers:
         - name: dmerge-source
@@ -34,7 +35,7 @@ spec:
           imagePullPolicy: Always
           resources:
             limits:
-              hostdev.k8s.io/dev_mitosis-syscalls: 0
+              hostdev.k8s.io/dev_mitosis-syscalls: 1
           env:
             - name: CE_SPECVERSION
               value: "0.3"
@@ -87,7 +88,7 @@ spec:
           image: val01:5000/dmerge-digital-minist
           resources:
             limits:
-              hostdev.k8s.io/dev_mitosis-syscalls: 0
+              hostdev.k8s.io/dev_mitosis-syscalls: 1
           imagePullPolicy: Always
           env:
             - name: CE_SPECVERSION
@@ -136,7 +137,7 @@ spec:
           image: val01:5000/dmerge-digital-minist
           resources:
             limits:
-              hostdev.k8s.io/dev_mitosis-syscalls: 0
+              hostdev.k8s.io/dev_mitosis-syscalls: 1
           imagePullPolicy: Always
           env:
             - name: CE_SPECVERSION
@@ -185,7 +186,7 @@ spec:
           image: val01:5000/dmerge-digital-minist
           resources:
             limits:
-              hostdev.k8s.io/dev_mitosis-syscalls: 0
+              hostdev.k8s.io/dev_mitosis-syscalls: 1
           imagePullPolicy: Always
           env:
             - name: CE_SPECVERSION
@@ -234,7 +235,7 @@ spec:
           image: val01:5000/dmerge-digital-minist
           resources:
             limits:
-               hostdev.k8s.io/dev_mitosis-syscalls: 0
+               hostdev.k8s.io/dev_mitosis-syscalls: 1
           imagePullPolicy: Always
           env:
             - name: CE_SPECVERSION
@@ -283,7 +284,7 @@ spec:
           image: val01:5000/dmerge-digital-minist
           resources:
             limits:
-              hostdev.k8s.io/dev_mitosis-syscalls: 0
+              hostdev.k8s.io/dev_mitosis-syscalls: 1
           imagePullPolicy: Always
           env:
             - name: CE_SPECVERSION
@@ -332,7 +333,7 @@ spec:
           image: val01:5000/dmerge-digital-minist
           resources:
             limits:
-              hostdev.k8s.io/dev_mitosis-syscalls: 0
+              hostdev.k8s.io/dev_mitosis-syscalls: 1
           imagePullPolicy: Always
           env:
             - name: CE_SPECVERSION
@@ -381,7 +382,7 @@ spec:
           image: val01:5000/dmerge-digital-minist
           resources:
             limits:
-              hostdev.k8s.io/dev_mitosis-syscalls: 0
+              hostdev.k8s.io/dev_mitosis-syscalls: 1
           imagePullPolicy: Always
           env:
             - name: CE_SPECVERSION
@@ -430,7 +431,7 @@ spec:
           image: val01:5000/dmerge-digital-minist
           resources:
             limits:
-              hostdev.k8s.io/dev_mitosis-syscalls: 0
+              hostdev.k8s.io/dev_mitosis-syscalls: 1
           imagePullPolicy: Always
           env:
             - name: CE_SPECVERSION
@@ -474,12 +475,12 @@ spec:
         autoscaling.knative.dev/min-scale: "1"
     spec:
       containers:
-        - name: dmerge-digital-minist
+        - name: user-app
           image: val01:5000/dmerge-digital-minist
           imagePullPolicy: Always
           resources:
             limits:
-              hostdev.k8s.io/dev_mitosis-syscalls: 0
+              hostdev.k8s.io/dev_mitosis-syscalls: 1
           env:
             - name: CE_SPECVERSION
               value: "0.3"
@@ -582,9 +583,28 @@ spec:
           name: predict-7
   reply:
     ref:
-      apiVersion: serving.knative.dev/v1
-      kind: Service
-      name: combine
+      apiVersion: flows.knative.dev/v1
+      kind: Sequence
+      name: combine-sequence
+---
+apiVersion: flows.knative.dev/v1
+kind: Sequence
+metadata:
+  name: combine-sequence
+spec:
+  channelTemplate:
+    apiVersion: messaging.knative.dev/v1
+    kind: InMemoryChannel
+  steps:
+    - ref:
+        apiVersion: serving.knative.dev/v1
+        kind: Service
+        name: combine
+  reply:
+    ref:
+      apiVersion: eventing.knative.dev/v1
+      kind: Broker
+      name: default-broker
 ---
 apiVersion: eventing.knative.dev/v1
 kind: Trigger
@@ -601,3 +621,35 @@ spec:
       apiVersion: flows.knative.dev/v1
       kind: Sequence
       name: start
+---
+apiVersion: eventing.knative.dev/v1
+kind: Trigger
+metadata:
+  name: event-display-trigger
+  namespace: default
+spec:
+  broker: default-broker
+  filter:
+    attributes:
+      type: none
+  subscriber:
+    ref:
+      apiVersion: serving.knative.dev/v1
+      kind: Service
+      name: event-display
+---
+apiVersion: eventing.knative.dev/v1
+kind: Trigger
+metadata:
+  name: sink-trigger
+  namespace: default
+spec:
+  broker: default-broker
+  filter:
+    attributes:
+      type: combine
+  subscriber:
+    ref:
+      apiVersion: serving.knative.dev/v1
+      kind: Service
+      name: event-display

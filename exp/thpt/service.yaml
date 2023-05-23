@@ -1,0 +1,221 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: knative-configmap
+data:
+# Default: max 5
+  protocol: "DMERGE" # max: 1 (con = 30)
+#  protocol: "DMERGE_PUSH" # FIXME: Not a baseline now
+#  protocol: "MITOSIS" # max: 2, target = 5 (con=70)
+#  protocol: "ESRDMA" # (20) max: 3, target = 5 (con=90)
+#  protocol: "ES" # (4) , max: 6, target=5 (con=90)
+#  protocol: "RPC" # (8), max: 6, target=5 (con=200)
+
+  logLevel: "INFO"
+  heapSizeHex: "40000000"
+#  touchRatio: "20"
+  touchRatio: "100"
+  consumerNum: "1"
+  webWorker: "1" # The performance of multiprocess is not so good
+  LD_PRELOAD: "/usr/local/share/libmalloc_wrapper.so"
+#  LD_PRELOAD: ""
+---
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: splitter
+  namespace: default
+spec:
+  template:
+    metadata:
+      annotations:
+        # Credit to https://knative.dev/docs/serving/autoscaling/scale-bounds/#lower-bound
+        autoscaling.knative.dev/min-scale: "1"
+        autoscaling.knative.dev/max-scale: "1"
+        autoscaling.knative.dev/metric: rps
+        autoscaling.knative.dev/target: "5"
+        autoscaling.knative.dev/initial-scale: "1"
+    spec:
+      containers:
+        - name: dmerge-thpt
+          image: val01:5000/dmerge-thpt
+          imagePullPolicy: Always
+          env:
+            - name: CE_SPECVERSION
+              value: "0.3"
+            - name: ID
+              value: "0"
+            - name: CE_TYPE
+              value: "splitter"
+            - name: LOG_LEVEL
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: logLevel
+            - name: PROTOCOL
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: protocol
+            - name: WEB_WORKER
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: webWorker
+---
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: producer
+  namespace: default
+spec:
+  template:
+    metadata:
+      annotations:
+        # Credit to https://knative.dev/docs/serving/autoscaling/scale-bounds/#lower-bound
+        autoscaling.knative.dev/min-scale: "1"
+        autoscaling.knative.dev/max-scale: "1"
+        autoscaling.knative.dev/metric: rps
+        autoscaling.knative.dev/target: "5"
+        autoscaling.knative.dev/initial-scale: "1"
+    spec:
+      containers:
+        - name: dmerge-thpt
+          image: val01:5000/dmerge-thpt
+          resources:
+            limits:
+              hostdev.k8s.io/dev_mitosis-syscalls: 1
+          imagePullPolicy: Always
+          env:
+            - name: WEB_WORKER
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: webWorker
+            - name: CE_SPECVERSION
+              value: "0.3"
+            - name: ID
+              value: "0"
+            - name: CE_TYPE
+              value: "producer"
+            - name: LOG_LEVEL
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: logLevel
+            - name: BASE_HEX
+              value: "100000000"
+            - name: TOTAL_SZ_HEX
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: heapSizeHex
+            - name: LD_PRELOAD
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: LD_PRELOAD
+            - name: PROTOCOL
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: protocol
+            - name: TOUCH_RATIO
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: touchRatio
+---
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: consumer
+  namespace: default
+spec:
+  template:
+    metadata:
+      annotations:
+        # Credit to https://knative.dev/docs/serving/autoscaling/scale-bounds/#lower-bound
+        autoscaling.knative.dev/min-scale: "1"
+        autoscaling.knative.dev/max-scale: "1"
+        autoscaling.knative.dev/metric: rps
+        autoscaling.knative.dev/target: "5"
+        autoscaling.knative.dev/initial-scale: "1"
+    spec:
+      containers:
+        - name: dmerge-thpt
+          image: val01:5000/dmerge-thpt
+          resources:
+            limits:
+              hostdev.k8s.io/dev_mitosis-syscalls: 1
+          imagePullPolicy: Always
+          env:
+            - name: WEB_WORKER
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: webWorker
+            - name: CE_SPECVERSION
+              value: "0.3"
+            - name: ID
+              value: "0"
+            - name: CE_TYPE
+              value: "consumer"
+            - name: LOG_LEVEL
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: logLevel
+            - name: BASE_HEX
+              value: "140000000"
+            - name: TOTAL_SZ_HEX
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: heapSizeHex
+            - name: LD_PRELOAD
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: LD_PRELOAD
+            - name: PROTOCOL
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: protocol
+            - name: TOUCH_RATIO
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: touchRatio
+---
+# Main body of MapReduce-alike framework
+apiVersion: flows.knative.dev/v1
+kind: Sequence
+metadata:
+  name: start
+spec:
+  channelTemplate:
+    apiVersion: messaging.knative.dev/v1
+    kind: InMemoryChannel
+  steps:
+    - ref:
+        apiVersion: serving.knative.dev/v1
+        kind: Service
+        name: splitter
+---
+apiVersion: eventing.knative.dev/v1
+kind: Trigger
+metadata:
+  name: ping-trigger
+  namespace: default
+spec:
+  broker: default-broker
+  filter:
+    attributes:
+      type: dev.knative.sources.ping # Default ping type from Ping-Source
+  subscriber:
+    ref:
+      apiVersion: flows.knative.dev/v1
+      kind: Sequence
+      name: start

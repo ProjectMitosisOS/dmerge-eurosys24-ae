@@ -2,6 +2,7 @@ use alloc::string::String;
 use alloc::vec::Vec;
 use core::intrinsics::size_of;
 use core::mem::size_of_val;
+use hashbrown::HashSet;
 use mitosis::kern_wrappers::mm::VirtAddrType;
 use crate::descriptors::heap::HeapDescriptor;
 use crate::KRdmaKit::rust_kernel_rdma_base::linux_kernel_module::c_types::*;
@@ -30,9 +31,9 @@ pub struct DmergeSyscallHandler {
 
 impl Drop for DmergeSyscallHandler {
     fn drop(&mut self) {
-        for hint in &self.caller_status.private_heap_hints {
+        if let Some(hint) = self.caller_status.private_heap_hint {
             let heap_service = unsafe { crate::get_shs_mut() };
-            heap_service.unregister(*hint as _);
+            heap_service.unregister(hint as _);
         }
     }
 }
@@ -48,7 +49,8 @@ struct HeapDataStruct {
 struct CallerData {
     // whether pin itself after close the fd
     ping_data: bool,
-    private_heap_hints: Vec<usize>,
+    // TODO: Now one process only support register one unique private heap
+    private_heap_hint: Option<u64>,
     public_heaps: Vec<HeapDataStruct>,
 }
 
@@ -56,7 +58,7 @@ impl Default for CallerData {
     fn default() -> Self {
         Self {
             ping_data: false,
-            private_heap_hints: Default::default(),
+            private_heap_hint: None,
             public_heaps: Vec::new(),
         }
     }
@@ -72,10 +74,11 @@ impl mitosis::syscalls::FileOperations for DmergeSyscallHandler {
             MY_VM_OP.access = None;
         }
 
-        // {
-        //     let task = mitosis::kern_wrappers::task::Task::new();
-        //     task.generate_mm();
-        // }
+        #[cfg(feature = "process")]
+        {
+            let task = mitosis::kern_wrappers::task::Task::new();
+            task.generate_mm();
+        }
 
         Ok(Self {
             file: file as *mut _,
@@ -97,10 +100,15 @@ impl mitosis::syscalls::FileOperations for DmergeSyscallHandler {
                         core::mem::size_of_val(&req) as u64,
                     )
                 };
-                let heap_hint = unsafe { crate::get_heap_id_generator_mut().alloc_one_id() };
-                let _ = self.syscall_register_heap(req.heap_base as _, heap_hint as _);
-                self.caller_status.private_heap_hints.push(heap_hint as _);
-                heap_hint as _
+
+                if let Some(hint) = self.caller_status.private_heap_hint {
+                    hint as _
+                } else {
+                    let heap_hint = unsafe { crate::get_heap_id_generator_mut().alloc_one_id() };
+                    let _ = self.syscall_register_heap(req.heap_base as _, heap_hint as _);
+                    self.caller_status.private_heap_hint = Some(heap_hint);
+                    heap_hint as _
+                }
             }
             1 => {
                 /* pull */

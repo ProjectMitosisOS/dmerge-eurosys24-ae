@@ -33,16 +33,23 @@ impl Default for HeapDescriptor {
 
 impl HeapDescriptor {
     #[inline]
+    pub fn unmap_public_heap(&self, file: *mut mitosis::bindings::file) {
+        // unmap original VMAs to avoid data confliction
+        let task = Task::new();
+        let mut md = task.get_memory_descriptor();
+
+        (&self.vma).into_iter().enumerate().for_each(|(i, m)| {
+            let (vma_start, vma_sz) = (m.get_start(), m.get_sz());
+            crate::log::debug!("unmap first from 0x{:x} with size {}", vma_start, vma_sz);
+            md.unmap_region(vma_start as _, vma_sz as _);
+        });
+    }
+
+    #[inline]
     pub fn apply_to(&mut self, file: *mut mitosis::bindings::file, eager_fetch: bool) {
         let task = Task::new();
-        // unmap original VMAs to avoid data confliction
-        {
-            let mut md = task.get_memory_descriptor();
-            (&self.vma).into_iter().enumerate().for_each(|(i, m)| {
-                let (vma_start, vma_sz) = (m.get_start(), m.get_sz());
-                md.unmap_region(vma_start as _, vma_sz as _);
-            });
-        }
+        // self.unmap_public_heap(file);
+
         if eager_fetch {
             let access_info = AccessInfo::new(&self.machine_info).unwrap();
             self.vma.clone().into_iter().enumerate().for_each(|(i, m)| {

@@ -69,6 +69,10 @@ def cur_tick_ms():
     return int(round(time.time() * 1000))
 
 
+def cur_tick_us():
+    return int(round(time.time() * 1000000))
+
+
 def pull(mac_id, hint):
     return call_pull(sd=SD, hint=hint,
                      machine_id=mac_id, eager_fetch=eager_fetch)

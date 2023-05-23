@@ -36,12 +36,17 @@ impl ShadowHeap {
         for vma in mm.get_vma_iter() {
             let vma_des = vma.generate_descriptor();
             // Filter for vma (if in range)
-            if heap_start >= vma_des.get_start() && heap_start < vma_des.get_end() {
-                vma_descriptors.push(vma_des);
-                shadow_vmas.push(ShadowVMA::new(vma, true));
-                vma_page_table.push(Default::default());
-                heap_start = vma_des.get_end(); // Trick: Move to next possible VM. FIXME: Why it would be splitted?
+            #[cfg(not(feature = "process"))]
+            if !(heap_start >= vma_des.get_start() && heap_start < vma_des.get_end()) {
+                continue;
             }
+            vma_descriptors.push(vma_des);
+            shadow_vmas.push(ShadowVMA::new(vma, true));
+            vma_page_table.push(Default::default());
+            heap_start = vma_des.get_end(); // Trick: Move to next possible VM. FIXME: Why it would be splitted?
+
+            log::debug!("[ShadowHeap] Generate vma start: {}, len: {}",
+            heap_start, vma_des.get_sz());
         }
 
         for (idx, shadow_vma) in shadow_vmas.iter().enumerate() {

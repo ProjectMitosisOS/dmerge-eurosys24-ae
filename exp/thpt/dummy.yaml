@@ -1,0 +1,50 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dummy
+  namespace: default
+spec:
+  selector:
+    matchLabels:
+      app: dummy
+  template:
+    metadata:
+      labels:
+        app: dummy
+    spec:
+      containers:
+        - name: dmerge-thpt
+          image: val01:5000/dmerge-thpt
+          imagePullPolicy: Always
+          env:
+            - name: CE_SPECVERSION
+              value: "0.3"
+            - name: ID
+              value: "0"
+            - name: CE_TYPE
+              value: "dummy"
+            - name: LOG_LEVEL
+              value: "INFO"
+            - name: PROTOCOL
+              value: "ES"
+          volumeMounts:
+            - name: data
+              mountPath: /app/tmp
+      volumes:
+        - name: data
+          hostPath:
+            path: /tmp/thpt-lat-out
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dummy
+  namespace: default
+spec:
+  selector:
+    app: dummy
+  ports:
+    - name: http
+      protocol: TCP
+      port: 80
+      targetPort: 8080

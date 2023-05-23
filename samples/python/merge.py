@@ -2,6 +2,7 @@ import argparse
 import time
 
 from bindings import *
+import numpy as np
 
 parser = argparse.ArgumentParser(
     prog='ProgramName',
@@ -33,12 +34,13 @@ if connect:
     assert res == 0
 # obj = np.array([[1, 2, 3], [4, 5, 6]])
 # print(id_deref(id(obj), type(obj)))
-tick = cur_tick_ms()
-res = call_pull(sd=sd, hint=heap_hint, machine_id=mac_id, eager_fetch=0)
-print(f'finish pull {1}/ with time {cur_tick_ms() - tick}')
 
-arr = id_deref(addr, None)
-print(arr)
-# #
-# arr = id_deref(4299386224, None)
-# print(arr)
+for i in range(10):
+    tick = cur_tick_ms()
+    res = call_pull(sd=sd, hint=heap_hint, machine_id=mac_id, eager_fetch=0)
+    print(f'[1] finish pull {1}/ with time {cur_tick_ms() - tick}')
+
+    data = id_deref(addr, None)
+    obj = np.array(data)
+    print(np.sum(obj[:][1:]))
+print('done')  # FIXME: segment fault after return

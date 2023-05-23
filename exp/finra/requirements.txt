@@ -6,3 +6,5 @@ numpy
 lightgbm==2.0.7
 minio
 yfinance
+fastapi
+uvicorn

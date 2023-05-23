@@ -2907,7 +2907,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   # Note: the Deployment name must be the same as the Service name specified in
-  # config/400-webhook-service.yaml. If you change this name, you must also
+  # config/400-webhook-service-same-thpt.yaml. If you change this name, you must also
   # change the value of WEBHOOK_SERVICE_NAME below.
   name: tekton-pipelines-webhook
   namespace: tekton-pipelines

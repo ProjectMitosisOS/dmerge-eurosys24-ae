@@ -1,22 +1,16 @@
-import json
+import logging
 import os
 import pickle
+import threading
 import uuid
-import lightgbm as lgb
+
+import requests
 from bindings import *
-from flask import current_app
-from minio import Minio
 
 import util
 from util import cur_tick_ms
 
-s3_client = Minio(
-    endpoint='minio:9000',
-    secure=False,
-    access_key='ACCESS_KEY', secret_key='SECRET_KEY')
-bucket_name = 'micro'
-if not s3_client.bucket_exists(bucket_name):
-    s3_client.make_bucket(bucket_name)
+app_logger = logging.getLogger('app_logger')
 
 
 # Profile is seperated into 4 parts as below:
@@ -26,6 +20,7 @@ if not s3_client.bucket_exists(bucket_name):
 # @Deserialize: IR transform into Data
 
 def splitter(meta):
+    loop = int(meta.get('loop', '0'))
     return {
         'status': 200,
         'wf_id': str(uuid.uuid4()),
@@ -33,6 +28,7 @@ def splitter(meta):
             'protocol': os.environ.get('PROTOCOL', 'S3')  # value of DMERGE / S3 / RPC --- Default as S3
         },
         'profile': {
+            'loop': loop,
             'sd_bytes_len': 0,
             'leave_tick': cur_tick_ms(),
             'runtime': {
@@ -52,7 +48,8 @@ global_obj = {}
 
 def producer(meta):
     stage_name = 'producer'
-    data = np.genfromtxt('data/Digits_Train.txt', delimiter='\t').tolist()
+    data = np.genfromtxt('data/Digits_Train.txt', delimiter='\t')
+
     # data = lgb.Booster(model_file='data/mnist_model.txt')
 
     def producer_es(_meta):
@@ -125,7 +122,7 @@ def producer(meta):
             'nic_id': nic_idx,
             'hint': hint
         }
-        current_app.logger.debug(f'DMERGE profile: {out_meta["profile"]}')
+        app_logger.debug(f'DMERGE profile: {out_meta["profile"]}')
         return out_meta
 
     wf_start_tick = cur_tick_ms()
@@ -164,7 +161,7 @@ def consumer(event):
                 'sd_time': sd_time,
             },
         })
-        current_app.logger.debug(f'S3 profile: {out_meta["profile"]}')
+        app_logger.debug(f'S3 profile: {out_meta["profile"]}')
         return out_meta
 
     def consumer_rpc(_event):
@@ -179,7 +176,7 @@ def consumer(event):
                 'sd_time': sd_time,
             },
         })
-        current_app.logger.debug(f'S3 profile: {out_meta["profile"]}')
+        app_logger.debug(f'S3 profile: {out_meta["profile"]}')
         return out_meta
 
     def consumer_dmerge(event):
@@ -200,7 +197,7 @@ def consumer(event):
                 'pull_time': pull_time,
             },
         })
-        current_app.logger.debug(f'DMERGE profile: {out_meta["profile"]}')
+        app_logger.debug(f'DMERGE profile: {out_meta["profile"]}')
         return out_meta
 
     consumer_dispatcher = {
@@ -219,27 +216,47 @@ def consumer(event):
 
 
 def sink(metas):
+    def send_request(data):
+        headers = {
+            'Ce-Id': '536808d3-88be-4077-9d7a-a3f162705f79',
+            'Ce-Specversion': '1.0',
+            'Ce-Type': 'dev.knative.sources.ping',
+            'Ce-Source': 'ping-pong',
+            'Content-Type': 'application/json'
+        }
+        response = requests.post(
+            'http://broker-ingress.knative-eventing.svc.cluster.local/default/default-broker',
+            headers=headers,
+            json=data
+        )
+
     for i, meta in enumerate(metas):
-        current_app.logger.debug(f"@{i}:[ {util.PROTOCOL} ] "
-                                 f"whole profile: {meta['profile']}")
+        app_logger.debug(f"@{i}:[ {util.PROTOCOL} ] "
+                         f"whole profile: {meta['profile']}")
     meta = metas[-1]
-    current_app.logger.info(f"[ {util.PROTOCOL} ] "
-                            f"whole profile: {meta['profile']}")
+    loop = meta['profile']['loop']
+    app_logger.info(f"[ {util.PROTOCOL} ] "
+                    f"whole profile: {meta['profile']}")
     meta['profile']['runtime']['stage_time'] = sum(meta['profile']['runtime'].values())
 
     reduced_profile = util.reduce_profile(meta['profile'])
     e2e_time = meta['profile']['wf_end_tick'] - meta['profile']['wf_start_tick']
-    # current_app.logger.info(f"[ {util.PROTOCOL} ] "
+    # app_logger.info(f"[ {util.PROTOCOL} ] "
     #                         f"workflow e2e time for whole: {e2e_time}")
-    current_app.logger.info(f"[ {util.PROTOCOL} ] "
-                            f"workflow e2e time: {reduced_profile['stage_time']}")
+    app_logger.info(f"[ {util.PROTOCOL} ] "
+                    f"[{loop}] workflow e2e time: {reduced_profile['stage_time']}")
     for k, v in reduced_profile.items():
-        current_app.logger.info(f"Part@ {k} passed {v} ms")
+        app_logger.info(f"Part@ {k} passed {v} ms")
+    app_logger.info(f"Part@ cur_tick_ms passed {cur_tick_ms()} ms")
+    if loop > 0:
+        loop -= 1
+        thread = threading.Thread(target=send_request, args=({'loop': loop},))
+        thread.start()
     return {}
 
 
 def default_handler(meta):
-    current_app.logger.error(f'not a default path for type')
+    app_logger.error(f'[default_handler] not a default path for type')
     return meta
 
 

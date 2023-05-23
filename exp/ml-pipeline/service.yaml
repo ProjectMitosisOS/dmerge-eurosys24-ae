@@ -3,18 +3,17 @@ kind: ConfigMap
 metadata:
   name: knative-configmap
 data:
-#  protocol: "DMERGE"
+  protocol: "DMERGE"
 #  protocol: "DMERGE_PUSH"
-#  protocol: "RRPC"
 #  protocol: "RPC"
-  protocol: "ES"
+#  protocol: "ES"
 
   trainerNum: "8" # Default
   logLevel: "INFO"
   heapSizeHex: "40000000"
 
-#  epoch: "5"
-  epoch: "10" # Default
+  epoch: "5"
+#  epoch: "10" # Default
 #  epoch: "15"
 #  epoch: "20"
 #  epoch: "30"
@@ -23,11 +22,11 @@ data:
 #  dataRatio: "30"
 #  dataRatio: "40"
 #  dataRatio: "60"
-#  dataRatio: "70" # Default
+#  dataRatio: "70"
   dataRatio: "100"
 
-#  LD_PRELOAD: "/usr/local/share/libmalloc_wrapper.so"
-  LD_PRELOAD: ""
+  LD_PRELOAD: "/usr/local/share/libmalloc_wrapper.so"
+#  LD_PRELOAD: ""
 ---
 apiVersion: serving.knative.dev/v1
 kind: Service
@@ -90,7 +89,7 @@ spec:
           image: val01:5000/dmerge-ml-pipeline
           resources:
             limits:
-              hostdev.k8s.io/dev_mitosis-syscalls: 0
+              hostdev.k8s.io/dev_mitosis-syscalls: 1
           imagePullPolicy: Always
           env:
             - name: CE_SPECVERSION
@@ -148,7 +147,7 @@ spec:
           image: val01:5000/dmerge-ml-pipeline
           resources:
             limits:
-              hostdev.k8s.io/dev_mitosis-syscalls: 0
+              hostdev.k8s.io/dev_mitosis-syscalls: 1
           imagePullPolicy: Always
           env:
             - name: CE_SPECVERSION
@@ -204,7 +203,7 @@ spec:
           imagePullPolicy: Always
           resources:
             limits:
-              hostdev.k8s.io/dev_mitosis-syscalls: 0
+              hostdev.k8s.io/dev_mitosis-syscalls: 1
           env:
             - name: CE_SPECVERSION
               value: "0.3"
@@ -256,7 +255,7 @@ spec:
           imagePullPolicy: Always
           resources:
             limits:
-              hostdev.k8s.io/dev_mitosis-syscalls: 0
+              hostdev.k8s.io/dev_mitosis-syscalls: 1
           env:
             - name: CE_SPECVERSION
               value: "0.3"
@@ -308,7 +307,7 @@ spec:
           imagePullPolicy: Always
           resources:
             limits:
-              hostdev.k8s.io/dev_mitosis-syscalls: 0
+              hostdev.k8s.io/dev_mitosis-syscalls: 1
           env:
             - name: CE_SPECVERSION
               value: "0.3"
@@ -360,7 +359,7 @@ spec:
           imagePullPolicy: Always
           resources:
             limits:
-              hostdev.k8s.io/dev_mitosis-syscalls: 0
+              hostdev.k8s.io/dev_mitosis-syscalls: 1
           env:
             - name: CE_SPECVERSION
               value: "0.3"
@@ -412,7 +411,7 @@ spec:
           imagePullPolicy: Always
           resources:
             limits:
-              hostdev.k8s.io/dev_mitosis-syscalls: 0
+              hostdev.k8s.io/dev_mitosis-syscalls: 1
           env:
             - name: CE_SPECVERSION
               value: "0.3"
@@ -464,7 +463,7 @@ spec:
           imagePullPolicy: Always
           resources:
             limits:
-              hostdev.k8s.io/dev_mitosis-syscalls: 0
+              hostdev.k8s.io/dev_mitosis-syscalls: 1
           env:
             - name: CE_SPECVERSION
               value: "0.3"
@@ -516,7 +515,7 @@ spec:
           imagePullPolicy: Always
           resources:
             limits:
-              hostdev.k8s.io/dev_mitosis-syscalls: 0
+              hostdev.k8s.io/dev_mitosis-syscalls: 1
           env:
             - name: CE_SPECVERSION
               value: "0.3"
@@ -563,7 +562,7 @@ spec:
         autoscaling.knative.dev/min-scale: "1"
     spec:
       containers:
-        - name: dmerge-ml-pipeline
+        - name: user-app
           image: val01:5000/dmerge-ml-pipeline
           imagePullPolicy: Always
           env:
@@ -632,7 +631,7 @@ spec:
 apiVersion: flows.knative.dev/v1
 kind: Sequence
 metadata:
-  name: sequence
+  name: start
 spec:
   channelTemplate:
     apiVersion: messaging.knative.dev/v1
@@ -756,7 +755,7 @@ spec:
     ref:
       apiVersion: flows.knative.dev/v1
       kind: Sequence
-      name: sequence
+      name: start
 ---
 apiVersion: eventing.knative.dev/v1
 kind: Trigger
