@@ -5,8 +5,8 @@ metadata:
 data:
 #  protocol: "DMERGE"
 #  protocol: "DMERGE_PUSH"
-#  protocol: "RPC"
-  protocol: "ES"
+  protocol: "RPC"
+#  protocol: "ES"
 
   logLevel: "INFO"
   heapSizeHex: "40000000"
@@ -215,7 +215,7 @@ spec:
         autoscaling.knative.dev/min-scale: "1"
     spec:
       containers:
-        - name: dmerge-micro
+        - name: user-app
           image: val01:5000/dmerge-micro
           imagePullPolicy: Always
           env:
@@ -245,7 +245,7 @@ spec:
 apiVersion: flows.knative.dev/v1
 kind: Sequence
 metadata:
-  name: sequence
+  name: start
 spec:
   channelTemplate:
     apiVersion: messaging.knative.dev/v1
@@ -303,4 +303,4 @@ spec:
     ref:
       apiVersion: flows.knative.dev/v1
       kind: Sequence
-      name: sequence
+      name: start

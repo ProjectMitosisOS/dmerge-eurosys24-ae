@@ -34,5 +34,5 @@ kubectl apply -f redis.yaml
 Deploy knative services and define workflow
 
 ```shell
-kubectl apply -f service.yaml
+kubectl apply -f service-same-thpt.yaml
 ```

@@ -12,7 +12,11 @@ RUN rm -f requirements.txt && \
     echo "cloudevents==1.9.0" >> requirements.txt && \
     echo "redis" >> requirements.txt && \
     echo "lightgbm==2.0.7" >> requirements.txt && \
+    echo "urllib3==1.25.3" >> requirements.txt && \
     echo "minio" >> requirements.txt && \
+    echo "fastapi" >> requirements.txt && \
+    echo "gunicorn" >> requirements.txt && \
+    echo "uvicorn" >> requirements.txt && \
     pip install -r requirements.txt
 
 # LD_PRELOAD related

@@ -1,14 +1,18 @@
-import pickle
+import sys
 
+import uvicorn
 from cloudevents.http import from_http, CloudEvent
-from flask import Flask, request, make_response
+from fastapi import FastAPI, Request
+from fastapi.responses import Response
 
-import util
 from functions import *
 
-app = Flask(__name__)
-app.logger.setLevel(os.environ.get("LOG_LEVEL", "INFO"))
-
+app = FastAPI()
+app_logger = logging.getLogger('app_logger')
+app_logger.setLevel(logging.INFO)
+handler = logging.StreamHandler(sys.stdout)
+# handler = logging.FileHandler('app.log')
+app_logger.addHandler(handler)
 # Env list
 ce_specversion = os.environ.get('CE_SPECVERSION', '0.3')
 WORKFLOW_ID_KEY = 'wf_id'
@@ -20,15 +24,17 @@ handler_dispatch = {
     PING_TP: (source, False),
     source.__name__: (fetchData, False),
     fetchData.__name__: (runAuditRule, True),
+    runAuditRule.__name__: (sink, True),
 }
 
 
 # Thanks the CE python SDK https://github.com/cloudevents/sdk-python
-@app.route('/', methods=['POST'])
-def faas_entry():
+@app.post('/')
+async def faas_entry(request: Request):
     step_start_tick = cur_tick_ms()
-    payload = request.data  # Note: Flask uses lazy loading of the payload. We account it into network time.
+    payload = await request.body()
     fetch_data_time = cur_tick_ms() - step_start_tick
+
     tick = cur_tick_ms()
     is_pingpong = request.headers['Ce-Source'] == 'ping-pong'
     if is_pingpong:
@@ -47,17 +53,18 @@ def faas_entry():
         event.data['profile']['runtime']['fetch_data_time'] += fetch_data_time
         event.data['profile']['runtime']['sd_time'] += deseri_time
 
-    data, ceType = handle_ce(event)
+    data, ce_type = handle_ce(event)
     if isinstance(data, dict) and 'profile' in data.keys():
         tick = cur_tick_ms()
         _obj = pickle.dumps(data)
         seri_time = cur_tick_ms() - tick
         data['profile']['runtime']['sd_time'] += seri_time
-    response = make_response(pickle.dumps(data))
-    response.headers = util.fill_ce_header(id=str(uuid.uuid4()),
-                                           ce_specversion=ce_specversion,
-                                           ce_type=ceType)
-    return response
+
+    response_header = util.fill_ce_header(id=str(uuid.uuid4()),
+                                          ce_specversion=ce_specversion,
+                                          ce_type=ce_type)
+    return Response(content=pickle.dumps(data),
+                    headers=response_header)
 
 
 """
@@ -81,7 +88,6 @@ upstream_num_env_str = 'UPSTREAM_NUM'
 
 
 def handle_reduce(meta, stage_name):
-    from flask import current_app
     stage = stage_name
     wf_id = meta[WORKFLOW_ID_KEY]
 
@@ -104,11 +110,11 @@ def handle_reduce(meta, stage_name):
 
     if len(cur_stage_info[wf_id]) >= stream_cnt:  # TODO: Shall we guarantee the contention ?
         # Finish reduce
-        current_app.logger.debug(f'Finish reduce at stage {stage}. upstream_info {upstream_info}')
+        app_logger.debug(f'Finish reduce at stage {stage}. upstream_info {upstream_info}')
         upstream_info[stage].pop(wf_id)
         return cur_stage_info[wf_id]
     else:
-        current_app.logger.debug(
+        app_logger.debug(
             f'Wait for next at stage {stage}. upstream_info {upstream_info}, Upstream cnt {stream_cnt}')
         return None
 
@@ -130,8 +136,8 @@ def handle_ce(event: CloudEvent):
             if pre_handle_res is not None:
                 return handler(pre_handle_res), ce_type
         else:
-            current_app.logger.error(f"not supposed to be here. source tp: {source_tp}, "
-                                     f"handler name: {handler.__name__}")
+            app_logger.error(f"not supposed to be here. source tp: {source_tp}, "
+                             f"handler name: {handler.__name__}")
             return {}, 'none'
     else:
         return handler(meta), ce_type
@@ -140,4 +146,5 @@ def handle_ce(event: CloudEvent):
 
 if __name__ == '__main__':
     port = 8080
-    app.run(debug=True, host='0.0.0.0', port=port)
+    workers = int(os.environ.get('WEB_WORKER', '1'))
+    uvicorn.run("__main__:app", host="0.0.0.0", port=port, workers=workers)

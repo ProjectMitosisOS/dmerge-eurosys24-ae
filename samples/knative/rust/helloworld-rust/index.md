@@ -149,7 +149,7 @@ folder) you're ready to build and deploy the sample app.
    the configuration using `kubectl`:
 
    ```bash
-   kubectl apply --filename service.yaml
+   kubectl apply --filename service-same-thpt.yaml
    ```
 
 1. Now that your service is created, Knative will perform the following steps:
@@ -180,5 +180,5 @@ folder) you're ready to build and deploy the sample app.
 To remove the sample app from your cluster, delete the service record:
 
 ```bash
-kubectl delete --filename service.yaml
+kubectl delete --filename service-same-thpt.yaml
 ```

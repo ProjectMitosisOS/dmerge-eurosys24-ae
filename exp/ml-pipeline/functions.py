@@ -1,13 +1,17 @@
 import json
+
 import os
 import pickle
+import threading
 import uuid
 from multiprocessing import Process, Manager
+import logging
 
+import requests
+
+app_logger = logging.getLogger('app_logger')
 import lightgbm as lgb
 import numpy as np
-from flask import current_app
-from minio import Minio
 from numpy.linalg import eig
 
 import util
@@ -16,14 +20,6 @@ from util import cur_tick_ms
 global_obj = {}
 
 from bindings import *
-
-s3_client = Minio(
-    endpoint='minio:9000',
-    secure=False,
-    access_key='ACCESS_KEY', secret_key='SECRET_KEY')
-bucket_name = 'ml-pipeline'
-if not s3_client.bucket_exists(bucket_name):
-    s3_client.make_bucket(bucket_name)
 
 
 # Profile is seperated into 4 parts as below:
@@ -38,11 +34,13 @@ def read_lines(path):
 
 
 def source(_meta):
+    loop = int(_meta.get('loop', '0'))
     out_meta = {
         'statusCode': 200,
         'wf_id': str(uuid.uuid4()),
         'trainer_num': int(os.environ.get('TRAINER_NUM', 4)),
         'profile': {
+            'loop': loop,
             'sd_bytes_len': 0,
             'runtime': {
                 'sd_time': 0,
@@ -145,11 +143,11 @@ def pca(meta):
         push_time = cur_tick_ms() - push_start_time
 
         first_n_A_label_obj_id = id(global_obj["first_n_A_label"])
-        current_app.logger.debug(f'gid is {gid} ,'
-                                 f'first_n_A_label_obj_id is {first_n_A_label_obj_id} ,'
-                                 f'hint is {hint} ,'
-                                 f'mac id {mac_id} ,'
-                                 f'base addr in {hex(addr)}')
+        app_logger.debug(f'gid is {gid} ,'
+                         f'first_n_A_label_obj_id is {first_n_A_label_obj_id} ,'
+                         f'hint is {hint} ,'
+                         f'mac id {mac_id} ,'
+                         f'base addr in {hex(addr)}')
 
         out_meta['obj_hash'] = {
             'first_n_A_label': first_n_A_label_obj_id,
@@ -167,7 +165,7 @@ def pca(meta):
             },
             'leave_tick': cur_tick_ms()
         })
-        current_app.logger.debug(f'DMERGE profile: {out_meta}')
+        app_logger.debug(f'DMERGE profile: {out_meta}')
         return out_meta
 
     def post_handle(returnedDic):
@@ -207,7 +205,7 @@ def pca(meta):
                 feature_fraction = []
                 returnedDic["detail"]["indeces"].append(j)
 
-        current_app.logger.debug(f"PCA post_handle meta: {returnedDic}")
+        app_logger.debug(f"PCA post_handle meta: {returnedDic}")
         return returnedDic
 
     train_data = np.genfromtxt(local_data_path, delimiter='\t')
@@ -301,7 +299,7 @@ def trainer(meta):
         num_of_trees = event['num_of_trees']
         depthes = event['max_depth']
         feature_fractions = event['feature_fraction']
-        current_app.logger.debug(f"Ready to start {num_of_trees} processes. Meta is {event}")
+        app_logger.debug(f"Ready to start {num_of_trees} processes. Meta is {event}")
 
         for runs in range(len(num_of_trees)):
             # Use multiple processes to train trees in parallel
@@ -353,7 +351,7 @@ def trainer(meta):
             'sd_time': sd_time,
         }
         out_meta.pop('detail')
-        current_app.logger.debug(f"Inner Trainer s3 with meta: {out_meta}")
+        app_logger.debug(f"Inner Trainer s3 with meta: {out_meta}")
         return out_meta
 
     def trainer_rrpc(meta):
@@ -388,7 +386,7 @@ def trainer(meta):
         }
         out_meta.pop('detail')
         out_meta.pop('payload')
-        current_app.logger.debug(f"Inner Trainer s3 with meta: {out_meta}")
+        app_logger.debug(f"Inner Trainer s3 with meta: {out_meta}")
         return out_meta
 
     def trainer_dmerge(meta):
@@ -397,7 +395,7 @@ def trainer(meta):
         route = meta['route']
         gid, mac_id, hint, nic_id = route['gid'], route['machine_id'], \
             route['hint'], route['nic_id']
-        current_app.logger.debug(f"trainer dmerge meta is {meta}")
+        app_logger.debug(f"trainer dmerge meta is {meta}")
         # # Pull
         pull_start_time = cur_tick_ms()
         util.pull(mac_id, hint)
@@ -421,7 +419,7 @@ def trainer(meta):
             'pull_time': pull_time,
         }
         out_meta.pop('detail')
-        current_app.logger.info(f"Inner Trainer s3 with meta: {out_meta}")
+        app_logger.info(f"Inner Trainer s3 with meta: {out_meta}")
         return out_meta
 
     trainer_dispatcher = {
@@ -460,7 +458,7 @@ def combinemodels(metas):
             'combinemodels': {},
         })
         for i, meta in enumerate(_metas):
-            current_app.logger.debug(f"@{i} Inner combine_models s3 with Profile: {meta['profile']}")
+            app_logger.debug(f"@{i} Inner combine_models s3 with Profile: {meta['profile']}")
         return out_meta
 
     out_dict = combine_models(metas)
@@ -472,7 +470,22 @@ def combinemodels(metas):
 
 
 def sink(meta):
+    def send_request(data):
+        headers = {
+            'Ce-Id': '536808d3-88be-4077-9d7a-a3f162705f79',
+            'Ce-Specversion': '1.0',
+            'Ce-Type': 'dev.knative.sources.ping',
+            'Ce-Source': 'ping-pong',
+            'Content-Type': 'application/json'
+        }
+        response = requests.post(
+            'http://broker-ingress.knative-eventing.svc.cluster.local/default/default-broker',
+            headers=headers,
+            json=data
+        )
+
     profile = meta['profile']
+    loop = profile['loop']
     es_obj_sz = profile['sd_bytes_len']
     e2e = meta['profile']['wf_e2e_time']
 
@@ -486,17 +499,25 @@ def sink(meta):
     p['runtime']['stage_time'] = \
         sum(p['runtime'].values())
     reduced_profile = util.reduce_profile(p)
-    current_app.logger.info(f"sd bytes len: {es_obj_sz} ")
-    current_app.logger.info(f"Profile result: {p} ")
-    current_app.logger.info(f"[ {util.PROTOCOL} ]E2E time: "
-                            f"{reduced_profile['stage_time']}")
+    app_logger.info(f"sd bytes len: {es_obj_sz} ")
+    app_logger.info(f"Profile result: {p} ")
+    app_logger.info(f"[{loop}-{util.PROTOCOL}] workflow e2e time "
+                    f"{reduced_profile['stage_time']}")
     for k, v in reduced_profile.items():
-        current_app.logger.info(f"Part@ {k} passed {v} ms")
+        app_logger.info(f"Part@ {k} passed {v} ms")
+    if 'es_time' in reduced_profile.keys():
+        app_logger.info(f"For reduce kv "
+                        f"{reduced_profile['stage_time'] - reduced_profile['es_time']} ms")
+    app_logger.info(f"Part@ cur_tick_ms passed {cur_tick_ms()} ms")
+    if loop > 0:
+        loop -= 1
+        thread = threading.Thread(target=send_request, args=({'loop': loop},))
+        thread.start()
     return {
         'data': meta
     }
 
 
 def default_handler(meta):
-    current_app.logger.warn(f'not a default path for type')
+    app_logger.warn(f'not a default path for type')
     return meta

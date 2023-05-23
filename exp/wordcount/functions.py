@@ -1,24 +1,20 @@
 import os
+import threading
 import uuid
 
+import requests
 from bindings import *
 from flask import current_app
-from minio import Minio
 import util
 from util import cur_tick_ms
 import math
 import re
 import pickle
+import logging
+
+app_logger = logging.getLogger('app_logger')
 
 global_obj = {}
-
-s3_client = Minio(
-    endpoint='minio:9000',
-    secure=False,
-    access_key='ACCESS_KEY', secret_key='SECRET_KEY')
-bucket_name = 'word-count'
-if not s3_client.bucket_exists(bucket_name):
-    s3_client.make_bucket(bucket_name)
 
 
 # Profile is seperated into 4 parts as below:
@@ -151,12 +147,13 @@ def splitter(meta):
     mapper_num = int(os.environ.get('MAPPER_NUM', 3))
     dispatch_key = util.PROTOCOL
     return_dict = splitter_dispatcher[dispatch_key](meta, mapper_num)
-
+    loop = int(meta.get('loop', '0'))
     return_dict.update({
         'statusCode': 200,
         'wf_id': str(uuid.uuid4()),
     })
     return_dict['profile'].update({
+        'loop': loop,
         'runtime': {
             'sd_time': 0,
             'fetch_data_time': 0,
@@ -382,19 +379,39 @@ def reducer(metas):
     return_dict['profile'][stage_name]['stage_time'] = \
         sum(return_dict['profile'][stage_name].values())
 
+    def send_request(data):
+        headers = {
+            'Ce-Id': '536808d3-88be-4077-9d7a-a3f162705f79',
+            'Ce-Specversion': '1.0',
+            'Ce-Type': 'dev.knative.sources.ping',
+            'Ce-Source': 'ping-pong',
+            'Content-Type': 'application/json'
+        }
+        response = requests.post(
+            'http://broker-ingress.knative-eventing.svc.cluster.local/default/default-broker',
+            headers=headers,
+            json=data
+        )
+
     e2e_time = cur_tick_ms() - metas[-1]["profile"]["wf_start_tick"]
     p = return_dict['profile']
+    loop = p['loop']
     reduced_profile = util.reduce_profile(p)
-    current_app.logger.info(f"whole profile: {p}")
-    # current_app.logger.info(f"[ {util.PROTOCOL} ] "
+    app_logger.info(f"whole profile: {p}")
+    # app_logger.info(f"[ {util.PROTOCOL} ] "
     #                         f"workflow e2e time for whole: {e2e_time}")
-    current_app.logger.info(f"[ {util.PROTOCOL} ] "
-                            f"workflow e2e time: {reduced_profile['stage_time']}")
+    app_logger.info(f"[{loop}-{util.PROTOCOL}] "
+                    f"workflow e2e time {reduced_profile['stage_time']}")
     for k, v in reduced_profile.items():
-        current_app.logger.info(f"Part@ {k} passed {v} ms")
+        app_logger.info(f"Part@ {k} passed {v} ms")
+    app_logger.info(f"Part@ cur_tick_ms passed {cur_tick_ms()} ms")
+    if loop > 0:
+        loop -= 1
+        thread = threading.Thread(target=send_request, args=({'loop': loop},))
+        thread.start()
     return {}
 
 
 def default_handler(meta):
-    current_app.logger.info(f'not a default path for type')
+    app_logger.info(f'not a default path for type')
     return meta

@@ -1,10 +1,13 @@
 import os
 import pickle
+import threading
 import uuid
 
+import requests
 from bindings import *
-from flask import current_app
-from minio import Minio
+import logging
+
+app_logger = logging.getLogger('app_logger')
 import lightgbm as lgb
 import util
 import json
@@ -23,14 +26,6 @@ class NumpyJsonEncoder(json.JSONEncoder):
 
 
 global_obj = {}
-
-s3_client = Minio(
-    endpoint='minio:9000',
-    secure=False,
-    access_key='ACCESS_KEY', secret_key='SECRET_KEY')
-bucket_name = 'digital-minist'
-if not s3_client.bucket_exists(bucket_name):
-    s3_client.make_bucket(bucket_name)
 
 
 # Profile is seperated into 4 parts as below:
@@ -63,6 +58,7 @@ def fill_gid(gid):
 
 
 def splitter(meta):
+    loop = int(meta.get('loop', '0'))
     test_data = np.genfromtxt('dataset/Digits_Test.txt', delimiter='\t')
     wf_start_tick = cur_tick_ms()
     tick = cur_tick_ms()
@@ -73,6 +69,7 @@ def splitter(meta):
     protocol = util.PROTOCOL
     meta['profile'] = {
         'sd_bytes_len': 0,
+        'loop': loop,
         'runtime': {
             'fetch_data_time': 0,
             'sd_time': 0,
@@ -183,6 +180,9 @@ def splitter(meta):
     return out_dict
 
 
+M = lgb.Booster(model_file='mnist_model.txt')
+
+
 def predict(meta):
     start_tick = cur_tick_ms()
 
@@ -194,7 +194,7 @@ def predict(meta):
         return y_pred
 
     def predict_es(_meta):
-        current_app.logger.info(f"meta in predict s3: {_meta}")
+        app_logger.info(f"meta in predict s3: {_meta}")
         out_dict = dict(_meta)
         tick = cur_tick_ms()
         ID = os.environ.get('ID', 0)
@@ -280,9 +280,9 @@ def predict(meta):
 
         tick = cur_tick_ms()
         test_data = np.array(data)
-        pred_y = execute_body(test_data)
+        pred_y = execute_body(M, test_data)
         execute_time = cur_tick_ms() - tick
-        current_app.logger.debug(f"pred y finish. len {len(pred_y)}")
+        app_logger.debug(f"pred y finish. len {len(pred_y)}")
         push_start_time = cur_tick_ms()
         nic_idx = 0
         addr = int(os.environ.get('BASE_HEX', '100000000'), 16)
@@ -298,7 +298,7 @@ def predict(meta):
             'nic_id': nic_idx,
             'hint': hint
         }
-        current_app.logger.info(f"route@{ID}: {out_dict['route']}")
+        app_logger.info(f"route@{ID}: {out_dict['route']}")
         out_dict['ID'] = str(ID)
         out_dict['profile'].update({
             'predict': {
@@ -320,6 +320,21 @@ def predict(meta):
     out_dict = predict_dispatcher[dispatch_key](meta)
     out_dict['profile']['predict']['stage_time'] = sum(out_dict['profile']['predict'].values())
     return out_dict
+
+
+def send_request(data):
+    headers = {
+        'Ce-Id': '536808d3-88be-4077-9d7a-a3f162705f79',
+        'Ce-Specversion': '1.0',
+        'Ce-Type': 'dev.knative.sources.ping',
+        'Ce-Source': 'ping-pong',
+        'Content-Type': 'application/json'
+    }
+    response = requests.post(
+        'http://broker-ingress.knative-eventing.svc.cluster.local/default/default-broker',
+        headers=headers,
+        json=data
+    )
 
 
 def combine(metas):
@@ -368,9 +383,9 @@ def combine(metas):
         route = event['route']
         gid, mac_id, hint, nic_id = route['gid'], route['machine_id'], \
             route['hint'], route['nic_id']
-        current_app.logger.debug(f"Ready to pull: mac id: {mac_id} ,"
-                                 f"hint: {hint} ,"
-                                 f"ID: {ID}")
+        app_logger.debug(f"Ready to pull: mac id: {mac_id} ,"
+                         f"hint: {hint} ,"
+                         f"ID: {ID}")
         r = util.pull(mac_id, hint)
         assert r == 0
         data = util.fetch(event['obj_hash'][str(ID)])
@@ -397,12 +412,13 @@ def combine(metas):
         out_dict['profile']['runtime']['stage_time'] = sum(out_dict['profile']['runtime'].values())
         out_dict['profile']['combine']['stage_time'] = sum(out_dict['profile']['combine'].values())
         wf_e2e_time = max(wf_e2e_time, T - event['profile']['wf_start_tick'])
-        current_app.logger.info(f"event@{i} profile: {out_dict['profile']}")
+        app_logger.info(f"event@{i} profile: {out_dict['profile']}")
     # Compute mean of the times:
-    # current_app.logger.info(f"[ {util.PROTOCOL} ] workflow tick offset: {wf_e2e_time}")
+    # app_logger.info(f"[ {util.PROTOCOL} ] workflow tick offset: {wf_e2e_time}")
 
     profile_len = len(metas)
     profile = metas[0]['profile']
+    loop = profile['loop']
     rm_keys = set()
     for event in metas[1:]:
         for stage, detail in event['profile'].items():
@@ -418,14 +434,19 @@ def combine(metas):
             for category, time_span in detail.items():
                 profile[stage][category] /= profile_len
     reduced_profile = util.reduce_profile(profile)
-    current_app.logger.info(f"[ {util.PROTOCOL} ] workflow e2e time: {reduced_profile['stage_time']}")
+    app_logger.info(f"[{loop}-{util.PROTOCOL}] workflow e2e time: {reduced_profile['stage_time']}")
     for k, v in reduced_profile.items():
-        current_app.logger.info(f"Part@ {k} passed {v} ms")
+        app_logger.info(f"Part@ {k} passed {v} ms")
+    app_logger.info(f"Part@ cur_tick_ms passed {cur_tick_ms()} ms")
+    if loop > 0:
+        loop -= 1
+        thread = threading.Thread(target=send_request, args=({'loop': loop},))
+        thread.start()
     return {}
 
 
 def default_handler(meta):
-    current_app.logger.info(f'not a default path for type')
+    app_logger.info(f'not a default path for type')
     return meta
 
 

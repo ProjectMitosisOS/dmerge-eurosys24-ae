@@ -5,25 +5,28 @@ metadata:
 data:
   redis-config: |
     requirepass redis
+    masterauth redis
+    slave-read-only  no
 
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: redis
+  name: redis-master
   namespace: default
 spec:
   replicas: 1
   selector:
     matchLabels: &labels
       app: redis
+      role: master
   template:
     metadata:
       labels: *labels
     spec:
       containers:
         - name: redis
-          image: redis:5.0.4
+          image: val01:5000/redis
           command:
             - redis-server
             - "/redis-master/redis.conf"
@@ -47,6 +50,41 @@ spec:
               - key: redis-config
                 path: redis.conf
 ---
+#apiVersion: apps/v1
+#kind: Deployment
+#metadata:
+#  name: redis-slave
+#spec:
+#  selector:
+#    matchLabels:
+#      app: redis
+#      role: slave
+#  replicas: 10
+#  template:
+#    metadata:
+#      labels:
+#        app: redis
+#        role: slave
+#    spec:
+#      containers:
+#        - name: redis
+#          image: val01:5000/redis
+#          command: [ "redis-server", "/usr/local/etc/redis/redis.conf",
+#                     "--slaveof", "redis", "6379","--requirepass", "redis" ]
+#          ports:
+#            - containerPort: 6379
+#          volumeMounts:
+#            - name: redis-conf
+#              mountPath: /usr/local/etc/redis/redis.conf
+#              subPath: redis.conf
+#      volumes:
+#        - name: redis-conf
+#          configMap:
+#            name: redis-config
+#            items:
+#              - key: redis-config
+#                path: redis.conf
+#---
 apiVersion: v1
 kind: Service
 metadata:
@@ -55,7 +93,22 @@ metadata:
 spec:
   selector:
     app: redis
+    role: master
   ports:
     - protocol: TCP
       port: 6379
       targetPort: 6379
+---
+#apiVersion: v1
+#kind: Service
+#metadata:
+#  name: redis-slave
+#  namespace: default
+#spec:
+#  selector:
+#    app: redis
+#    role: slave
+#  ports:
+#    - protocol: TCP
+#      port: 6379
+#      targetPort: 6379

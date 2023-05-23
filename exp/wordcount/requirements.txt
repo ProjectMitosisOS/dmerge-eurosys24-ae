@@ -5,3 +5,5 @@ redis
 numpy
 lightgbm==2.0.7
 minio
+fastapi
+uvicorn

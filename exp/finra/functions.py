@@ -1,25 +1,19 @@
 import os
 import pickle
+import threading
 import uuid
 
 import numpy as np
 import pandas as pd
+import requests
 from bindings import *
-from flask import current_app
-from minio import Minio
+import logging
 
+app_logger = logging.getLogger('app_logger')
 import util
 from util import cur_tick_ms
 
 global_obj = {}
-
-s3_client = Minio(
-    endpoint='minio:9000',
-    secure=False,
-    access_key='ACCESS_KEY', secret_key='SECRET_KEY')
-bucket_name = 'finra'
-if not s3_client.bucket_exists(bucket_name):
-    s3_client.make_bucket(bucket_name)
 
 
 def read_lines(path):
@@ -47,7 +41,7 @@ def fill_gid(gid):
 
 def source(_meta):
     protocol = util.PROTOCOL
-
+    loop = int(_meta.get('loop', '0'))
     out_dict = {}
 
     wf_start_tick = cur_tick_ms()
@@ -56,6 +50,7 @@ def source(_meta):
         'wf_id': str(uuid.uuid4()),
         'features': {'protocol': protocol},
         'profile': {
+            'loop': loop,
             'sd_bytes_len': 0,
             'leave_tick': cur_tick_ms(),
             'wf_start_tick': wf_start_tick,
@@ -71,9 +66,12 @@ def source(_meta):
     return out_dict
 
 
+local_file_path = 'yfinance.csv'
+whole_set_origin = pd.read_csv(local_file_path)
+
 def fetchData(meta):
     start_tick = cur_tick_ms()
-    current_app.logger.debug(f"in fetchData, meta: {meta}")
+    app_logger.debug(f"in fetchData, meta: {meta}")
     stage_name = 'fetchData'
 
     def fetch_market_data(meta):
@@ -85,7 +83,6 @@ def fetchData(meta):
         TOUCH_RATIO = int(os.environ.get('TOUCH_RATIO', '2')) / 100
         # download
         tick = cur_tick_ms()
-        local_file_path = 'yfinance.csv'
 
         protocol = meta['features']['protocol']
 
@@ -94,10 +91,10 @@ def fetchData(meta):
         tickers = tickers_for_portfolio_types[portfolioType]
 
         prices = {}
-        whole_set = pd.read_csv(local_file_path)
+
         for ticker in tickers:
             # Get last closing price
-            prices[ticker] = whole_set['Close'][0]
+            prices[ticker] = whole_set_origin['Close'][0]
         pd_time = cur_tick_ms() - tick
         tick = cur_tick_ms()
         out_meta = dict(meta)
@@ -135,7 +132,7 @@ def fetchData(meta):
         def public_data_rpc(meta, whole_set):
             tick = cur_tick_ms()
             first_n = int(len(whole_set) * TOUCH_RATIO)
-            current_app.logger.info(f'first n: {first_n}')
+            app_logger.info(f'first n: {first_n}')
             data = whole_set.head(first_n)
             sd_time = cur_tick_ms() - tick
 
@@ -165,6 +162,7 @@ def fetchData(meta):
                 'hint': hint
             }
             meta['profile'][stage_name]['push_time'] = push_time
+            app_logger.debug(f'finish merging at heap id {hint}')
             # meta['profile'][stage_name]['execute_time'] += exec_time
 
         public_data_dispatcher = {
@@ -174,7 +172,7 @@ def fetchData(meta):
             'DMERGE_PUSH': public_data_dmerge,
             'RRPC': public_data_rrpc
         }
-        public_data_dispatcher[protocol](out_meta, whole_set)
+        public_data_dispatcher[protocol](out_meta, whole_set_origin)
         out_meta.update({
             'statusCode': 200,
             'body': {'marketData': prices},
@@ -213,11 +211,15 @@ def fetchData(meta):
     out_dict = fetch_datas[ID](meta)
     out_dict['profile']['leave_tick'] = cur_tick_ms()
     out_dict['profile'][stage_name]['stage_time'] = sum(out_dict['profile'][stage_name].values())
-    current_app.logger.debug(f"FetchData out profile: {out_dict['profile']}")
+    app_logger.debug(f"FetchData out profile: {out_dict['profile']}")
     return out_dict
 
 
+# lock = threading.Lock()
+
+
 def runAuditRule(events):
+    # lock.acquire()
     stage_name = 'runAuditRule'
 
     def checkMarginBalance(portfolioData, marketData, portfolio):
@@ -240,7 +242,6 @@ def runAuditRule(events):
         return result
 
     market_data = {}
-    whole_set = {}
     valid_format = True
     finance_columns = ['Date', 'Open', 'High', 'Low', 'Close', 'Volume', 'Dividends',
                        'Stock Splits']
@@ -252,17 +253,21 @@ def runAuditRule(events):
 
             # Get whole set
             def handle_public_dmerge(event):
+
                 tick = cur_tick_ms()
                 route = event['route']
                 gid, mac_id, hint, nic_id = route['gid'], route['machine_id'], \
                     route['hint'], route['nic_id']
-                r = util.pull(mac_id, hint)
-                assert r == 0
+                # TODO: Support concurrency of pulling
+                for i in range(1 if protocol == 'DMERGE' else 2):
+                    r = util.pull(mac_id, hint)
+                    assert r == 0
+
                 data = util.fetch(event['obj_hash']['wholeset_matrix'])
                 pull_time = cur_tick_ms() - tick
 
-                data_np = np.array(data)
-                whole_set = pd.DataFrame(data_np, columns=finance_columns)
+                # data_np = np.array(data)
+                # whole_set = pd.DataFrame(data_np, columns=finance_columns)
 
                 tick = cur_tick_ms()
                 execute_time = cur_tick_ms() - tick
@@ -272,7 +277,7 @@ def runAuditRule(events):
                         'execute_time': execute_time,
                     }
                 })
-                return whole_set
+                return None  # FIXME: Shall not return wholeset
 
             def handle_public_es(event):
                 tick = cur_tick_ms()
@@ -314,7 +319,7 @@ def runAuditRule(events):
                 'DMERGE_PUSH': handle_public_dmerge,
                 'RRPC': handle_public_rpc,
             }
-            whole_set = dispatcher[protocol](event)
+            dispatcher[protocol](event)
 
         elif 'valid' in body:
             portfolio = event['body']['portfolio']
@@ -329,21 +334,53 @@ def runAuditRule(events):
         event['profile']['runtime']['stage_time'] = sum(event['profile']['runtime'].values())
         event['profile'][stage_name]['execute_time'] += execute_time
         event['profile'][stage_name]['stage_time'] = sum(event['profile'][stage_name].values())
-    out_meta = {
-        'events': [event['profile'] for event in events],
-    }
+        event['profile']['wf_end_tick'] = cur_tick_ms()
 
-    current_app.logger.info(f"return meta {out_meta}")
-    p = events[-1]['profile']
-    e2e = cur_tick_ms() - p['wf_start_tick']
-    reduced_profile = util.reduce_profile(p)
-    # current_app.logger.info(f"[{util.PROTOCOL}] workflow e2e time for whole {e2e}")
-    current_app.logger.info(f"[{util.PROTOCOL}] workflow e2e time {reduced_profile['stage_time']}")
-    for k, v in reduced_profile.items():
-        current_app.logger.info(f"Part@ {k} passed {v} ms")
+    out_meta = events[-1]
+    # lock.release()
     return out_meta
 
 
+def sink(metas):
+    def send_request(data):
+        headers = {
+            'Ce-Id': '536808d3-88be-4077-9d7a-a3f162705f79',
+            'Ce-Specversion': '1.0',
+            'Ce-Type': 'dev.knative.sources.ping',
+            'Ce-Source': 'ping-pong',
+            'Content-Type': 'application/json'
+        }
+        response = requests.post(
+            'http://broker-ingress.knative-eventing.svc.cluster.local/default/default-broker',
+            headers=headers,
+            json=data
+        )
+
+    for i, meta in enumerate(metas):
+        app_logger.debug(f"@{i}:[ {util.PROTOCOL} ] "
+                         f"whole profile: {meta['profile']}")
+    meta = metas[-1]
+    loop = meta['profile']['loop']
+    app_logger.info(f"[ {util.PROTOCOL} ] "
+                    f"whole profile: {meta['profile']}")
+    meta['profile']['runtime']['stage_time'] = sum(meta['profile']['runtime'].values())
+
+    reduced_profile = util.reduce_profile(meta['profile'])
+    e2e_time = meta['profile']['wf_end_tick'] - meta['profile']['wf_start_tick']
+    # app_logger.info(f"[ {util.PROTOCOL} ] "
+    #                         f"workflow e2e time for whole: {e2e_time}")
+    app_logger.info(f"[ {util.PROTOCOL} ] "
+                    f"[{loop}] workflow e2e time: {reduced_profile['stage_time']}")
+    for k, v in reduced_profile.items():
+        app_logger.info(f"Part@ {k} passed {v} ms")
+    app_logger.info(f"Part@ cur_tick_ms passed {cur_tick_ms()} ms")
+    if loop > 0:
+        loop -= 1
+        thread = threading.Thread(target=send_request, args=({'loop': loop},))
+        thread.start()
+    return {}
+
+
 def default_handler(meta):
-    current_app.logger.info(f'not a default path for type')
+    app_logger.info(f'not a default path for type')
     return meta
