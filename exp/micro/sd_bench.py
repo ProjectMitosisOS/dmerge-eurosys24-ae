@@ -135,4 +135,8 @@ def bench_pil_img():
 if __name__ == '__main__':
     # file_path = 'data/Digits_Train.txt'
     # data = np.genfromtxt(file_path, delimiter='\t')
-    bench_list_wrapper([10**7 for i in range(5000)], 'int batch')
+    bench_map()
+    bench_dataframe()
+    bench_file_lines()
+    bench_lgbm()
+    bench_pil_img()
