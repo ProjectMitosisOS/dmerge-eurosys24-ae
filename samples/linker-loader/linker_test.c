@@ -1,6 +1,11 @@
 #include <stdio.h>
+#include <unistd.h>
+
+extern void hello();
 
 int main() {
-    printf("Hello World!\n");
+    hello();
+    sleep(10);
+
     return 0;
 }

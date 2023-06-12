@@ -7,21 +7,21 @@ OUTPUT_FORMAT("elf64-x86-64", "elf64-x86-64",
 	      "elf64-x86-64")
 OUTPUT_ARCH(i386:x86-64)
 ENTRY(_start)
-SEARCH_DIR("=/usr/x86_64-linux-gnu/lib64"); 
-SEARCH_DIR("=/usr/local/lib/x86_64-linux-gnu"); 
-SEARCH_DIR("=/usr/local/lib64"); 
-SEARCH_DIR("=/lib/x86_64-linux-gnu"); 
-SEARCH_DIR("=/lib64"); 
-SEARCH_DIR("=/usr/lib/x86_64-linux-gnu"); 
-SEARCH_DIR("=/usr/lib64"); 
-SEARCH_DIR("=/usr/x86_64-linux-gnu/lib"); 
-SEARCH_DIR("=/usr/local/lib"); 
+SEARCH_DIR("=/usr/x86_64-linux-gnu/lib64");
+SEARCH_DIR("=/usr/local/lib/x86_64-linux-gnu");
+SEARCH_DIR("=/usr/local/lib64");
+SEARCH_DIR("=/lib/x86_64-linux-gnu");
+SEARCH_DIR("=/lib64");
+SEARCH_DIR("=/usr/lib/x86_64-linux-gnu");
+SEARCH_DIR("=/usr/lib64");
+SEARCH_DIR("=/usr/x86_64-linux-gnu/lib");
+SEARCH_DIR("=/usr/local/lib");
 SEARCH_DIR("=/lib"); SEARCH_DIR("=/usr/lib");
 SECTIONS
 {
   /* Read-only sections, merged into text segment: */
-  PROVIDE (__executable_start = SEGMENT_START("text-segment", 0x400000)); 
-  . = SEGMENT_START("text-segment", 0x800000) + SIZEOF_HEADERS; /* TODO: Change this base address */
+  PROVIDE (__executable_start = SEGMENT_START("text-segment", 0x9900000));
+  . = SEGMENT_START("text-segment", 0x9900000) + SIZEOF_HEADERS;
   .interp         : { *(.interp) }
   .note.gnu.build-id : { *(.note.gnu.build-id) }
   .hash           : { *(.hash) }
@@ -90,7 +90,7 @@ SECTIONS
   .exception_ranges*) }
   /* Adjust the address for the data segment.  We want to adjust up to
      the same address within the page on the next page up.  */
-  . = ALIGN (CONSTANT (MAXPAGESIZE)) - ((CONSTANT (MAXPAGESIZE) - .) & (CONSTANT (MAXPAGESIZE) - 1)); 
+  . = ALIGN (CONSTANT (MAXPAGESIZE)) - ((CONSTANT (MAXPAGESIZE) - .) & (CONSTANT (MAXPAGESIZE) - 1));
   . = DATA_SEGMENT_ALIGN (CONSTANT (MAXPAGESIZE), CONSTANT (COMMONPAGESIZE));
   /* Exception handling  */
   .eh_frame       : ONLY_IF_RW { KEEP (*(.eh_frame)) }
