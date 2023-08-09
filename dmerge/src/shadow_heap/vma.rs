@@ -1,3 +1,4 @@
+use core::intrinsics::size_of;
 use mitosis::kern_wrappers::vma_iters::VMWalkEngine;
 use mitosis::kern_wrappers::mm::{VirtAddrType};
 use mitosis::kern_wrappers::vma::VMA;
@@ -38,6 +39,10 @@ impl<'a> ShadowVMA<'a> {
     pub fn has_write_permission(&self) -> bool {
         self.vma_inner.get_flags().contains(VMFlags::WRITE)
             || self.vma_inner.get_flags().contains(VMFlags::MAY_WRITE)
+    }
+
+    pub fn get_size(&self)->usize {
+        return size_of::<VMA>() + size_of::<*mut file>() + size_of::<bool>();
     }
 }
 

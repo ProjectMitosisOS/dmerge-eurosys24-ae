@@ -1,5 +1,6 @@
 use alloc::sync::Arc;
 use alloc::vec::Vec;
+use core::mem::size_of;
 use mitosis::linux_kernel_module;
 use mitosis::os_network::rdma::dc::DCTarget;
 
@@ -42,21 +43,32 @@ impl HeapBundler {
         heap.get_descriptor_ref().serialize(buf.get_bytes_mut());
         compiler_fence(SeqCst);
 
-        crate::log::debug!("Heap bundle descriptor len: {}", buf.len());
+        crate::log::info!("Heap bundle descriptor len: {}", buf.len());
+
+
 
         let mut bound_targets = Vec::new();
         bound_targets.push(targets);
 
-        Self {
+        let res = Self {
             heap: heap,
             serialized_buf: buf,
             serialized_buf_len: len,
             bound_dc_targets: bound_targets,
-        }
+        };
+        crate::log::debug!("New bundle size: {}", res.get_size());
+        res
     }
 
     fn get_serialize_buf_sz(&self) -> usize {
         self.serialized_buf.len()
+    }
+
+    pub fn get_size(&self)->usize {
+        self.get_serialize_buf_sz()
+            + size_of::<DCTarget>()
+            + size_of::<usize>()
+            +self.heap.get_size()
     }
 }
 

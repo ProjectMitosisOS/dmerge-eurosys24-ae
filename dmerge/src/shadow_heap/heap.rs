@@ -88,4 +88,13 @@ impl ShadowHeap {
     pub fn get_descriptor_ref(&self) -> &ParentDescriptor {
         &self.descriptor
     }
+
+    pub fn get_size(&self) -> usize {
+        let mut sz = self.descriptor.get_size();
+        for item in &self.shadow_vmas {
+            sz += item.get_size();
+        }
+
+        return sz;
+    }
 }
