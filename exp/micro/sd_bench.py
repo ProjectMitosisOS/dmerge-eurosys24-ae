@@ -1,13 +1,26 @@
 import json
 import pickle
 import random
+import string
 import sys
 import time
+import timeit
 
 import lightgbm as lgb
 import numpy as np
 import pandas as pd
 import torch
+
+
+def random_np_str_arr(n):
+    characters = list(string.ascii_letters + string.digits + string.punctuation)
+    random.seed(1)
+    length = n
+    arr = np.empty(length, dtype=object)
+    for i in range(length):
+        random_string = ''.join(random.choices(characters, k=10))
+        arr[i] = random_string
+    return arr
 
 
 def cur_tick_us():
@@ -73,10 +86,10 @@ def bench_file_lines():
 def bench_np():
     file_path = 'data/Digits_Train.txt'
     data = np.genfromtxt(file_path, delimiter='\t')
-    bench_list_wrapper([10**7 for i in range(5000)], 'int batch')
+    # bench_list_wrapper([10 ** 7 for i in range(5000)], 'int batch')
     # bench_list_wrapper(np.random.rand(5000).astype(float).tolist(), 'float batch')
     # bench_list_wrapper((np.random.rand(5000) + np.random.rand(5000) * 1j).tolist(), 'complex batch')
-    bench_wrapper(data.tolist(), 'list(int)')
+    # bench_wrapper(data.tolist(), 'list(int)')
     # bench_wrapper(tuple(data.tolist()), 'tuple(int)')
     # bench_wrapper(set(random.sample(range(10000), 5000)), 'set(int)')
     bench_wrapper(data, 'numpy.ndarray')
@@ -85,6 +98,46 @@ def bench_np():
 def bench_dataframe():
     data = pd.read_csv('data/yfinance.csv')
     bench_wrapper(data, 'pd.Dataframe')
+
+
+def bench_arrow():
+    import pyarrow as pa
+    df_data = pd.read_csv('data/yfinance.csv')[:50]
+    print(np.shape(df_data))
+    file_path = 'data/Digits_Train.txt'
+    T = np.genfromtxt(file_path, delimiter='\t').reshape(-1)[:80000]
+    np_data = T
+    li_data = pa.array(T.tolist())
+
+    print(np.shape(np_data))
+
+    bench_wrapper(df_data, 'arrow-dataframe')
+    bench_wrapper(np_data, 'arrow-ndarray')
+    bench_wrapper(li_data, 'arrow-list')
+
+    tick = cur_tick_us()
+    table = pa.Table.from_pandas(df_data)
+    print(f'serialize (df -> table) time is : {(cur_tick_us() - tick) / 100} ms')
+
+    tick = cur_tick_us()
+    df = table.to_pandas()
+    print(f'deserialize (table -> df) is : {(cur_tick_us() - tick) / 1000} ms')
+
+    tick = cur_tick_us()
+    array = pa.array(np_data)
+    print(f'serialize (np -> arrow arr) time is : {(cur_tick_us() - tick) / 100} ms')
+
+    tick = cur_tick_us()
+    arr = array.to_numpy()
+    print(f'deserialize (arrow arr -> np) is : {(cur_tick_us() - tick) / 1000} ms')
+
+    tick = cur_tick_us()
+    li_array = pa.array(li_data)
+    print(f'serialize (list -> arrow) time is : {(cur_tick_us() - tick) / 100} ms')
+
+    tick = cur_tick_us()
+    d = li_array.to_pylist()
+    print(f'deserialize (arrow -> list) is : {(cur_tick_us() - tick) / 1000} ms')
 
 
 def bench_lgbm():
@@ -135,8 +188,9 @@ def bench_pil_img():
 if __name__ == '__main__':
     # file_path = 'data/Digits_Train.txt'
     # data = np.genfromtxt(file_path, delimiter='\t')
-    bench_map()
-    bench_dataframe()
-    bench_file_lines()
-    bench_lgbm()
-    bench_pil_img()
+    # bench_map()
+    # bench_dataframe()
+    # bench_file_lines()
+    # bench_lgbm()
+    # bench_pil_img()
+    bench_arrow()
