@@ -26,7 +26,11 @@ To compile all Rust source files, execute `make km` in the project's root direct
 The DMerge designs two OS tier syscalls as below:
 
 - `register_mem(id , key, vm_start, vm_end) -> vm_meta`: Resigter a dedicated (from `vm_start` to `vm_end`) memory range of the caller to the kernel. The returned `vm_meta` is an identifier of the registered memory range.
+  - Implemented in [syscall_register_mem](https://ipads.se.sjtu.edu.cn:1312/distributed-rdma-serverless/distributed-merge/dmerge/-/blob/main/dmerge/src/core_syscall_handler.rs#L252)
+
 - `rmap(mac_addr, id, key, vm_start, vm_end)-> result`: Map the dedicated (from `vm_start` to `vm_end`) at caller process.
+  - Implemented in [syscall_rmap](https://ipads.se.sjtu.edu.cn:1312/distributed-rdma-serverless/distributed-merge/dmerge/-/blob/main/dmerge/src/core_syscall_handler.rs#L260)
+
 
 Here’s one simple example that use these syscall to finish the DMerge.
 

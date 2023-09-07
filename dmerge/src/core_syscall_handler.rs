@@ -105,7 +105,7 @@ impl mitosis::syscalls::FileOperations for DmergeSyscallHandler {
                     hint as _
                 } else {
                     let heap_hint = unsafe { crate::get_heap_id_generator_mut().alloc_one_id() };
-                    let _ = self.syscall_register_heap(req.heap_base as _, heap_hint as _);
+                    let _ = self.syscall_register_mem(req.heap_base as _, heap_hint as _);
                     self.caller_status.private_heap_hint = Some(heap_hint);
                     heap_hint as _
                 }
@@ -122,7 +122,7 @@ impl mitosis::syscalls::FileOperations for DmergeSyscallHandler {
                         core::mem::size_of_val(&req) as u64,
                     )
                 };
-                self.syscall_pull(req.heap_hint as _,
+                self.syscall_rmap(req.heap_hint as _,
                                   req.machine_id as _,
                                   req.eager_fetch)
             }
@@ -249,7 +249,7 @@ impl DmergeSyscallHandler {
 
 impl DmergeSyscallHandler {
     // ioctrl-0
-    fn syscall_register_heap(&self, start_virt_addr: u64, hint: usize) -> c_long {
+    fn syscall_register_mem(&self, start_virt_addr: u64, hint: usize) -> c_long {
         let heap_service = unsafe { crate::get_shs_mut() };
         let _ = heap_service.register_heap(hint as _, start_virt_addr as _);
         return 0;
@@ -257,7 +257,7 @@ impl DmergeSyscallHandler {
 
 
     // ioctrl-1
-    fn syscall_pull(&mut self, hander_id: usize, machine_id: usize, eager_fetch: bool) -> c_long {
+    fn syscall_rmap(&mut self, hander_id: usize, machine_id: usize, eager_fetch: bool) -> c_long {
         let (handler_id, machine_id) = (hander_id, machine_id);
         let cpu_id = mitosis::get_calling_cpu_id();
 
