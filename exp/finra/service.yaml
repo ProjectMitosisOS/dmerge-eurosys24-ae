@@ -3,11 +3,11 @@ kind: ConfigMap
 metadata:
   name: knative-configmap
 data:
-#  protocol: "DMERGE"
+  protocol: "DMERGE"
 #  protocol: "DMERGE_PUSH"
 #  protocol: "RRPC"
 #  protocol: "RPC"
-  protocol: "ES"
+#  protocol: "ES"
 
   logLevel: "INFO"
   heapSizeHex: "10000000"

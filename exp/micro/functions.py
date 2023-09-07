@@ -3,6 +3,7 @@ import os
 import pickle
 import threading
 import uuid
+import array
 
 import requests
 from bindings import *
@@ -45,10 +46,13 @@ import numpy as np
 
 global_obj = {}
 
+payload_size = int(os.environ.get('PAYLOAD_SIZE', 4096))
+
 
 def producer(meta):
     stage_name = 'producer'
-    data = np.genfromtxt('data/Digits_Train.txt', delimiter='\t')
+    list_length = payload_size // 8
+    data = [0] * list_length
 
     # data = lgb.Booster(model_file='data/mnist_model.txt')
 
@@ -165,18 +169,21 @@ def consumer(event):
         return out_meta
 
     def consumer_rpc(_event):
-        tick = cur_tick_ms()
-        d = np.array(event['payload'])
-        sd_time = cur_tick_ms() - tick
+        tick = util.cur_tick_us()
+        _data = np.array(event['payload'])
+        sum_val = sum(_data)
+        sd_time = util.cur_tick_us() - tick
 
         event.pop('payload')
         out_meta = event
         out_meta['profile'].update({
             'consumer': {
-                'sd_time': sd_time,
+                'sd_time': sd_time / 1000,
             },
         })
-        app_logger.debug(f'S3 profile: {out_meta["profile"]}')
+        app_logger.debug(f'RPC profile: {out_meta["profile"]}')
+        fetch_time = sd_time + event["profile"]["runtime"]["fetch_data_time"] * 1000
+        app_logger.info(f'RPC transfer {payload_size / 1024}K data cost {fetch_time} us')
         return out_meta
 
     def consumer_dmerge(event):
@@ -191,12 +198,16 @@ def consumer(event):
         assert r == 0
         _data = util.fetch(target_id)  # Retrieve all or not
         pull_time = cur_tick_ms() - pull_start_time
-
+        fetch_start_tick = util.cur_tick_us()
+        sum_val = sum(_data)
+        fetch_time = util.cur_tick_us() - fetch_start_tick
         out_meta['profile'].update({
             'consumer': {
                 'pull_time': pull_time,
             },
         })
+        app_logger.info(f'DMerge transfer {payload_size / 1024}K data cost {fetch_time} us')
+
         app_logger.debug(f'DMERGE profile: {out_meta["profile"]}')
         return out_meta
 
@@ -211,7 +222,6 @@ def consumer(event):
     out_dict['profile']['wf_end_tick'] = cur_tick_ms()
     out_dict['profile']['leave_tick'] = cur_tick_ms()
     out_dict['profile'][stage_name]['stage_time'] = sum(out_dict['profile'][stage_name].values())
-
     return out_dict
 
 

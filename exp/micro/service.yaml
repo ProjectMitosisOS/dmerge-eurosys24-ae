@@ -3,17 +3,17 @@ kind: ConfigMap
 metadata:
   name: knative-configmap
 data:
-#  protocol: "DMERGE"
+  protocol: "DMERGE"
 #  protocol: "DMERGE_PUSH"
-  protocol: "RPC"
+#  protocol: "RPC"
 #  protocol: "ES"
 
   logLevel: "INFO"
   heapSizeHex: "40000000"
-  touchRatio: "10"
+  payloadSize: "4194304"
   consumerNum: "1"
-#  LD_PRELOAD: "/usr/local/share/libmalloc_wrapper.so"
-  LD_PRELOAD: ""
+  LD_PRELOAD: "/usr/local/share/libmalloc_wrapper.so"
+#  LD_PRELOAD: ""
 ---
 apiVersion: serving.knative.dev/v1
 kind: Service
@@ -66,7 +66,7 @@ spec:
           image: val01:5000/dmerge-micro
           resources:
             limits:
-              hostdev.k8s.io/dev_mitosis-syscalls: 0
+              hostdev.k8s.io/dev_mitosis-syscalls: 1
           imagePullPolicy: Always
           env:
             - name: CE_SPECVERSION
@@ -97,11 +97,11 @@ spec:
                 configMapKeyRef:
                   name: knative-configmap
                   key: protocol
-            - name: TOUCH_RATIO
+            - name: PAYLOAD_SIZE
               valueFrom:
                 configMapKeyRef:
                   name: knative-configmap
-                  key: touchRatio
+                  key: payloadSize
 ---
 apiVersion: serving.knative.dev/v1
 kind: Service
@@ -120,7 +120,7 @@ spec:
           image: val01:5000/dmerge-micro
           resources:
             limits:
-              hostdev.k8s.io/dev_mitosis-syscalls: 0
+              hostdev.k8s.io/dev_mitosis-syscalls: 1
           imagePullPolicy: Always
           env:
             - name: CE_SPECVERSION
@@ -151,55 +151,55 @@ spec:
                 configMapKeyRef:
                   name: knative-configmap
                   key: protocol
----
-apiVersion: serving.knative.dev/v1
-kind: Service
-metadata:
-  name: consumer-1
-  namespace: default
-spec:
-  template:
-    metadata:
-      annotations:
-        # Credit to https://knative.dev/docs/serving/autoscaling/scale-bounds/#lower-bound
-        autoscaling.knative.dev/min-scale: "1"
-    spec:
-      containers:
-        - name: dmerge-micro
-          image: val01:5000/dmerge-micro
-          resources:
-            limits:
-              hostdev.k8s.io/dev_mitosis-syscalls: 0
-          imagePullPolicy: Always
-          env:
-            - name: CE_SPECVERSION
-              value: "0.3"
-            - name: ID
-              value: "1"
-            - name: CE_TYPE
-              value: "consumer"
-            - name: LOG_LEVEL
-              valueFrom:
-                configMapKeyRef:
-                  name: knative-configmap
-                  key: logLevel
-            - name: BASE_HEX
-              value: "190000000"
-            - name: TOTAL_SZ_HEX
-              valueFrom:
-                configMapKeyRef:
-                  name: knative-configmap
-                  key: heapSizeHex
-            - name: LD_PRELOAD
-              valueFrom:
-                configMapKeyRef:
-                  name: knative-configmap
-                  key: LD_PRELOAD
-            - name: PROTOCOL
-              valueFrom:
-                configMapKeyRef:
-                  name: knative-configmap
-                  key: protocol
+#---
+#apiVersion: serving.knative.dev/v1
+#kind: Service
+#metadata:
+#  name: consumer-1
+#  namespace: default
+#spec:
+#  template:
+#    metadata:
+#      annotations:
+#        # Credit to https://knative.dev/docs/serving/autoscaling/scale-bounds/#lower-bound
+#        autoscaling.knative.dev/min-scale: "1"
+#    spec:
+#      containers:
+#        - name: dmerge-micro
+#          image: val01:5000/dmerge-micro
+#          resources:
+#            limits:
+#              hostdev.k8s.io/dev_mitosis-syscalls: 1
+#          imagePullPolicy: Always
+#          env:
+#            - name: CE_SPECVERSION
+#              value: "0.3"
+#            - name: ID
+#              value: "1"
+#            - name: CE_TYPE
+#              value: "consumer"
+#            - name: LOG_LEVEL
+#              valueFrom:
+#                configMapKeyRef:
+#                  name: knative-configmap
+#                  key: logLevel
+#            - name: BASE_HEX
+#              value: "190000000"
+#            - name: TOTAL_SZ_HEX
+#              valueFrom:
+#                configMapKeyRef:
+#                  name: knative-configmap
+#                  key: heapSizeHex
+#            - name: LD_PRELOAD
+#              valueFrom:
+#                configMapKeyRef:
+#                  name: knative-configmap
+#                  key: LD_PRELOAD
+#            - name: PROTOCOL
+#              valueFrom:
+#                configMapKeyRef:
+#                  name: knative-configmap
+#                  key: protocol
 
 ---
 apiVersion: serving.knative.dev/v1
