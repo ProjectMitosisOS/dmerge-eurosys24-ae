@@ -1,0 +1,10 @@
+
+
+[[pass]]
+host = "val06"
+path = '/home/lfm/projects/dmerge/samples/cpp'
+cmd = 'cmake .; make -j ; ./bin/full_connector --machine_ids=6,7'
+[[pass]]
+host = "val07"
+path = '/home/lfm/projects/dmerge/samples/cpp'
+cmd = 'cmake .; make -j ; ./bin/full_connector --machine_ids=6,7'

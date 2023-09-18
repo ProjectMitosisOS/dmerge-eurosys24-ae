@@ -3,35 +3,20 @@ kind: ConfigMap
 metadata:
   name: knative-configmap
 data:
-#  protocol: "DMERGE"
-#  protocol: "DMERGE_PUSH"
-  protocol: "RPC"
+  protocol: "DMERGE"
+#  protocol: "RPC"
 #  protocol: "ES"
 
-  trainerNum: "8" # Default
+  mapperNum: "8" # Default
   logLevel: "INFO"
-  heapSizeHex: "40000000"
-
-  epoch: "5"
-#  epoch: "10" # Default
-#  epoch: "15"
-#  epoch: "20"
-#  epoch: "30"
-
-#  dataRatio: "10"
-#  dataRatio: "30"
-#  dataRatio: "40"
-#  dataRatio: "60"
-#  dataRatio: "70"
-  dataRatio: "100"
-
+  heapSizeHex: "10000000"
   LD_PRELOAD: "/usr/local/share/libmalloc_wrapper.so"
 #  LD_PRELOAD: ""
 ---
 apiVersion: serving.knative.dev/v1
 kind: Service
 metadata:
-  name: source
+  name: splitter
   namespace: default
 spec:
   template:
@@ -39,33 +24,44 @@ spec:
       annotations:
         # Credit to https://knative.dev/docs/serving/autoscaling/scale-bounds/#lower-bound
         autoscaling.knative.dev/min-scale: "1"
+#        autoscaling.knative.dev/max-scale: "1"
     spec:
       containers:
-        - name: dmerge-source
-          image: val01:5000/dmerge-ml-pipeline
+        - name: dmerge-wordcount
+          image: val01:5000/dmerge-wordcount
           imagePullPolicy: Always
+          resources:
+            limits:
+              hostdev.k8s.io/dev_mitosis-syscalls: 1
           env:
             - name: CE_SPECVERSION
               value: "0.3"
             - name: ID
               value: "0"
             - name: CE_TYPE
-              value: "source"
+              value: "splitter"
             - name: LOG_LEVEL
               valueFrom:
                 configMapKeyRef:
                   name: knative-configmap
                   key: logLevel
-            - name: TRAINER_NUM
+            - name: MAPPER_NUM
               valueFrom:
                 configMapKeyRef:
                   name: knative-configmap
-                  key: trainerNum
-            - name: EPOCH
+                  key: mapperNum
+            - name: BASE_HEX
+              value: "100000000"
+            - name: TOTAL_SZ_HEX
               valueFrom:
                 configMapKeyRef:
                   name: knative-configmap
-                  key: epoch
+                  key: heapSizeHex
+            - name: LD_PRELOAD
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: LD_PRELOAD
             - name: PROTOCOL
               valueFrom:
                 configMapKeyRef:
@@ -75,18 +71,17 @@ spec:
 apiVersion: serving.knative.dev/v1
 kind: Service
 metadata:
-  name: pca-0
+  name: mapper-0
   namespace: default
 spec:
   template:
     metadata:
       annotations:
-        # Credit to https://knative.dev/docs/serving/autoscaling/scale-bounds/#lower-bound
         autoscaling.knative.dev/min-scale: "1"
     spec:
       containers:
-        - name: dmerge-ml-pipeline
-          image: val01:5000/dmerge-ml-pipeline
+        - name: dmerge-wordcount
+          image: val01:5000/dmerge-wordcount
           resources:
             limits:
               hostdev.k8s.io/dev_mitosis-syscalls: 1
@@ -94,10 +89,12 @@ spec:
           env:
             - name: CE_SPECVERSION
               value: "0.3"
+            - name: CE_TYPE
+              value: "mapper"
             - name: ID
               value: "0"
-            - name: CE_TYPE
-              value: "pca"
+            - name: UPSTREAM_NUM
+              value: "1"
             - name: LOG_LEVEL
               valueFrom:
                 configMapKeyRef:
@@ -115,16 +112,6 @@ spec:
                 configMapKeyRef:
                   name: knative-configmap
                   key: LD_PRELOAD
-            - name: EPOCH
-              valueFrom:
-                configMapKeyRef:
-                  name: knative-configmap
-                  key: epoch
-            - name: DATA_RAIO
-              valueFrom:
-                configMapKeyRef:
-                  name: knative-configmap
-                  key: dataRatio
             - name: PROTOCOL
               valueFrom:
                 configMapKeyRef:
@@ -134,7 +121,7 @@ spec:
 apiVersion: serving.knative.dev/v1
 kind: Service
 metadata:
-  name: trainer-0
+  name: mapper-1
   namespace: default
 spec:
   template:
@@ -143,8 +130,8 @@ spec:
         autoscaling.knative.dev/min-scale: "1"
     spec:
       containers:
-        - name: dmerge-ml-pipeline
-          image: val01:5000/dmerge-ml-pipeline
+        - name: dmerge-wordcount
+          image: val01:5000/dmerge-wordcount
           resources:
             limits:
               hostdev.k8s.io/dev_mitosis-syscalls: 1
@@ -153,9 +140,9 @@ spec:
             - name: CE_SPECVERSION
               value: "0.3"
             - name: CE_TYPE
-              value: "trainer"
+              value: "mapper"
             - name: ID
-              value: "0"
+              value: "1"
             - name: UPSTREAM_NUM
               value: "1"
             - name: LOG_LEVEL
@@ -175,11 +162,6 @@ spec:
                 configMapKeyRef:
                   name: knative-configmap
                   key: LD_PRELOAD
-            - name: EPOCH
-              valueFrom:
-                configMapKeyRef:
-                  name: knative-configmap
-                  key: epoch
             - name: PROTOCOL
               valueFrom:
                 configMapKeyRef:
@@ -189,7 +171,7 @@ spec:
 apiVersion: serving.knative.dev/v1
 kind: Service
 metadata:
-  name: trainer-1
+  name: mapper-2
   namespace: default
 spec:
   template:
@@ -198,23 +180,26 @@ spec:
         autoscaling.knative.dev/min-scale: "1"
     spec:
       containers:
-        - name: dmerge-ml-pipeline
-          image: val01:5000/dmerge-ml-pipeline
-          imagePullPolicy: Always
+        - name: dmerge-wordcount
+          image: val01:5000/dmerge-wordcount
           resources:
             limits:
               hostdev.k8s.io/dev_mitosis-syscalls: 1
+          imagePullPolicy: Always
           env:
             - name: CE_SPECVERSION
               value: "0.3"
             - name: CE_TYPE
-              value: "trainer"
+              value: "mapper"
             - name: ID
-              value: "1"
+              value: "2"
             - name: UPSTREAM_NUM
               value: "1"
             - name: LOG_LEVEL
-              value: "INFO"
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: logLevel
             - name: BASE_HEX
               value: "1c0000000"
             - name: TOTAL_SZ_HEX
@@ -227,11 +212,6 @@ spec:
                 configMapKeyRef:
                   name: knative-configmap
                   key: LD_PRELOAD
-            - name: EPOCH
-              valueFrom:
-                configMapKeyRef:
-                  name: knative-configmap
-                  key: epoch
             - name: PROTOCOL
               valueFrom:
                 configMapKeyRef:
@@ -241,7 +221,7 @@ spec:
 apiVersion: serving.knative.dev/v1
 kind: Service
 metadata:
-  name: trainer-2
+  name: mapper-3
   namespace: default
 spec:
   template:
@@ -250,23 +230,26 @@ spec:
         autoscaling.knative.dev/min-scale: "1"
     spec:
       containers:
-        - name: dmerge-ml-pipeline
-          image: val01:5000/dmerge-ml-pipeline
-          imagePullPolicy: Always
+        - name: dmerge-wordcount
+          image: val01:5000/dmerge-wordcount
           resources:
             limits:
               hostdev.k8s.io/dev_mitosis-syscalls: 1
+          imagePullPolicy: Always
           env:
             - name: CE_SPECVERSION
               value: "0.3"
             - name: CE_TYPE
-              value: "trainer"
+              value: "mapper"
             - name: ID
-              value: "2"
+              value: "3"
             - name: UPSTREAM_NUM
               value: "1"
             - name: LOG_LEVEL
-              value: "INFO"
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: logLevel
             - name: BASE_HEX
               value: "200000000"
             - name: TOTAL_SZ_HEX
@@ -279,11 +262,6 @@ spec:
                 configMapKeyRef:
                   name: knative-configmap
                   key: LD_PRELOAD
-            - name: EPOCH
-              valueFrom:
-                configMapKeyRef:
-                  name: knative-configmap
-                  key: epoch
             - name: PROTOCOL
               valueFrom:
                 configMapKeyRef:
@@ -293,7 +271,7 @@ spec:
 apiVersion: serving.knative.dev/v1
 kind: Service
 metadata:
-  name: trainer-3
+  name: mapper-4
   namespace: default
 spec:
   template:
@@ -302,23 +280,26 @@ spec:
         autoscaling.knative.dev/min-scale: "1"
     spec:
       containers:
-        - name: dmerge-ml-pipeline
-          image: val01:5000/dmerge-ml-pipeline
-          imagePullPolicy: Always
+        - name: dmerge-wordcount
+          image: val01:5000/dmerge-wordcount
           resources:
             limits:
               hostdev.k8s.io/dev_mitosis-syscalls: 1
+          imagePullPolicy: Always
           env:
             - name: CE_SPECVERSION
               value: "0.3"
             - name: CE_TYPE
-              value: "trainer"
+              value: "mapper"
             - name: ID
-              value: "3"
+              value: "4"
             - name: UPSTREAM_NUM
               value: "1"
             - name: LOG_LEVEL
-              value: "INFO"
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: logLevel
             - name: BASE_HEX
               value: "240000000"
             - name: TOTAL_SZ_HEX
@@ -331,11 +312,6 @@ spec:
                 configMapKeyRef:
                   name: knative-configmap
                   key: LD_PRELOAD
-            - name: EPOCH
-              valueFrom:
-                configMapKeyRef:
-                  name: knative-configmap
-                  key: epoch
             - name: PROTOCOL
               valueFrom:
                 configMapKeyRef:
@@ -345,7 +321,7 @@ spec:
 apiVersion: serving.knative.dev/v1
 kind: Service
 metadata:
-  name: trainer-4
+  name: mapper-5
   namespace: default
 spec:
   template:
@@ -354,23 +330,26 @@ spec:
         autoscaling.knative.dev/min-scale: "1"
     spec:
       containers:
-        - name: dmerge-ml-pipeline
-          image: val01:5000/dmerge-ml-pipeline
-          imagePullPolicy: Always
+        - name: dmerge-wordcount
+          image: val01:5000/dmerge-wordcount
           resources:
             limits:
               hostdev.k8s.io/dev_mitosis-syscalls: 1
+          imagePullPolicy: Always
           env:
             - name: CE_SPECVERSION
               value: "0.3"
             - name: CE_TYPE
-              value: "trainer"
+              value: "mapper"
             - name: ID
-              value: "4"
+              value: "5"
             - name: UPSTREAM_NUM
               value: "1"
             - name: LOG_LEVEL
-              value: "INFO"
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: logLevel
             - name: BASE_HEX
               value: "280000000"
             - name: TOTAL_SZ_HEX
@@ -383,11 +362,6 @@ spec:
                 configMapKeyRef:
                   name: knative-configmap
                   key: LD_PRELOAD
-            - name: EPOCH
-              valueFrom:
-                configMapKeyRef:
-                  name: knative-configmap
-                  key: epoch
             - name: PROTOCOL
               valueFrom:
                 configMapKeyRef:
@@ -397,7 +371,7 @@ spec:
 apiVersion: serving.knative.dev/v1
 kind: Service
 metadata:
-  name: trainer-5
+  name: mapper-6
   namespace: default
 spec:
   template:
@@ -406,23 +380,26 @@ spec:
         autoscaling.knative.dev/min-scale: "1"
     spec:
       containers:
-        - name: dmerge-ml-pipeline
-          image: val01:5000/dmerge-ml-pipeline
-          imagePullPolicy: Always
+        - name: dmerge-wordcount
+          image: val01:5000/dmerge-wordcount
           resources:
             limits:
               hostdev.k8s.io/dev_mitosis-syscalls: 1
+          imagePullPolicy: Always
           env:
             - name: CE_SPECVERSION
               value: "0.3"
             - name: CE_TYPE
-              value: "trainer"
+              value: "mapper"
             - name: ID
-              value: "3"
+              value: "6"
             - name: UPSTREAM_NUM
-              value: "5"
+              value: "1"
             - name: LOG_LEVEL
-              value: "INFO"
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: logLevel
             - name: BASE_HEX
               value: "2c0000000"
             - name: TOTAL_SZ_HEX
@@ -435,11 +412,6 @@ spec:
                 configMapKeyRef:
                   name: knative-configmap
                   key: LD_PRELOAD
-            - name: EPOCH
-              valueFrom:
-                configMapKeyRef:
-                  name: knative-configmap
-                  key: epoch
             - name: PROTOCOL
               valueFrom:
                 configMapKeyRef:
@@ -449,7 +421,7 @@ spec:
 apiVersion: serving.knative.dev/v1
 kind: Service
 metadata:
-  name: trainer-6
+  name: mapper-7
   namespace: default
 spec:
   template:
@@ -458,23 +430,26 @@ spec:
         autoscaling.knative.dev/min-scale: "1"
     spec:
       containers:
-        - name: dmerge-ml-pipeline
-          image: val01:5000/dmerge-ml-pipeline
-          imagePullPolicy: Always
+        - name: dmerge-wordcount
+          image: val01:5000/dmerge-wordcount
           resources:
             limits:
               hostdev.k8s.io/dev_mitosis-syscalls: 1
+          imagePullPolicy: Always
           env:
             - name: CE_SPECVERSION
               value: "0.3"
             - name: CE_TYPE
-              value: "trainer"
+              value: "mapper"
             - name: ID
-              value: "6"
+              value: "7"
             - name: UPSTREAM_NUM
               value: "1"
             - name: LOG_LEVEL
-              value: "INFO"
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: logLevel
             - name: BASE_HEX
               value: "300000000"
             - name: TOTAL_SZ_HEX
@@ -487,11 +462,6 @@ spec:
                 configMapKeyRef:
                   name: knative-configmap
                   key: LD_PRELOAD
-            - name: EPOCH
-              valueFrom:
-                configMapKeyRef:
-                  name: knative-configmap
-                  key: epoch
             - name: PROTOCOL
               valueFrom:
                 configMapKeyRef:
@@ -501,7 +471,7 @@ spec:
 apiVersion: serving.knative.dev/v1
 kind: Service
 metadata:
-  name: trainer-7
+  name: reducer-0
   namespace: default
 spec:
   template:
@@ -510,8 +480,8 @@ spec:
         autoscaling.knative.dev/min-scale: "1"
     spec:
       containers:
-        - name: dmerge-ml-pipeline
-          image: val01:5000/dmerge-ml-pipeline
+        - name: user-app
+          image: val01:5000/dmerge-wordcount
           imagePullPolicy: Always
           resources:
             limits:
@@ -520,15 +490,18 @@ spec:
             - name: CE_SPECVERSION
               value: "0.3"
             - name: CE_TYPE
-              value: "trainer"
+              value: "reducer"
             - name: ID
-              value: "7"
+              value: "0"
             - name: UPSTREAM_NUM
-              value: "1"
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: mapperNum
             - name: LOG_LEVEL
               value: "INFO"
             - name: BASE_HEX
-              value: "340000000"
+              value: "700000000"
             - name: TOTAL_SZ_HEX
               valueFrom:
                 configMapKeyRef:
@@ -539,88 +512,6 @@ spec:
                 configMapKeyRef:
                   name: knative-configmap
                   key: LD_PRELOAD
-            - name: EPOCH
-              valueFrom:
-                configMapKeyRef:
-                  name: knative-configmap
-                  key: epoch
-            - name: PROTOCOL
-              valueFrom:
-                configMapKeyRef:
-                  name: knative-configmap
-                  key: protocol
----
-apiVersion: serving.knative.dev/v1
-kind: Service
-metadata:
-  name: combinemodels
-  namespace: default
-spec:
-  template:
-    metadata:
-      annotations:
-        autoscaling.knative.dev/min-scale: "1"
-    spec:
-      containers:
-        - name: user-app
-          image: val01:5000/dmerge-ml-pipeline
-          imagePullPolicy: Always
-          env:
-            - name: CE_SPECVERSION
-              value: "0.3"
-            - name: CE_TYPE
-              value: "combinemodels"
-            - name: ID
-              value: "0"
-            - name: UPSTREAM_NUM
-              valueFrom:
-                configMapKeyRef:
-                  name: knative-configmap
-                  key: trainerNum
-            - name: LOG_LEVEL
-              value: "INFO"
-            - name: EPOCH
-              valueFrom:
-                configMapKeyRef:
-                  name: knative-configmap
-                  key: epoch
-            - name: PROTOCOL
-              valueFrom:
-                configMapKeyRef:
-                  name: knative-configmap
-                  key: protocol
----
-apiVersion: serving.knative.dev/v1
-kind: Service
-metadata:
-  name: sink
-  namespace: default
-spec:
-  template:
-    metadata:
-      annotations:
-        autoscaling.knative.dev/min-scale: "1"
-    spec:
-      containers:
-        - name: user-app
-          image: val01:5000/dmerge-ml-pipeline
-          imagePullPolicy: Always
-          env:
-            - name: CE_SPECVERSION
-              value: "0.3"
-            - name: CE_TYPE
-              value: "sink"
-            - name: ID
-              value: "0"
-            - name: UPSTREAM_NUM
-              value: "1"
-            - name: LOG_LEVEL
-              value: "INFO"
-            - name: EPOCH
-              valueFrom:
-                configMapKeyRef:
-                  name: knative-configmap
-                  key: epoch
             - name: PROTOCOL
               valueFrom:
                 configMapKeyRef:
@@ -640,17 +531,17 @@ spec:
     - ref:
         apiVersion: serving.knative.dev/v1
         kind: Service
-        name: source
+        name: splitter
     - ref: # Parallel for mapper. Note!!!: Parallel shall not be followed by other seq services
         apiVersion: flows.knative.dev/v1
         kind: Parallel
-        name: pca-parallel
+        name: mapper-parallel
 ---
 # Workflow related
 apiVersion: flows.knative.dev/v1
 kind: Parallel
 metadata:
-  name: pca-parallel
+  name: mapper-parallel
 spec:
   channelTemplate:
     apiVersion: messaging.knative.dev/v1
@@ -660,17 +551,52 @@ spec:
         ref:
           apiVersion: serving.knative.dev/v1
           kind: Service
-          name: pca-0
+          name: mapper-0
+    - subscriber:
+        ref:
+          apiVersion: serving.knative.dev/v1
+          kind: Service
+          name: mapper-1
+    - subscriber:
+        ref:
+          apiVersion: serving.knative.dev/v1
+          kind: Service
+          name: mapper-2
+    - subscriber:
+        ref:
+          apiVersion: serving.knative.dev/v1
+          kind: Service
+          name: mapper-3
+    - subscriber:
+        ref:
+          apiVersion: serving.knative.dev/v1
+          kind: Service
+          name: mapper-4
+    - subscriber:
+        ref:
+          apiVersion: serving.knative.dev/v1
+          kind: Service
+          name: mapper-5
+    - subscriber:
+        ref:
+          apiVersion: serving.knative.dev/v1
+          kind: Service
+          name: mapper-6
+    - subscriber:
+        ref:
+          apiVersion: serving.knative.dev/v1
+          kind: Service
+          name: mapper-7
   reply:
     ref:
       apiVersion: flows.knative.dev/v1
       kind: Parallel
-      name: trainer-parallel
+      name: reducer-parallel
 ---
 apiVersion: flows.knative.dev/v1
 kind: Parallel
 metadata:
-  name: trainer-parallel
+  name: reducer-parallel
 spec:
   channelTemplate:
     apiVersion: messaging.knative.dev/v1
@@ -680,66 +606,7 @@ spec:
         ref:
           apiVersion: serving.knative.dev/v1
           kind: Service
-          name: trainer-0
-    - subscriber:
-        ref:
-          apiVersion: serving.knative.dev/v1
-          kind: Service
-          name: trainer-1
-    - subscriber:
-        ref:
-          apiVersion: serving.knative.dev/v1
-          kind: Service
-          name: trainer-2
-    - subscriber:
-        ref:
-          apiVersion: serving.knative.dev/v1
-          kind: Service
-          name: trainer-3
-    - subscriber:
-        ref:
-          apiVersion: serving.knative.dev/v1
-          kind: Service
-          name: trainer-4
-    - subscriber:
-        ref:
-          apiVersion: serving.knative.dev/v1
-          kind: Service
-          name: trainer-5
-    - subscriber:
-        ref:
-          apiVersion: serving.knative.dev/v1
-          kind: Service
-          name: trainer-6
-    - subscriber:
-        ref:
-          apiVersion: serving.knative.dev/v1
-          kind: Service
-          name: trainer-7
-  reply:
-    ref:
-      apiVersion: flows.knative.dev/v1
-      kind: Sequence
-      name: combine-sequence
----
-apiVersion: flows.knative.dev/v1
-kind: Sequence
-metadata:
-  name: combine-sequence
-spec:
-  channelTemplate:
-    apiVersion: messaging.knative.dev/v1
-    kind: InMemoryChannel
-  steps:
-    - ref:
-        apiVersion: serving.knative.dev/v1
-        kind: Service
-        name: combinemodels
-  reply:
-    ref:
-      apiVersion: eventing.knative.dev/v1
-      kind: Broker
-      name: default-broker
+          name: reducer-0
 ---
 apiVersion: eventing.knative.dev/v1
 kind: Trigger
@@ -757,34 +624,3 @@ spec:
       kind: Sequence
       name: start
 ---
-apiVersion: eventing.knative.dev/v1
-kind: Trigger
-metadata:
-  name: event-display-trigger
-  namespace: default
-spec:
-  broker: default-broker
-  filter:
-    attributes:
-      type: none
-  subscriber:
-    ref:
-      apiVersion: serving.knative.dev/v1
-      kind: Service
-      name: event-display
----
-apiVersion: eventing.knative.dev/v1
-kind: Trigger
-metadata:
-  name: sink-trigger
-  namespace: default
-spec:
-  broker: default-broker
-  filter:
-    attributes:
-      type: combinemodels
-  subscriber:
-    ref:
-      apiVersion: serving.knative.dev/v1
-      kind: Service
-      name: sink

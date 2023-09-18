@@ -1,4 +1,6 @@
 SHELL:=/bin/bash
+
+# ====== APPLICATION ======
 #APP_DIR=test
 #APP_DIR=thpt
 APP_DIR=micro
@@ -6,6 +8,11 @@ APP_DIR=micro
 #APP_DIR=digital-minist
 #APP_DIR=ml-pipeline
 #APP_DIR=wordcount
+
+# ====== PROTOCOL ======
+#EVAL_PROTOCOL=dmerge
+#EVAL_PROTOCOL=es
+EVAL_PROTOCOL=rpc
 IMG_NAME=val01:5000/dmerge-${APP_DIR}
 COMMON_PATH=common
 POD_NAME=
@@ -47,10 +54,10 @@ udps: # unmount device plugins
 
 
 upapp:
-	kubectl apply -f ${APP_DIR}/service.yaml
+	kubectl apply -f ${APP_DIR}/services/${EVAL_PROTOCOL}/service.yaml
 
 downapp:
-	kubectl delete -f ${APP_DIR}/service.yaml
+	kubectl delete -f ${APP_DIR}/services/${EVAL_PROTOCOL}/service.yaml
 
 curl:
 	kubectl exec -it curl -- curl -v http://start-kn-sequence-0-kn-channel.default.svc.cluster.local  \

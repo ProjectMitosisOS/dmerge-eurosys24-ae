@@ -401,7 +401,7 @@ def reducer(metas):
     # app_logger.info(f"[ {util.PROTOCOL} ] "
     #                         f"workflow e2e time for whole: {e2e_time}")
     app_logger.info(f"[{loop}-{util.PROTOCOL}] "
-                    f"workflow e2e time {reduced_profile['stage_time']}")
+                    f"workflow e2e time: {reduced_profile['stage_time']}")
     for k, v in reduced_profile.items():
         app_logger.info(f"Part@ {k} passed {v} ms")
     app_logger.info(f"Part@ cur_tick_ms passed {cur_tick_ms()} ms")

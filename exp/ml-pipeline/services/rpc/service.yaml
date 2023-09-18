@@ -4,7 +4,6 @@ metadata:
   name: knative-configmap
 data:
 #  protocol: "DMERGE"
-#  protocol: "DMERGE_PUSH"
   protocol: "RPC"
 #  protocol: "ES"
 

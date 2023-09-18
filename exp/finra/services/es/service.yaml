@@ -1,0 +1,355 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: knative-configmap
+data:
+#  protocol: "DMERGE"
+#  protocol: "RRPC"
+#  protocol: "RPC"
+  protocol: "ES"
+
+  logLevel: "INFO"
+  heapSizeHex: "10000000"
+  touchRatio: "100"
+  LD_PRELOAD: "/usr/local/share/libmalloc_wrapper.so"
+#  LD_PRELOAD: ""
+---
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: source
+  namespace: default
+spec:
+  template:
+    metadata:
+      annotations:
+        # Credit to https://knative.dev/docs/serving/autoscaling/scale-bounds/#lower-bound
+        autoscaling.knative.dev/min-scale: "1"
+    spec:
+      containers:
+        - name: dmerge-finra
+          image: val01:5000/dmerge-finra
+          imagePullPolicy: Always
+          env:
+            - name: CE_SPECVERSION
+              value: "0.3"
+            - name: ID
+              value: "0"
+            - name: CE_TYPE
+              value: "source"
+            - name: LOG_LEVEL
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: logLevel
+            - name: PROTOCOL
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: protocol
+---
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: fetch-data-public
+  namespace: default
+spec:
+  template:
+    metadata:
+      annotations:
+        # Credit to https://knative.dev/docs/serving/autoscaling/scale-bounds/#lower-bound
+        autoscaling.knative.dev/min-scale: "1"
+    spec:
+      containers:
+        - name: dmerge-finra
+          image: val01:5000/dmerge-finra
+          resources:
+            limits:
+              hostdev.k8s.io/dev_mitosis-syscalls: 1
+          imagePullPolicy: Always
+          env:
+            - name: CE_SPECVERSION
+              value: "0.3"
+            - name: ID
+              value: "0"
+            - name: CE_TYPE
+              value: "fetchData"
+            - name: LOG_LEVEL
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: logLevel
+            - name: BASE_HEX
+              value: "100000000"
+            - name: TOTAL_SZ_HEX
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: heapSizeHex
+            - name: LD_PRELOAD
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: LD_PRELOAD
+            - name: PROTOCOL
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: protocol
+            - name: TOUCH_RATIO
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: touchRatio
+---
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: fetch-data-private
+  namespace: default
+spec:
+  template:
+    metadata:
+      annotations:
+        # Credit to https://knative.dev/docs/serving/autoscaling/scale-bounds/#lower-bound
+        autoscaling.knative.dev/min-scale: "1"
+    spec:
+      containers:
+        - name: dmerge-finra
+          image: val01:5000/dmerge-finra
+          resources:
+            limits:
+              hostdev.k8s.io/dev_mitosis-syscalls: 1
+          imagePullPolicy: Always
+          env:
+            - name: CE_SPECVERSION
+              value: "0.3"
+            - name: ID
+              value: "1"
+            - name: CE_TYPE
+              value: "fetchData"
+            - name: LOG_LEVEL
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: logLevel
+            - name: BASE_HEX
+              value: "140000000"
+            - name: TOTAL_SZ_HEX
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: heapSizeHex
+            - name: LD_PRELOAD
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: LD_PRELOAD
+            - name: PROTOCOL
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: protocol
+---
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: run-audit-rule
+  namespace: default
+spec:
+  template:
+    metadata:
+      annotations:
+        # Credit to https://knative.dev/docs/serving/autoscaling/scale-bounds/#lower-bound
+        autoscaling.knative.dev/min-scale: "1"
+        autoscaling.knative.dev/max-scale: "1"
+    spec:
+      containers:
+        - name: dmerge-finra
+          image: val01:5000/dmerge-finra
+          resources:
+            limits:
+              hostdev.k8s.io/dev_mitosis-syscalls: 1
+          imagePullPolicy: Always
+          env:
+            - name: CE_SPECVERSION
+              value: "0.3"
+            - name: ID
+              value: "0"
+            - name: CE_TYPE
+              value: "runAuditRule"
+            - name: LOG_LEVEL
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: logLevel
+            - name: UPSTREAM_NUM
+              value: "2"
+            - name: BASE_HEX
+              value: "180000000"
+            - name: TOTAL_SZ_HEX
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: heapSizeHex
+            - name: LD_PRELOAD
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: LD_PRELOAD
+            - name: PROTOCOL
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: protocol
+---
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: sink
+  namespace: default
+spec:
+  template:
+    metadata:
+      annotations:
+        # Credit to https://knative.dev/docs/serving/autoscaling/scale-bounds/#lower-bound
+        autoscaling.knative.dev/min-scale: "1"
+    spec:
+      containers:
+        - name: user-app
+          image: val01:5000/dmerge-finra
+          resources:
+            limits:
+              hostdev.k8s.io/dev_mitosis-syscalls: 0
+          imagePullPolicy: Always
+          env:
+            - name: CE_SPECVERSION
+              value: "0.3"
+            - name: ID
+              value: "0"
+            - name: CE_TYPE
+              value: "sink"
+            - name: LOG_LEVEL
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: logLevel
+            - name: UPSTREAM_NUM
+              value: "1"
+            - name: PROTOCOL
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: protocol
+
+---
+# Main body of MapReduce-alike framework
+apiVersion: flows.knative.dev/v1
+kind: Sequence
+metadata:
+  name: start
+spec:
+  channelTemplate:
+    apiVersion: messaging.knative.dev/v1
+    kind: InMemoryChannel
+  steps:
+    - ref:
+        apiVersion: serving.knative.dev/v1
+        kind: Service
+        name: source
+    - ref: # Parallel for mapper. Note!!!: Parallel shall not be followed by other seq services
+        apiVersion: flows.knative.dev/v1
+        kind: Parallel
+        name: fetch-parallel
+---
+apiVersion: flows.knative.dev/v1
+kind: Parallel
+metadata:
+  name: fetch-parallel
+spec:
+  channelTemplate:
+    apiVersion: messaging.knative.dev/v1
+    kind: InMemoryChannel
+  branches:
+    - subscriber:
+        ref:
+          apiVersion: serving.knative.dev/v1
+          kind: Service
+          name: fetch-data-public
+    - subscriber:
+        ref:
+          apiVersion: serving.knative.dev/v1
+          kind: Service
+          name: fetch-data-private
+  reply:
+    ref:
+      apiVersion: flows.knative.dev/v1
+      kind: Sequence
+      name: sink-sequence
+---
+apiVersion: flows.knative.dev/v1
+kind: Sequence
+metadata:
+  name: sink-sequence
+spec:
+  channelTemplate:
+    apiVersion: messaging.knative.dev/v1
+    kind: InMemoryChannel
+  steps:
+    - ref:
+        apiVersion: serving.knative.dev/v1
+        kind: Service
+        name: run-audit-rule
+  reply:
+    ref:
+      apiVersion: eventing.knative.dev/v1
+      kind: Broker
+      name: default-broker
+---
+apiVersion: eventing.knative.dev/v1
+kind: Trigger
+metadata:
+  name: ping-trigger
+  namespace: default
+spec:
+  broker: default-broker
+  filter:
+    attributes:
+      type: dev.knative.sources.ping # Default ping type from Ping-Source
+  subscriber:
+    ref:
+      apiVersion: flows.knative.dev/v1
+      kind: Sequence
+      name: start
+---
+apiVersion: eventing.knative.dev/v1
+kind: Trigger
+metadata:
+  name: event-display-trigger
+  namespace: default
+spec:
+  broker: default-broker
+  filter:
+    attributes:
+      type: none
+  subscriber:
+    ref:
+      apiVersion: serving.knative.dev/v1
+      kind: Service
+      name: event-display
+---
+apiVersion: eventing.knative.dev/v1
+kind: Trigger
+metadata:
+  name: sink-trigger
+  namespace: default
+spec:
+  broker: default-broker
+  filter:
+    attributes:
+      type: runAuditRule
+  subscriber:
+    ref:
+      apiVersion: serving.knative.dev/v1
+      kind: Service
+      name: sink

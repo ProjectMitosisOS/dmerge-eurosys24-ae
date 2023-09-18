@@ -3,9 +3,8 @@ kind: ConfigMap
 metadata:
   name: knative-configmap
 data:
-#  protocol: "DMERGE"
-#  protocol: "DMERGE_PUSH"
-  protocol: "RPC"
+  protocol: "DMERGE"
+#  protocol: "RPC"
 #  protocol: "ES"
 
   trainerNum: "8" # Default

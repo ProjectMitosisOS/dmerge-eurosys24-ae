@@ -1,0 +1,10 @@
+
+[[pass]]
+host = "val06"
+path = '/home/lfm/projects/dmerge'
+cmd  = 'make rmmod'
+[[pass]]
+host = "val07"
+path = '/home/lfm/projects/dmerge'
+cmd  = 'make rmmod'
+

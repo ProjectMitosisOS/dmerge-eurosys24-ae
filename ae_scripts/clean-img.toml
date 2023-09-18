@@ -1,0 +1,15 @@
+
+
+
+[[pass]]
+host = "val05"
+path = ''
+cmd  = 'docker rmi $(docker images -f "dangling=true" -q)'
+[[pass]]
+host = "val06"
+path = ''
+cmd  = 'docker rmi $(docker images -f "dangling=true" -q)'
+[[pass]]
+host = "val07"
+path = ''
+cmd  = 'docker rmi $(docker images -f "dangling=true" -q)'

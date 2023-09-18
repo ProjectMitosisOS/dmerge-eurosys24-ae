@@ -171,7 +171,7 @@ def consumer(event):
     def consumer_rpc(_event):
         tick = util.cur_tick_us()
         _data = np.array(event['payload'])
-        sum_val = sum(_data)
+        # sum_val = sum(_data)
         sd_time = util.cur_tick_us() - tick
 
         event.pop('payload')
@@ -199,7 +199,7 @@ def consumer(event):
         _data = util.fetch(target_id)  # Retrieve all or not
         pull_time = cur_tick_ms() - pull_start_time
         fetch_start_tick = util.cur_tick_us()
-        sum_val = sum(_data)
+        # sum_val = sum(_data)
         fetch_time = util.cur_tick_us() - fetch_start_tick
         out_meta['profile'].update({
             'consumer': {

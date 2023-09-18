@@ -501,7 +501,7 @@ def sink(meta):
     reduced_profile = util.reduce_profile(p)
     app_logger.info(f"sd bytes len: {es_obj_sz} ")
     app_logger.info(f"Profile result: {p} ")
-    app_logger.info(f"[{loop}-{util.PROTOCOL}] workflow e2e time "
+    app_logger.info(f"[{loop}-{util.PROTOCOL}] workflow e2e time: "
                     f"{reduced_profile['stage_time']}")
     for k, v in reduced_profile.items():
         app_logger.info(f"Part@ {k} passed {v} ms")
