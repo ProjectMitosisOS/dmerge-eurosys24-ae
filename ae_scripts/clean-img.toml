@@ -1,12 +1,12 @@
 [[pass]]
 host = "val05"
 path = ''
-cmd  = 'sudo docker rmi $(sudo docker images -f "dangling=true" -q)'
+cmd  = 'docker rmi $(docker images -f "dangling=true" -q)'
 [[pass]]
 host = "val06"
 path = ''
-cmd  = 'sudo docker rmi $(sudo docker images -f "dangling=true" -q)'
+cmd  = 'docker rmi $(docker images -f "dangling=true" -q)'
 [[pass]]
 host = "val07"
 path = ''
-cmd  = 'sudo docker rmi $(sudo docker images -f "dangling=true" -q)'
+cmd  = 'docker rmi $(docker images -f "dangling=true" -q)'

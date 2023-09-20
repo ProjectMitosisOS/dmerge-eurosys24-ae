@@ -10,7 +10,7 @@ Firstly, we have to setup kernel modules and kantive runtime extensions before t
 
 Please go to `ae_scripts` and activate the python virtenv to run the module `insmod`. Please setup your login password in environment variable `PASSWORD`.
 
-```
+```sh
 # On val05
 cd $PROJECT_PATH/ae_scripts
 source env/bin/activate
@@ -51,9 +51,11 @@ kube-system        hostdev-device-dev-plugin-lqxdv                   1/1     Run
 kube-system        hostdev-device-dev-plugin-rkktf                   1/1     Running   0              10d
 ```
 
+
+
 ### 2. Microbenchmark
 
-We are now going to reproduce evaluation result for \<fig-TODO>. 
+We are now going to reproduce evaluation result for E2E time in `Figure 11 (b)` 
 
 ```sh
 # On val05
@@ -63,16 +65,30 @@ python auto_tester.py --app_dir=micro --eval_protocol=es --profile_service=sink 
 python auto_tester.py --app_dir=micro --eval_protocol=dmerge --profile_service=sink # Our system
 ```
 
+
+
 ### 3. Application evaluations
+
+This evaluation part reproduce evaluation result in `Figure 12`.
+
+Please run commands as below to generate all experiments data.
+
+```sh
+TODO:
+```
+
+After running all of these experiments, you can execute `make fig12` to plot the data result, and the outcome figure is in `out/fig12.png`.
+
+
 
 #### FINRA
 
 ```sh
 # On val05
 cd $PROJECT_PATH/exp
-python auto_tester.py --app_dir=finra --eval_protocol=rpc --profile_service=sink # RPC
-python auto_tester.py --app_dir=finra --eval_protocol=es --profile_service=sink # external storage
-python auto_tester.py --app_dir=finra --eval_protocol=dmerge --profile_service=sink # Our system
+python auto_tester.py --app_dir=finra --eval_protocol=rpc --profile_service=sink # Messaging
+python auto_tester.py --app_dir=finra --eval_protocol=es --profile_service=sink # Shared Storage
+python auto_tester.py --app_dir=finra --eval_protocol=dmerge --profile_service=sink # RMMap
 ```
 
 
@@ -82,9 +98,9 @@ python auto_tester.py --app_dir=finra --eval_protocol=dmerge --profile_service=s
 ```sh
 # On val05
 cd $PROJECT_PATH/exp
-python auto_tester.py --app_dir=ml-pipeline --eval_protocol=rpc --profile_service=sink # RPC
-python auto_tester.py --app_dir=ml-pipeline --eval_protocol=es --profile_service=sink # external storage
-python auto_tester.py --app_dir=ml-pipeline --eval_protocol=dmerge --profile_service=sink # Our system
+python auto_tester.py --app_dir=ml-pipeline --eval_protocol=rpc --profile_service=sink # Messaging
+python auto_tester.py --app_dir=ml-pipeline --eval_protocol=es --profile_service=sink # Shared Storage
+python auto_tester.py --app_dir=ml-pipeline --eval_protocol=dmerge --profile_service=sink # RMMap
 ```
 
 
@@ -94,9 +110,9 @@ python auto_tester.py --app_dir=ml-pipeline --eval_protocol=dmerge --profile_ser
 ```sh
 # On val05
 cd $PROJECT_PATH/exp
-python auto_tester.py --app_dir=digital-minist --eval_protocol=rpc --profile_service=combine # RPC
-python auto_tester.py --app_dir=digital-minist --eval_protocol=es --profile_service=combine # external storage
-python auto_tester.py --app_dir=digital-minist --eval_protocol=dmerge --profile_service=combine # Our system
+python auto_tester.py --app_dir=digital-minist --eval_protocol=rpc --profile_service=combine # Messaging
+python auto_tester.py --app_dir=digital-minist --eval_protocol=es --profile_service=combine # Shared Storage
+python auto_tester.py --app_dir=digital-minist --eval_protocol=dmerge --profile_service=combine # RMMap
 ```
 
 
@@ -106,8 +122,32 @@ python auto_tester.py --app_dir=digital-minist --eval_protocol=dmerge --profile_
 ```sh
 # On val05
 cd $PROJECT_PATH/exp
-python auto_tester.py --app_dir=wordcount --eval_protocol=rpc --profile_service=reducer-0 # RPC
-python auto_tester.py --app_dir=wordcount --eval_protocol=es --profile_service=reducer-0 # external storage
-python auto_tester.py --app_dir=wordcount --eval_protocol=dmerge --profile_service=reducer-0 # Our system
+python auto_tester.py --app_dir=wordcount --eval_protocol=rpc --profile_service=reducer-0 # Messaging
+python auto_tester.py --app_dir=wordcount --eval_protocol=es --profile_service=reducer-0 # Shared Storage
+python auto_tester.py --app_dir=wordcount --eval_protocol=dmerge --profile_service=reducer-0 # RMMap
+```
+
+
+
+### 4. Evaluation cleanup
+
+To cleanup all environments, you only need to remove the knative pods and `rmmod` the kernel module.
+
+First go to `exp` and execute cleanup:
+
+```sh
+# On val05
+cd $PROJECT_PATH/exp
+make undeploy-meta udps
+```
+
+Then go to `as_scripts` and remove all kernel modules as:
+
+```sh
+# On val05
+cd $PROJECT_PATH/ae_scripts
+export PASSWORD="" # Change to your login password
+python bootstrap.py -f rmmod.toml -u $USER -p $PASSWORD 
+python bootstrap.py -f recover-device.toml -u $USER -p $PASSWORD 
 ```
 
