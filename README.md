@@ -23,6 +23,7 @@ cd $HOME
 mkdir -p $HOME/projects
 git clone https://github.com/<TODO> $HOME/projects/dmerge
 cd $HOME/projects/dmerge
+git config --global http.sslverify false
 git submodule update --init --recursive
 git checkout artifact-eurosys24
 
@@ -135,7 +136,7 @@ Go to path `ae_scripts` and run command as below:
 
 ```sh
 cd $PROJECT_PATH/ae_scripts
-sh sync-km.sh
+bash sync-km.sh
 ```
 
 This shell shall not output any error messages, and you can go to `val06` and `val07` at path `$HOME/projects/dmerge/` to see if both `dmerge-kms` and `makefile` exist in this path.
