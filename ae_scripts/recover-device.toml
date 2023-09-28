@@ -1,10 +1,10 @@
 
 [[pass]]
 host = "val06"
-path = '/home/lfm/projects/dmerge'
+path = ''
 cmd  = 'sudo rm -r /dev/mitosis-syscalls/'
 [[pass]]
 host = "val07"
-path = '/home/lfm/projects/dmerge'
+path = ''
 cmd  = 'sudo rm -r /dev/mitosis-syscalls/'
 
