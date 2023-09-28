@@ -6,7 +6,7 @@ One set of distributed OS primitives that transparently merge (or reduce) arbitr
 
 Submodule versions: 
 
-- MITOSIS: [cef994](https://ipads.se.sjtu.edu.cn:1312/distributed-rdma-serverless/mitosis-project/mitosis/-/commit/cef994c32580f27f730716462dd602a95bdb9c75)
+- MITOSIS: 0691a4
 - Jemalloc: 36366f
 
 Please check carefully before updating the submodule version.
@@ -21,11 +21,11 @@ We use Knative as serverless platform and use (TODO: val05) as the master node, 
 # On val05
 cd $HOME
 mkdir -p $HOME/projects
-git clone https://github.com/<TODO> $HOME/projects/dmerge
+git clone https://github.com/ProjectMitosisOS/dmerge-eurosys24-ae.git $HOME/projects/dmerge
 cd $HOME/projects/dmerge
 git config --global http.sslverify false
-git submodule update --init --recursive
 git checkout artifact-eurosys24
+git submodule update --init --recursive
 
 export PROJECT_PATH=$HOME/projects/dmerge
 ```
