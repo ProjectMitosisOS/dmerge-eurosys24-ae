@@ -1,0 +1,196 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: event-display
+spec:
+  template:
+    spec:
+      containers:
+        - image: gcr.io/knative-releases/knative.dev/eventing-contrib/cmd/event_display
+---
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: rust-trigger
+spec:
+  template:
+    spec:
+      containers:
+        - image: caribouf/helloworld-rust
+          env:
+            - name: CeType
+              value: "splitter"
+---
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: rust-splitter
+spec:
+  template:
+    spec:
+      containers:
+        - image: caribouf/helloworld-rust
+          env:
+            - name: CeType
+              value: "mapper"
+---
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: rust-mapper-0
+spec:
+  template:
+    spec:
+      containers:
+        - image: caribouf/helloworld-rust
+          env:
+            - name: CeType
+              value: "reducer"
+---
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: rust-reducer-0
+spec:
+  template:
+    spec:
+      containers:
+        - image: caribouf/helloworld-rust
+          env:
+            - name: CeType
+              value: "event.display"
+---
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: rust-mapper-1
+spec:
+  template:
+    spec:
+      containers:
+        - image: caribouf/helloworld-rust
+          env:
+            - name: CeType
+              value: "reducer"
+---
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: rust-reducer-1
+spec:
+  template:
+    spec:
+      containers:
+        - image: caribouf/helloworld-rust
+          env:
+            - name: CeType
+              value: "event.display"
+---
+apiVersion: flows.knative.dev/v1
+kind: Sequence
+metadata:
+  name: split-handle-seq
+spec:
+  channelTemplate:
+    apiVersion: messaging.knative.dev/v1
+    kind: InMemoryChannel
+  steps:
+    - ref:
+        apiVersion: serving.knative.dev/v1
+        kind: Service
+        name: rust-trigger
+    - ref:
+        apiVersion: serving.knative.dev/v1
+        kind: Service
+        name: rust-splitter
+  reply:
+    ref:
+      apiVersion: flows.knative.dev/v1
+      kind: Parallel
+      name: mr-handle-parallel
+---
+apiVersion: flows.knative.dev/v1
+kind: Parallel
+metadata:
+  name: mr-handle-parallel
+spec:
+  channelTemplate:
+    apiVersion: messaging.knative.dev/v1
+    kind: InMemoryChannel
+  branches:
+    - subscriber:
+        ref:
+          apiVersion: flows.knative.dev/v1
+          kind: Sequence
+          name: mr-handle-seq-0
+    - subscriber:
+        ref:
+          apiVersion: flows.knative.dev/v1
+          kind: Sequence
+          name: mr-handle-seq-1
+#  reply:
+#    ref:
+#      apiVersion: serving.knative.dev/v1
+#      kind: Service
+#      name: event-display
+
+---
+apiVersion: flows.knative.dev/v1
+kind: Sequence
+metadata:
+  name: mr-handle-seq-0
+spec:
+  channelTemplate:
+    apiVersion: messaging.knative.dev/v1
+    kind: InMemoryChannel
+  steps:
+    - ref:
+        apiVersion: serving.knative.dev/v1
+        kind: Service
+        name: rust-mapper-0
+    - ref:
+        apiVersion: serving.knative.dev/v1
+        kind: Service
+        name: rust-reducer-0
+  reply:
+    ref:
+      apiVersion: serving.knative.dev/v1
+      kind: Service
+      name: event-display
+---
+apiVersion: flows.knative.dev/v1
+kind: Sequence
+metadata:
+  name: mr-handle-seq-1
+spec:
+  channelTemplate:
+    apiVersion: messaging.knative.dev/v1
+    kind: InMemoryChannel
+  steps:
+    - ref:
+        apiVersion: serving.knative.dev/v1
+        kind: Service
+        name: rust-mapper-1
+    - ref:
+        apiVersion: serving.knative.dev/v1
+        kind: Service
+        name: rust-reducer-1
+  reply:
+    ref:
+      apiVersion: serving.knative.dev/v1
+      kind: Service
+      name: event-display
+---
+apiVersion: sources.knative.dev/v1beta2
+kind: PingSource
+metadata:
+  name: ping-source
+spec:
+  schedule: "*/1 * * * *"
+  contentType: "application/json"
+  data: '{"message": "Hello world!"}'
+  sink:
+    ref:
+      apiVersion: flows.knative.dev/v1
+      kind: Sequence
+      name: split-handle-seq

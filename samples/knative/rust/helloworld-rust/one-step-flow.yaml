@@ -1,0 +1,103 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: event-display
+spec:
+  template:
+    spec:
+      containers:
+        - image: gcr.lank8s.cn/knative-releases/knative.dev/eventing-contrib/cmd/event_display
+---
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: rust-trigger
+spec:
+  template:
+    spec:
+      containers:
+        - image: caribouf/helloworld-rust
+          imagePullPolicy: Always
+          resources:
+            limits:
+              hostdev.k8s.io/dev_mitosis-syscalls: 1
+          env:
+            - name: EgressCeType
+              value: "splitter"
+            - name: ServiceName
+              value: "rust-trigger"
+            - name: HEAP_BASE_HEX
+              value: "0x4ffff5a00000"
+            - name: HEAP_HINT
+              value: "73"
+
+---
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: rust-splitter
+spec:
+  template:
+    spec:
+      containers:
+        - image: caribouf/helloworld-rust
+          imagePullPolicy: Always
+          resources:
+            limits:
+              hostdev.k8s.io/dev_mitosis-syscalls: 1
+          env:
+            - name: EgressCeType
+              value: "sink"
+            - name: ServiceName
+              value: "rust-splitter"
+            - name: HEAP_BASE_HEX
+              value: "0x6ffff5a00000"
+            - name: HEAP_HINT
+              value: "74"
+---
+apiVersion: flows.knative.dev/v1
+kind: Sequence
+metadata:
+  name: split-handle-seq
+spec:
+  channelTemplate:
+    apiVersion: messaging.knative.dev/v1
+    kind: InMemoryChannel
+  steps:
+    - ref:
+        apiVersion: serving.knative.dev/v1
+        kind: Service
+        name: rust-trigger
+    - ref:
+        apiVersion: serving.knative.dev/v1
+        kind: Service
+        name: rust-splitter
+  reply:
+    ref:
+      apiVersion: serving.knative.dev/v1
+      kind: Service
+      name: rust-trigger
+---
+apiVersion: sources.knative.dev/v1beta2
+kind: PingSource
+metadata:
+  name: ping-source
+spec:
+  schedule: "*/1 * * * *"
+  contentType: "application/json"
+  data: '{"message": "Hello world!"}'
+  sink:
+    ref:
+      apiVersion: flows.knative.dev/v1
+      kind: Sequence
+      name: split-handle-seq
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: curl
+spec:
+  containers:
+    - name: curl
+      image: tutum/curl
+      command: ["sleep", "9999999"]

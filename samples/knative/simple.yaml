@@ -1,0 +1,38 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: simple-service
+spec:
+  template:
+    spec:
+      containers:
+        - image: gcr.lank8s.cn/knative-releases/knative.dev/eventing-contrib/cmd/event_display
+---
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: hello
+spec:
+  template:
+    spec:
+      containers:
+        - image: gcr.lank8s.cn/knative-samples/helloworld-go
+          ports:
+            - containerPort: 8080
+          env:
+            - name: TARGET
+              value: "World"
+
+---
+apiVersion: sources.knative.dev/v1
+kind: PingSource
+metadata:
+  name: source
+spec:
+  schedule: "*/1 * * * *"
+  data: '{"message": "Hello world from ping!"}'
+  sink:
+    ref:
+      apiVersion: serving.knative.dev/v1
+      kind: Service
+      name: simple-service

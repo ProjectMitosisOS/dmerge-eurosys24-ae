@@ -1,0 +1,72 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: config-deployment
+  namespace: knative-serving
+data:
+  queueSidecarImage: gcr.lank8s.cn/knative-releases/knative.dev/serving/cmd/queue
+  registriesSkippingTagResolving: val01:5000 # !!!For private registry, we need to let knative skip tag resolving on val host
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: curl
+  namespace: default
+spec:
+  containers:
+    - name: curl
+      image: radial/busyboxplus:curl
+      command: [ "sleep", "9999999" ]
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: hey
+  namespace: default
+spec:
+  containers:
+    - name: hey
+      image: val01:5000/hey
+      command: [ "/bin/sh", "-c" ]
+      args: [ "while true; do sleep 1000; done;" ]
+---
+# A default broker
+apiVersion: eventing.knative.dev/v1
+kind: Broker
+metadata:
+  name: default-broker
+  namespace: default
+  labels:
+    app: default-broker
+  annotations:
+    # Note: you can set the eventing.knative.dev/broker.class annotation to change the class of the broker.
+    # The default broker class is MTChannelBasedBroker, but Knative also supports use of the other class.
+    eventing.knative.dev/broker.class: MTChannelBasedBroker
+spec: { }
+---
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: event-display
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/min-scale: "1"
+    spec:
+      containers:
+        - image: gcr.lank8s.cn/knative-releases/knative.dev/eventing-contrib/cmd/event_display
+---
+#apiVersion: sources.knative.dev/v1beta2
+#kind: PingSource
+#metadata:
+#  name: ping-source
+#spec:
+#  schedule: "*/1 * * * *"
+#  contentType: "application/json"
+#  data: '{"message": "Hello world From PingSource"}'
+#  sink:
+#    ref:
+#      apiVersion: eventing.knative.dev/v1
+#      kind: Broker
+#      name: default-broker

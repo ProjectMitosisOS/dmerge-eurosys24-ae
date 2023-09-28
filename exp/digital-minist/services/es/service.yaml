@@ -1,0 +1,655 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: knative-configmap
+data:
+#  protocol: "DMERGE" # TODO: Finish model heapize
+#  protocol: "DMERGE_PUSH"
+#  protocol: "RRPC"
+#  protocol: "RPC"
+  protocol: "ES"
+
+  workerNum: "8" # Default
+
+  logLevel: "INFO"
+  heapSizeHex: "40000000"
+  LD_PRELOAD: "/usr/local/share/libmalloc_wrapper.so"
+#  LD_PRELOAD: ""
+---
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: splitter
+  namespace: default
+spec:
+  template:
+    metadata:
+      annotations:
+        # Credit to https://knative.dev/docs/serving/autoscaling/scale-bounds/#lower-bound
+        autoscaling.knative.dev/min-scale: "1"
+        autoscaling.knative.dev/max-scale: "1"
+    spec:
+      containers:
+        - name: dmerge-source
+          image: val01:5000/dmerge-digital-minist
+          imagePullPolicy: Always
+          resources:
+            limits:
+              hostdev.k8s.io/dev_mitosis-syscalls: 1
+          env:
+            - name: CE_SPECVERSION
+              value: "0.3"
+            - name: ID
+              value: "0"
+            - name: CE_TYPE
+              value: "splitter"
+            - name: LOG_LEVEL
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: logLevel
+            - name: WORKER_NUM
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: workerNum
+            - name: BASE_HEX
+              value: "100000000"
+            - name: TOTAL_SZ_HEX
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: heapSizeHex
+            - name: LD_PRELOAD
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: LD_PRELOAD
+            - name: PROTOCOL
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: protocol
+---
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: predict-0
+  namespace: default
+spec:
+  template:
+    metadata:
+      annotations:
+        # Credit to https://knative.dev/docs/serving/autoscaling/scale-bounds/#lower-bound
+        autoscaling.knative.dev/min-scale: "1"
+    spec:
+      containers:
+        - name: dmerge-digital-minist
+          image: val01:5000/dmerge-digital-minist
+          resources:
+            limits:
+              hostdev.k8s.io/dev_mitosis-syscalls: 1
+          imagePullPolicy: Always
+          env:
+            - name: CE_SPECVERSION
+              value: "0.3"
+            - name: ID
+              value: "0"
+            - name: CE_TYPE
+              value: "predict"
+            - name: LOG_LEVEL
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: logLevel
+            - name: BASE_HEX
+              value: "140000000"
+            - name: TOTAL_SZ_HEX
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: heapSizeHex
+            - name: LD_PRELOAD
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: LD_PRELOAD
+            - name: PROTOCOL
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: protocol
+---
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: predict-1
+  namespace: default
+spec:
+  template:
+    metadata:
+      annotations:
+        # Credit to https://knative.dev/docs/serving/autoscaling/scale-bounds/#lower-bound
+        autoscaling.knative.dev/min-scale: "1"
+    spec:
+      containers:
+        - name: dmerge-digital-minist
+          image: val01:5000/dmerge-digital-minist
+          resources:
+            limits:
+              hostdev.k8s.io/dev_mitosis-syscalls: 1
+          imagePullPolicy: Always
+          env:
+            - name: CE_SPECVERSION
+              value: "0.3"
+            - name: ID
+              value: "1"
+            - name: CE_TYPE
+              value: "predict"
+            - name: LOG_LEVEL
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: logLevel
+            - name: BASE_HEX
+              value: "180000000"
+            - name: TOTAL_SZ_HEX
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: heapSizeHex
+            - name: LD_PRELOAD
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: LD_PRELOAD
+            - name: PROTOCOL
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: protocol
+---
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: predict-2
+  namespace: default
+spec:
+  template:
+    metadata:
+      annotations:
+        # Credit to https://knative.dev/docs/serving/autoscaling/scale-bounds/#lower-bound
+        autoscaling.knative.dev/min-scale: "1"
+    spec:
+      containers:
+        - name: dmerge-digital-minist
+          image: val01:5000/dmerge-digital-minist
+          resources:
+            limits:
+              hostdev.k8s.io/dev_mitosis-syscalls: 1
+          imagePullPolicy: Always
+          env:
+            - name: CE_SPECVERSION
+              value: "0.3"
+            - name: ID
+              value: "2"
+            - name: CE_TYPE
+              value: "predict"
+            - name: LOG_LEVEL
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: logLevel
+            - name: BASE_HEX
+              value: "240000000"
+            - name: TOTAL_SZ_HEX
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: heapSizeHex
+            - name: LD_PRELOAD
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: LD_PRELOAD
+            - name: PROTOCOL
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: protocol
+---
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: predict-3
+  namespace: default
+spec:
+  template:
+    metadata:
+      annotations:
+        # Credit to https://knative.dev/docs/serving/autoscaling/scale-bounds/#lower-bound
+        autoscaling.knative.dev/min-scale: "1"
+    spec:
+      containers:
+        - name: dmerge-digital-minist
+          image: val01:5000/dmerge-digital-minist
+          resources:
+            limits:
+               hostdev.k8s.io/dev_mitosis-syscalls: 1
+          imagePullPolicy: Always
+          env:
+            - name: CE_SPECVERSION
+              value: "0.3"
+            - name: ID
+              value: "3"
+            - name: CE_TYPE
+              value: "predict"
+            - name: LOG_LEVEL
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: logLevel
+            - name: BASE_HEX
+              value: "280000000"
+            - name: TOTAL_SZ_HEX
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: heapSizeHex
+            - name: LD_PRELOAD
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: LD_PRELOAD
+            - name: PROTOCOL
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: protocol
+---
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: predict-4
+  namespace: default
+spec:
+  template:
+    metadata:
+      annotations:
+        # Credit to https://knative.dev/docs/serving/autoscaling/scale-bounds/#lower-bound
+        autoscaling.knative.dev/min-scale: "1"
+    spec:
+      containers:
+        - name: dmerge-digital-minist
+          image: val01:5000/dmerge-digital-minist
+          resources:
+            limits:
+              hostdev.k8s.io/dev_mitosis-syscalls: 1
+          imagePullPolicy: Always
+          env:
+            - name: CE_SPECVERSION
+              value: "0.3"
+            - name: ID
+              value: "4"
+            - name: CE_TYPE
+              value: "predict"
+            - name: LOG_LEVEL
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: logLevel
+            - name: BASE_HEX
+              value: "320000000"
+            - name: TOTAL_SZ_HEX
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: heapSizeHex
+            - name: LD_PRELOAD
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: LD_PRELOAD
+            - name: PROTOCOL
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: protocol
+---
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: predict-5
+  namespace: default
+spec:
+  template:
+    metadata:
+      annotations:
+        # Credit to https://knative.dev/docs/serving/autoscaling/scale-bounds/#lower-bound
+        autoscaling.knative.dev/min-scale: "1"
+    spec:
+      containers:
+        - name: dmerge-digital-minist
+          image: val01:5000/dmerge-digital-minist
+          resources:
+            limits:
+              hostdev.k8s.io/dev_mitosis-syscalls: 1
+          imagePullPolicy: Always
+          env:
+            - name: CE_SPECVERSION
+              value: "0.3"
+            - name: ID
+              value: "5"
+            - name: CE_TYPE
+              value: "predict"
+            - name: LOG_LEVEL
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: logLevel
+            - name: BASE_HEX
+              value: "3A0000000"
+            - name: TOTAL_SZ_HEX
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: heapSizeHex
+            - name: LD_PRELOAD
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: LD_PRELOAD
+            - name: PROTOCOL
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: protocol
+---
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: predict-6
+  namespace: default
+spec:
+  template:
+    metadata:
+      annotations:
+        # Credit to https://knative.dev/docs/serving/autoscaling/scale-bounds/#lower-bound
+        autoscaling.knative.dev/min-scale: "1"
+    spec:
+      containers:
+        - name: dmerge-digital-minist
+          image: val01:5000/dmerge-digital-minist
+          resources:
+            limits:
+              hostdev.k8s.io/dev_mitosis-syscalls: 1
+          imagePullPolicy: Always
+          env:
+            - name: CE_SPECVERSION
+              value: "0.3"
+            - name: ID
+              value: "6"
+            - name: CE_TYPE
+              value: "predict"
+            - name: LOG_LEVEL
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: logLevel
+            - name: BASE_HEX
+              value: "3E0000000"
+            - name: TOTAL_SZ_HEX
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: heapSizeHex
+            - name: LD_PRELOAD
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: LD_PRELOAD
+            - name: PROTOCOL
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: protocol
+---
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: predict-7
+  namespace: default
+spec:
+  template:
+    metadata:
+      annotations:
+        # Credit to https://knative.dev/docs/serving/autoscaling/scale-bounds/#lower-bound
+        autoscaling.knative.dev/min-scale: "1"
+    spec:
+      containers:
+        - name: dmerge-digital-minist
+          image: val01:5000/dmerge-digital-minist
+          resources:
+            limits:
+              hostdev.k8s.io/dev_mitosis-syscalls: 1
+          imagePullPolicy: Always
+          env:
+            - name: CE_SPECVERSION
+              value: "0.3"
+            - name: ID
+              value: "7"
+            - name: CE_TYPE
+              value: "predict"
+            - name: LOG_LEVEL
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: logLevel
+            - name: BASE_HEX
+              value: "420000000"
+            - name: TOTAL_SZ_HEX
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: heapSizeHex
+            - name: LD_PRELOAD
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: LD_PRELOAD
+            - name: PROTOCOL
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: protocol
+---
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: combine
+  namespace: default
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/min-scale: "1"
+    spec:
+      containers:
+        - name: user-app
+          image: val01:5000/dmerge-digital-minist
+          imagePullPolicy: Always
+          resources:
+            limits:
+              hostdev.k8s.io/dev_mitosis-syscalls: 1
+          env:
+            - name: CE_SPECVERSION
+              value: "0.3"
+            - name: CE_TYPE
+              value: "combine"
+            - name: ID
+              value: "0"
+            - name: UPSTREAM_NUM
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: workerNum
+            - name: LOG_LEVEL
+              value: "INFO"
+            - name: BASE_HEX
+              value: "820000000"
+            - name: TOTAL_SZ_HEX
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: heapSizeHex
+            - name: LD_PRELOAD
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: LD_PRELOAD
+            - name: PROTOCOL
+              valueFrom:
+                configMapKeyRef:
+                  name: knative-configmap
+                  key: protocol
+---
+# Main body of MapReduce-alike framework
+apiVersion: flows.knative.dev/v1
+kind: Sequence
+metadata:
+  name: start
+spec:
+  channelTemplate:
+    apiVersion: messaging.knative.dev/v1
+    kind: InMemoryChannel
+  steps:
+    - ref:
+        apiVersion: serving.knative.dev/v1
+        kind: Service
+        name: splitter
+    - ref: # Parallel for mapper. Note!!!: Parallel shall not be followed by other seq services
+        apiVersion: flows.knative.dev/v1
+        kind: Parallel
+        name: predict-parallel
+---
+apiVersion: flows.knative.dev/v1
+kind: Parallel
+metadata:
+  name: predict-parallel
+spec:
+  channelTemplate:
+    apiVersion: messaging.knative.dev/v1
+    kind: InMemoryChannel
+  branches:
+    - subscriber:
+        ref:
+          apiVersion: serving.knative.dev/v1
+          kind: Service
+          name: predict-0
+    - subscriber:
+        ref:
+          apiVersion: serving.knative.dev/v1
+          kind: Service
+          name: predict-1
+    - subscriber:
+        ref:
+          apiVersion: serving.knative.dev/v1
+          kind: Service
+          name: predict-2
+    - subscriber:
+        ref:
+          apiVersion: serving.knative.dev/v1
+          kind: Service
+          name: predict-3
+    - subscriber:
+        ref:
+          apiVersion: serving.knative.dev/v1
+          kind: Service
+          name: predict-4
+    - subscriber:
+        ref:
+          apiVersion: serving.knative.dev/v1
+          kind: Service
+          name: predict-5
+    - subscriber:
+        ref:
+          apiVersion: serving.knative.dev/v1
+          kind: Service
+          name: predict-6
+    - subscriber:
+        ref:
+          apiVersion: serving.knative.dev/v1
+          kind: Service
+          name: predict-7
+  reply:
+    ref:
+      apiVersion: flows.knative.dev/v1
+      kind: Sequence
+      name: combine-sequence
+---
+apiVersion: flows.knative.dev/v1
+kind: Sequence
+metadata:
+  name: combine-sequence
+spec:
+  channelTemplate:
+    apiVersion: messaging.knative.dev/v1
+    kind: InMemoryChannel
+  steps:
+    - ref:
+        apiVersion: serving.knative.dev/v1
+        kind: Service
+        name: combine
+  reply:
+    ref:
+      apiVersion: eventing.knative.dev/v1
+      kind: Broker
+      name: default-broker
+---
+apiVersion: eventing.knative.dev/v1
+kind: Trigger
+metadata:
+  name: ping-trigger
+  namespace: default
+spec:
+  broker: default-broker
+  filter:
+    attributes:
+      type: dev.knative.sources.ping # Default ping type from Ping-Source
+  subscriber:
+    ref:
+      apiVersion: flows.knative.dev/v1
+      kind: Sequence
+      name: start
+---
+apiVersion: eventing.knative.dev/v1
+kind: Trigger
+metadata:
+  name: event-display-trigger
+  namespace: default
+spec:
+  broker: default-broker
+  filter:
+    attributes:
+      type: none
+  subscriber:
+    ref:
+      apiVersion: serving.knative.dev/v1
+      kind: Service
+      name: event-display
+---
+apiVersion: eventing.knative.dev/v1
+kind: Trigger
+metadata:
+  name: sink-trigger
+  namespace: default
+spec:
+  broker: default-broker
+  filter:
+    attributes:
+      type: combine
+  subscriber:
+    ref:
+      apiVersion: serving.knative.dev/v1
+      kind: Service
+      name: event-display
