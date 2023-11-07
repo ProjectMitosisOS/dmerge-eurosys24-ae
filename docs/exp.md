@@ -71,15 +71,6 @@ python auto_tester.py --app_dir=micro --eval_protocol=dmerge --profile_service=s
 
 This evaluation part reproduce evaluation result in `Figure 12`.
 
-Please run commands as below to generate all experiments data.
-
-```sh
-TODO:
-```
-
-After running all of these experiments, you can execute `make fig12` to plot the data result, and the outcome figure is in `out/fig12.png`.
-
-
 
 #### FINRA
 
