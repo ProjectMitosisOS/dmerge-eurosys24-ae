@@ -147,3 +147,15 @@ ssh eurosys24ae@val06 "ls ~/projects/dmerge/"
 ```
 
 Now you are onboard! And please refer to [exp.md](./docs/exp.md) for experiment evaluations.
+
+## Paper
+If you use RMMAP in your research, please cite our paper:
+```bibtex
+@inproceedings {eurosys2024rmmap,
+  author = {Fangming Lu and Xingda Wei and Zhuobin Huang and Rong Chen and Haibo Chen},
+  title = {Serialization/Deserialization-free State Transfer in Serverless Workflows with RDMA-based Remote Memory Map},
+  booktitle = {EuroSys '24: Nineteenth European Conference on Computer Systems, Greece， April 22-25, 2024},
+  year = {2024},
+  publisher = {ACM SIGOPS},
+}
+```
